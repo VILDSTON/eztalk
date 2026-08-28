@@ -126,8 +126,15 @@ export default function App() {
     g.memberHandles.some((h) => normalizeHandle(h) === normalizeHandle(currentUser?.handle || ''))
   );
 
+  const isSavedMessages = Boolean(currentUser && selectedUserId === currentUser.id);
+
   const selectedUser = !selectedGroupId
-    ? chatUsers.find((u) => u.id === selectedUserId) || chatUsers[0] || null
+    ? (isSavedMessages
+        ? currentUser
+        : (chatUsers.find((u) => u.id === selectedUserId) ||
+           (selectedUserId ? allUsers.find((u) => u.id === selectedUserId) : null) ||
+           chatUsers[0] ||
+           null))
     : null;
   selectedUserRef.current = selectedUser;
 
@@ -662,29 +669,31 @@ export default function App() {
       {/* Main Telegram Web 2-Panel Application Body */}
       <div className="flex-1 flex overflow-hidden bg-[#0e0f12]">
         {/* Panel 1: Telegram Chats List Sidebar */}
-        <FriendsList
-          currentUser={currentUser}
-          users={chatUsers}
-          allExistingUsers={allUsers}
-          groups={userGroups}
-          selectedUserId={selectedUserId}
-          selectedGroupId={selectedGroupId}
-          onOpenMenu={() => setIsDrawerOpen(true)}
-          onSelectUser={(u) => {
-            setSelectedUserId(u.id);
-            setSelectedGroupId(null);
-            setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
-          }}
-          onSelectGroup={(g) => {
-            setSelectedGroupId(g.id);
-            setSelectedUserId('');
-          }}
-          onCreateGroup={handleCreateGroup}
-          onDeleteGroup={handleDeleteGroup}
-        />
+        <div className={`h-full ${selectedUser || selectedGroup ? 'hidden md:flex' : 'flex'} w-full md:w-auto shrink-0`}>
+          <FriendsList
+            currentUser={currentUser}
+            users={chatUsers}
+            allExistingUsers={allUsers}
+            groups={userGroups}
+            selectedUserId={selectedUserId}
+            selectedGroupId={selectedGroupId}
+            onOpenMenu={() => setIsDrawerOpen(true)}
+            onSelectUser={(u) => {
+              setSelectedUserId(u.id);
+              setSelectedGroupId(null);
+              setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
+            }}
+            onSelectGroup={(g) => {
+              setSelectedGroupId(g.id);
+              setSelectedUserId('');
+            }}
+            onCreateGroup={handleCreateGroup}
+            onDeleteGroup={handleDeleteGroup}
+          />
+        </div>
 
         {/* Panel 2: Telegram Chat Window Area */}
-        <div className="flex-1 flex overflow-hidden bg-[#0b0c0e]">
+        <div className={`flex-1 flex overflow-hidden bg-[#0b0c0e] ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
           {selectedUser || selectedGroup ? (
             <ChatWindow
               user={selectedUser}
@@ -695,6 +704,11 @@ export default function App() {
               isMuted={isSelectedUserMuted}
               isTyping={isCurrentContactTyping}
               isFriend={isSelectedUserInFriends}
+              isSavedMessages={isSavedMessages}
+              onBack={() => {
+                setSelectedUserId('');
+                setSelectedGroupId(null);
+              }}
               onToggleMute={() => selectedUser && handleToggleMute(selectedUser.id)}
               onSendMessage={handleSendMessage}
               onEditMessage={handleEditMessage}

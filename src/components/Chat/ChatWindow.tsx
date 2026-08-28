@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, Group, Message, Attachment, QuotedMessage } from '../../types/chat';
 import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
@@ -14,6 +14,8 @@ interface ChatWindowProps {
   isMuted?: boolean;
   isTyping?: boolean;
   isFriend?: boolean;
+  isSavedMessages?: boolean;
+  onBack?: () => void;
   onToggleMute?: () => void;
   onSendMessage: (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => void;
   onEditMessage?: (id: string, newText: string) => void;
@@ -35,6 +37,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isMuted = false,
   isTyping = false,
   isFriend = true,
+  isSavedMessages = false,
+  onBack,
   onToggleMute,
   onSendMessage,
   onEditMessage,
@@ -49,11 +53,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [showAddBanner, setShowAddBanner] = useState(true);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState('');
 
   const recipientLabel = group ? group.name : user?.handle;
 
+  // In-chat search filter
+  const displayedMessages = useMemo(() => {
+    if (!inChatSearchQuery.trim()) return messages;
+    const clean = inChatSearchQuery.trim().toLowerCase();
+    return messages.filter(
+      (m) =>
+        (m.text && m.text.toLowerCase().includes(clean)) ||
+        (m.attachment?.name && m.attachment.name.toLowerCase().includes(clean))
+    );
+  }, [messages, inChatSearchQuery]);
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0f1014] overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-[#0b0c0e] overflow-hidden">
       {/* Header */}
       <ChatHeader
         user={user}
@@ -61,6 +77,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         messages={messages}
         isMuted={isMuted}
         isFriend={isFriend}
+        isSavedMessages={isSavedMessages}
+        onBack={onBack}
+        onSearchChange={(q) => setInChatSearchQuery(q)}
         onToggleMute={onToggleMute}
         onClearChat={onClearChat}
         onRemoveFriend={onRemoveFriend}
@@ -70,7 +89,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       />
 
       {/* Non-Friend Prompt Banner */}
-      {!group && user && !isFriend && showAddBanner && (
+      {!group && user && !isFriend && !isSavedMessages && showAddBanner && (
         <div className="bg-[#14161f] border-b border-white/5 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
           <div className="flex items-center space-x-2.5 text-xs text-gray-300">
             <div className="p-1 rounded-md bg-[#00ff73]/10 text-[#00ff73]">
@@ -104,7 +123,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Message History */}
       <MessageThread
-        messages={messages}
+        messages={displayedMessages}
         currentUserId={currentUserId}
         currentUserHandle={currentUserHandle}
         isGroupChat={Boolean(group)}
