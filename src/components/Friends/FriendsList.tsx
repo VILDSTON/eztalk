@@ -104,7 +104,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   return (
     <>
-      <div className="w-80 sm:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
+      <div className="w-full md:w-80 lg:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
         {/* Telegram Top Bar: Hamburger Menu + Search */}
         <div className="p-3 pb-2 flex items-center space-x-2.5 bg-[#111216]">
           <button
@@ -395,7 +395,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           <button
             type="button"
             onClick={() => setShowFabMenu(!showFabMenu)}
-            className="w-13 h-13 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.4)] flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            className="w-14 h-14 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.4)] flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
             title="New Chat"
           >
             <SquarePen className="w-6 h-6" />

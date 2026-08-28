@@ -144,7 +144,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Hover Quick Action Toolbar with clean offset */}
         <div
-          className={`absolute -top-8.5 ${
+          className={`absolute -top-10 ${
             isMe ? 'right-0' : 'left-0'
           } hidden group-hover/bubble:flex items-center space-x-0.5 bg-[#171821] border border-white/15 p-1 rounded-full shadow-2xl z-30 animate-fade-in backdrop-blur-xl`}
         >

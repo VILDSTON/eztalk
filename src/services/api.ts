@@ -209,6 +209,46 @@ export class ApiService {
     return data.group;
   }
 
+  // Edit Message
+  static async editMessage(id: string, text: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/messages/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // Delete Message
+  static async deleteMessage(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/messages/${id}`, {
+        method: 'DELETE',
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // Toggle Emoji Reaction
+  static async toggleReaction(id: string, emoji: string, userHandle: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/messages/${id}/reaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji, userHandle }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // Delete group
   static async deleteGroup(groupId: string): Promise<boolean> {
     try {
