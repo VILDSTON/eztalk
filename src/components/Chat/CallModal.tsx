@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, PhoneOff, Radio, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, PhoneOff, Radio, Sparkles, ShieldCheck } from 'lucide-react';
 import { User, CallInfo } from '../../types/chat';
 import { socketService } from '../../services/socket';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -13,11 +13,16 @@ interface CallModalProps {
   onClose: (callInfo?: CallInfo) => void;
 }
 
-const ICE_SERVERS = {
+const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export const CallModal: React.FC<CallModalProps> = ({
@@ -30,16 +35,20 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
-  const [callState, setCallState] = useState<'calling' | 'ringing' | 'connected' | 'ended'>('calling');
+  const [callState, setCallState] = useState<'calling' | 'ringing' | 'connected' | 'ended'>(
+    isInitiator ? 'calling' : 'connected'
+  );
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 30, 45, 20, 50, 25, 40, 15]);
 
   const durationRef = useRef(0);
   durationRef.current = callDuration;
 
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const hasOfferedRef = useRef<boolean>(false);
 
   // Setup real-time audio visualizer analyzing live microphone input
   const initAudioVisualizer = (stream: MediaStream) => {
@@ -59,14 +68,14 @@ export const CallModal: React.FC<CallModalProps> = ({
       const updateWaveform = () => {
         analyser.getByteFrequencyData(dataArray);
         const sampled = [
-          Math.max(12, Math.round((dataArray[0] / 255) * 80)),
-          Math.max(15, Math.round((dataArray[1] / 255) * 90)),
-          Math.max(20, Math.round((dataArray[2] / 255) * 100)),
-          Math.max(15, Math.round((dataArray[3] / 255) * 85)),
+          Math.max(10, Math.round((dataArray[0] / 255) * 80)),
+          Math.max(14, Math.round((dataArray[1] / 255) * 90)),
+          Math.max(18, Math.round((dataArray[2] / 255) * 100)),
+          Math.max(14, Math.round((dataArray[3] / 255) * 85)),
           Math.max(18, Math.round((dataArray[4] / 255) * 95)),
-          Math.max(15, Math.round((dataArray[5] / 255) * 75)),
-          Math.max(12, Math.round((dataArray[6] / 255) * 70)),
-          Math.max(10, Math.round((dataArray[7] / 255) * 60)),
+          Math.max(14, Math.round((dataArray[5] / 255) * 75)),
+          Math.max(10, Math.round((dataArray[6] / 255) * 70)),
+          Math.max(8, Math.round((dataArray[7] / 255) * 60)),
         ];
         setAudioLevels(sampled);
         animationFrameRef.current = requestAnimationFrame(updateWaveform);
@@ -74,7 +83,17 @@ export const CallModal: React.FC<CallModalProps> = ({
 
       updateWaveform();
     } catch {
-      // fallback
+      // Audio visualizer fallback
+    }
+  };
+
+  // Flush queued ICE candidates safely once remote description is active
+  const flushPendingCandidates = (pc: RTCPeerConnection) => {
+    while (pendingCandidatesRef.current.length > 0) {
+      const candidate = pendingCandidatesRef.current.shift();
+      if (candidate) {
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+      }
     }
   };
 
@@ -93,7 +112,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         pc = new RTCPeerConnection(ICE_SERVERS);
         peerConnectionRef.current = pc;
 
-        // Capture user microphone
+        // Capture user microphone with echo cancellation
         const localStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -109,7 +128,9 @@ export const CallModal: React.FC<CallModalProps> = ({
         }
 
         localStreamRef.current = localStream;
-        localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+        localStream.getTracks().forEach((track) => {
+          pc.addTrack(track, localStream);
+        });
 
         // Start visualizer with mic stream
         initAudioVisualizer(localStream);
@@ -145,26 +166,20 @@ export const CallModal: React.FC<CallModalProps> = ({
               type: isInitiator ? 'outgoing' : 'incoming',
               duration: durationRef.current,
             };
-            setTimeout(() => onClose(info), 800);
+            setTimeout(() => onClose(info), 600);
           }
         };
 
-        // If I initiated the call, play outgoing dial tone and create offer
+        // Initiation logic
         if (isInitiator) {
           setCallState('calling');
           callSoundService.playOutgoing();
           socketService.sendCall(currentUser, user.handle);
-
-          const offer = await pc.createOffer({ offerToReceiveAudio: true });
-          await pc.setLocalDescription(offer);
-          socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-            type: 'offer',
-            sdp: offer,
-          });
         } else {
-          // I am the recipient who accepted the call
+          // Recipient accepted -> notify initiator that recipient is ready for offer
           callSoundService.stopAll();
           setCallState('connected');
+          socketService.answerCall(user.handle, currentUser);
         }
       } catch (err) {
         console.warn('Microphone access or WebRTC error:', err);
@@ -174,6 +189,26 @@ export const CallModal: React.FC<CallModalProps> = ({
     };
 
     setupWebRTC();
+
+    // Create and send WebRTC Offer from Initiator
+    const createAndSendOffer = async () => {
+      const currentPc = peerConnectionRef.current;
+      if (!currentPc || hasOfferedRef.current) return;
+      hasOfferedRef.current = true;
+      try {
+        const offer = await currentPc.createOffer({
+          offerToReceiveAudio: true,
+          voiceActivityDetection: true,
+        });
+        await currentPc.setLocalDescription(offer);
+        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+          type: 'offer',
+          sdp: offer,
+        });
+      } catch (e) {
+        console.warn('Error creating WebRTC offer:', e);
+      }
+    };
 
     // Listen for WebRTC signals (Offer, Answer, ICE Candidates)
     const unsubSignal = socketService.onWebRTCSignal(async ({ toHandle, fromHandle, signal }) => {
@@ -189,6 +224,8 @@ export const CallModal: React.FC<CallModalProps> = ({
       try {
         if (signal.type === 'offer') {
           await currentPc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          flushPendingCandidates(currentPc);
+
           const answer = await currentPc.createAnswer();
           await currentPc.setLocalDescription(answer);
           socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
@@ -200,20 +237,30 @@ export const CallModal: React.FC<CallModalProps> = ({
           setCallState('connected');
           if (currentPc.signalingState !== 'stable') {
             await currentPc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            flushPendingCandidates(currentPc);
           }
         } else if (signal.type === 'candidate' && signal.candidate) {
-          await currentPc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+          if (currentPc.remoteDescription && currentPc.remoteDescription.type) {
+            await currentPc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+          } else {
+            pendingCandidatesRef.current.push(signal.candidate);
+          }
         }
       } catch (e) {
-        console.warn('Signaling error:', e);
+        console.warn('WebRTC Signaling error:', e);
       }
     });
 
-    // Remote call accepted event
-    const unsubAccepted = socketService.onCallAccepted(({ recipient }) => {
-      if (normalizeHandle(recipient.handle) === normalizeHandle(user.handle)) {
+    // Remote call accepted event (Initiator triggers offer creation now that recipient is mounted)
+    const unsubAccepted = socketService.onCallAccepted(({ callerHandle, recipient }) => {
+      const myHandle = normalizeHandle(currentUser.handle);
+      if (
+        normalizeHandle(callerHandle) === myHandle ||
+        normalizeHandle(recipient.handle) === normalizeHandle(user.handle)
+      ) {
         callSoundService.stopAll();
         setCallState('connected');
+        createAndSendOffer();
       }
     });
 
@@ -305,24 +352,24 @@ export const CallModal: React.FC<CallModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/85 backdrop-blur-md animate-fade-in select-none p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-fade-in select-none p-4 font-sans">
       {/* Hidden auto-playing remote audio element */}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={isSpeakerMuted} />
 
-      <div className="bg-[#121318] border border-[#2b2d38] rounded-3xl w-full max-w-sm p-7 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+      <div className="bg-[#101116]/95 border border-white/10 rounded-3xl w-full max-w-sm p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] flex flex-col items-center text-center relative overflow-hidden backdrop-blur-2xl">
         {/* Glow Effects */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#00ff73]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#00ff73]/12 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header Badge */}
-        <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#00ff73]/10 border border-[#00ff73]/30 text-[11px] font-semibold text-[#00ff73] mb-6 shadow-xs">
+        <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#00ff73]/10 border border-[#00ff73]/25 text-[11px] font-semibold text-[#00ff73] mb-6 shadow-xs">
           <Sparkles className="w-3.5 h-3.5 text-[#00ff73] animate-pulse" />
-          <span>EzTalk HD Voice Call</span>
+          <span>EzTalk HD Voice Stream</span>
         </div>
 
         {/* User Avatar with Pulsing Rings */}
         <div className="relative mb-5">
           <div
-            className={`w-28 h-28 rounded-full overflow-hidden border-3 border-[#00ff73] shadow-[0_0_30px_rgba(0,255,115,0.25)] relative z-10 ${
+            className={`w-28 h-28 rounded-full overflow-hidden border-2 border-[#00ff73] shadow-[0_0_30px_rgba(0,255,115,0.3)] relative z-10 ${
               callState === 'calling' ? 'animate-pulse' : ''
             }`}
           >
@@ -337,24 +384,29 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         {/* User Identity */}
         <h3 className="text-xl font-bold text-white tracking-tight">{user.name || user.handle}</h3>
-        <p className="text-xs text-[#00ff73] font-mono mt-0.5">{user.handle}</p>
+        <div className="flex items-center space-x-1.5 mt-1 text-xs text-[#00ff73] font-mono">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>{user.handle}</span>
+        </div>
 
         {/* Status / Duration Display */}
-        <div className="mt-3.5">
+        <div className="mt-4">
           {callState === 'calling' && (
-            <div className="flex items-center space-x-2 text-xs font-semibold text-[#00ff73] animate-pulse">
-              <Radio className="w-3.5 h-3.5" />
-              <span>Calling...</span>
+            <div className="flex items-center space-x-2 text-xs font-semibold text-[#00ff73] animate-pulse bg-[#00ff73]/10 px-4 py-1.5 rounded-full border border-[#00ff73]/20">
+              <Radio className="w-3.5 h-3.5 animate-spin" />
+              <span>Calling {user.name || user.handle}...</span>
             </div>
           )}
           {callState === 'connected' && (
-            <div className="flex items-center space-x-2 text-xs font-mono font-bold text-white bg-white/5 px-3.5 py-1 rounded-full border border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#00ff73] animate-ping" />
+            <div className="flex items-center space-x-2 text-xs font-mono font-bold text-white bg-white/5 px-4 py-1.5 rounded-full border border-white/10 shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-[#00ff73] animate-pulse" />
               <span>{formatDuration(callDuration)}</span>
             </div>
           )}
           {callState === 'ended' && (
-            <span className="text-xs font-semibold text-red-400">Call Ended</span>
+            <span className="text-xs font-semibold text-red-400 bg-red-500/10 px-3.5 py-1 rounded-full border border-red-500/20">
+              Call Ended
+            </span>
           )}
         </div>
 
@@ -364,10 +416,10 @@ export const CallModal: React.FC<CallModalProps> = ({
             {audioLevels.map((height, i) => (
               <div
                 key={i}
-                className="w-1.5 rounded-full bg-[#00ff73] shadow-[0_0_6px_#00ff73] transition-all duration-75"
+                className="w-1.5 rounded-full bg-[#00ff73] shadow-[0_0_8px_rgba(0,255,115,0.7)] transition-all duration-75"
                 style={{
                   height: isMuted ? '4px' : `${Math.max(4, height * 0.35)}px`,
-                  opacity: isMuted ? 0.3 : 0.9,
+                  opacity: isMuted ? 0.25 : 0.95,
                 }}
               />
             ))}
@@ -375,7 +427,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         )}
 
         {/* Action Controls Bar */}
-        <div className="flex items-center justify-center space-x-4 w-full mt-6 pt-4 border-t border-[#23252f]">
+        <div className="flex items-center justify-center space-x-4 w-full mt-6 pt-5 border-t border-white/10">
           {/* Mute Microphone */}
           <button
             type="button"
@@ -383,7 +435,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             className={`p-3.5 rounded-2xl transition-all cursor-pointer ${
               isMuted
                 ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                : 'bg-[#1e2027] hover:bg-[#282a34] text-white border border-[#323543]'
+                : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
             }`}
             title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
           >
@@ -394,7 +446,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           <button
             type="button"
             onClick={handleEndCall}
-            className="p-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center"
+            className="p-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.4)] transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center border border-red-400/30"
             title="End call"
           >
             <PhoneOff className="w-6 h-6" />
@@ -407,7 +459,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             className={`p-3.5 rounded-2xl transition-all cursor-pointer ${
               isSpeakerMuted
                 ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                : 'bg-[#1e2027] hover:bg-[#282a34] text-white border border-[#323543]'
+                : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
             }`}
             title={isSpeakerMuted ? 'Unmute speaker' : 'Mute speaker'}
           >

@@ -106,9 +106,11 @@ export class ApiService {
     attachment?: Attachment,
     replyTo?: QuotedMessage,
     groupId?: string,
-    callInfo?: { type: 'incoming' | 'outgoing' | 'missed' | 'declined' | 'canceled'; duration?: number }
+    callInfo?: { type: 'incoming' | 'outgoing' | 'missed' | 'declined' | 'canceled'; duration?: number },
+    id?: string
   ): Promise<Message> {
     const payload = {
+      id,
       senderHandle,
       recipientHandle,
       groupId,
@@ -128,7 +130,7 @@ export class ApiService {
       return data.message;
     } catch {
       return {
-        id: `msg_${Date.now()}`,
+        id: id || `msg_${Date.now()}`,
         senderId: senderHandle,
         senderHandle,
         recipientHandle: recipientHandle || undefined,

@@ -13,6 +13,7 @@ body {
   background-color: #08080a;
   color: #f1f5f9;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Custom glowing effects */
@@ -39,12 +40,32 @@ body {
 }
 
 .neon-text-glow {
-  text-shadow: 0 0 12px rgba(0, 255, 115, 0.4);
+  text-shadow: 0 0 16px rgba(0, 255, 115, 0.5), 0 0 30px rgba(0, 255, 115, 0.2);
 }
 
-/* Custom Scrollbar for Chat Thread */
+.neon-border-glow {
+  box-shadow: 0 0 15px rgba(0, 255, 115, 0.15), inset 0 0 15px rgba(0, 255, 115, 0.05);
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  background: rgba(18, 19, 24, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-subtle {
+  background: rgba(22, 23, 29, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom Scrollbar for Chat Thread & Lists */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -52,12 +73,12 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 255, 115, 0.4);
 }
 
 /* Chrome tab curve aesthetics */
@@ -70,5 +91,21 @@ body {
 
 /* Subtle border outline */
 .subtle-border {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Animations */
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-float-up {
+  animation: floatUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

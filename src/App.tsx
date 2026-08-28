@@ -86,6 +86,8 @@ export default function App() {
   const selectedUserIdRef = useRef(selectedUserId);
   selectedUserIdRef.current = selectedUserId;
 
+  const selectedUserRef = useRef<User | null>(null);
+
   // Request browser notification permission on load
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -116,6 +118,7 @@ export default function App() {
   const selectedUser = !selectedGroupId
     ? chatUsers.find((u) => u.id === selectedUserId) || chatUsers[0] || null
     : null;
+  selectedUserRef.current = selectedUser;
 
   const selectedGroup = selectedGroupId
     ? userGroups.find((g) => g.id === selectedGroupId) || null
@@ -221,12 +224,28 @@ export default function App() {
 
       // Update active messages thread if active chat matches
       if (isForGroup && selectedGroupIdRef.current === newMsg.groupId) {
-        setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
-      } else if (!isForGroup && selectedUser) {
-        const activeKey = getConversationKey(cUser.handle, selectedUser.handle);
+        setMessages((prev) => {
+          const index = prev.findIndex((m) => m.id === newMsg.id);
+          if (index >= 0) {
+            const updated = [...prev];
+            updated[index] = newMsg;
+            return updated;
+          }
+          return [...prev, newMsg];
+        });
+      } else if (!isForGroup && selectedUserRef.current) {
+        const activeKey = getConversationKey(cUser.handle, selectedUserRef.current.handle);
         const msgKey = getConversationKey(sHandle, rHandle);
         if (msgKey === activeKey) {
-          setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+          setMessages((prev) => {
+            const index = prev.findIndex((m) => m.id === newMsg.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = newMsg;
+              return updated;
+            }
+            return [...prev, newMsg];
+          });
         }
       }
 
@@ -415,7 +434,9 @@ export default function App() {
         text,
         attachment,
         replyTo,
-        selectedGroupId || undefined
+        selectedGroupId || undefined,
+        undefined,
+        tempMsg.id
       );
     } catch {
       if (!selectedGroupId && selectedUser) {
@@ -628,7 +649,7 @@ export default function App() {
       )}
 
       {/* Main EzTalk Application Body */}
-      <div className="flex-1 flex overflow-hidden bg-[#0a0b0d]">
+      <div className="flex-1 flex overflow-hidden bg-[#08080a]">
         {/* Panel 1: Left Sidebar with Friends ONLY */}
         <LeftSidebar
           currentUser={currentUser}
@@ -644,8 +665,8 @@ export default function App() {
         />
 
         {/* Main Messenger Area (Panel 2 Chats + Panel 3 Chat Window) */}
-        <div className="flex-1 flex p-3.5 pl-2 overflow-hidden bg-[#090a0d]">
-          <div className="flex-1 flex rounded-2xl border border-[#272932] overflow-hidden bg-[#16171b] shadow-2xl">
+        <div className="flex-1 flex p-3 pl-2 overflow-hidden bg-[#08080a]">
+          <div className="flex-1 flex rounded-2xl border border-white/5 overflow-hidden bg-[#0f1014] shadow-2xl backdrop-blur-2xl">
             {/* Panel 2: Chats List (Search, Direct Chats, Groups & Global Search) */}
             <FriendsList
               currentUser={currentUser}
@@ -690,14 +711,21 @@ export default function App() {
                 onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
               />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 select-none">
-                <div className="w-16 h-16 rounded-2xl bg-[#00ff73]/10 border border-[#00ff73]/30 flex items-center justify-center text-[#00ff73] mb-4 shadow-[0_0_20px_rgba(0,255,115,0.15)]">
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none bg-[#0f1014] relative overflow-hidden">
+                {/* Subtle Ambient Glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00ff73]/5 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="w-18 h-18 rounded-3xl bg-gradient-to-br from-[#00ff73]/20 to-[#00ff73]/5 border border-[#00ff73]/30 flex items-center justify-center text-[#00ff73] mb-5 shadow-[0_0_30px_rgba(0,255,115,0.2)]">
                   <UserPlus className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">No chats selected</h3>
-                <p className="text-xs text-gray-400 max-w-sm mb-4">
-                  Select a chat or group from the list, or click <span className="text-[#00ff73] font-semibold">Add Friend</span> on the left to start a conversation.
+                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Select a conversation</h3>
+                <p className="text-xs text-gray-400 max-w-sm mb-6 leading-relaxed">
+                  Choose an active chat from the messages list or click <span className="text-[#00ff73] font-semibold">New Chat</span> to start messaging with real-time sync and HD voice calls.
                 </p>
+                <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-gray-400 font-mono">
+                  <span className="w-2 h-2 rounded-full bg-[#00ff73] animate-pulse" />
+                  <span>Ready & Connected</span>
+                </div>
               </div>
             )}
           </div>

@@ -402,7 +402,7 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 // Post New Message
 app.post('/api/messages', async (req, res) => {
   try {
-    const { senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, timestamp } = req.body;
+    const { id, senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, timestamp } = req.body;
     const sHandle = normalizeHandle(senderHandle);
     let key;
     let rHandle = null;
@@ -415,7 +415,7 @@ app.post('/api/messages', async (req, res) => {
     }
 
     const messageData = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       conversationKey: key,
       groupId: groupId || null,
       senderHandle: sHandle,

@@ -53,7 +53,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const recipientLabel = group ? group.name : user?.handle;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#16171b] overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-[#0f1014] overflow-hidden">
       {/* Header */}
       <ChatHeader
         user={user}
@@ -71,7 +71,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Non-Friend Prompt Banner */}
       {!group && user && !isFriend && showAddBanner && (
-        <div className="bg-[#1b1d24] border-b border-[#2b2e3a] px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
+        <div className="bg-[#14161f] border-b border-white/5 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
           <div className="flex items-center space-x-2.5 text-xs text-gray-300">
             <div className="p-1 rounded-md bg-[#00ff73]/10 text-[#00ff73]">
               <UserPlus className="w-3.5 h-3.5" />
@@ -117,24 +117,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       />
 
       {/* Input Bar */}
-      <div className="p-4 bg-[#16171b]">
-        <MessageInput
-          onSendMessage={(text, attachment, replyTo) => {
-            if (editingMessage && onEditMessage) {
-              onEditMessage(editingMessage.id, text);
-              setEditingMessage(null);
-            } else {
-              onSendMessage(text, attachment, replyTo);
-              setReplyingTo(null);
-            }
-          }}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          editingMessage={editingMessage}
-          onCancelEdit={() => setEditingMessage(null)}
-          recipientHandle={recipientLabel}
-        />
-      </div>
+      <MessageInput
+        onSendMessage={(text, attachment, replyTo) => {
+          if (editingMessage && onEditMessage) {
+            onEditMessage(editingMessage.id, text);
+            setEditingMessage(null);
+          } else {
+            onSendMessage(text, attachment, replyTo);
+            setReplyingTo(null);
+          }
+        }}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+        editingMessage={editingMessage}
+        onCancelEdit={() => setEditingMessage(null)}
+        recipientHandle={recipientLabel}
+      />
     </div>
   );
 };

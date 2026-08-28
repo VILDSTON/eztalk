@@ -24,7 +24,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
-  
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -197,7 +197,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   ];
 
   return (
-    <div className="px-6 pt-2 pb-5 bg-[#16171b] relative select-none">
+    <div className="px-5 pt-2 pb-4 bg-[#0f1014] relative select-none font-sans">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -209,7 +209,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Quoted Message Banner */}
       {replyingTo && (
-        <div className="mb-2 flex items-center justify-between bg-[#1f2129] border border-[#00ff73]/30 px-3.5 py-2 rounded-xl text-xs text-gray-200 animate-fade-in">
+        <div className="mb-2 flex items-center justify-between bg-[#171922] border border-[#00ff73]/30 px-4 py-2 rounded-2xl text-xs text-gray-200 animate-fade-in shadow-md">
           <div className="flex items-center space-x-2 min-w-0 pr-2">
             <CornerUpLeft className="w-4 h-4 text-[#00ff73] shrink-0" />
             <div className="truncate">
@@ -229,9 +229,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Editing Message Banner */}
       {editingMessage && (
-        <div className="mb-2 flex items-center justify-between bg-[#1f2129] border border-yellow-500/40 px-3.5 py-2 rounded-xl text-xs text-yellow-400 animate-fade-in">
+        <div className="mb-2 flex items-center justify-between bg-[#171922] border border-amber-500/40 px-4 py-2 rounded-2xl text-xs text-amber-400 animate-fade-in shadow-md">
           <div className="flex items-center space-x-2 min-w-0">
-            <Edit3 className="w-4 h-4 text-yellow-400 shrink-0" />
+            <Edit3 className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="font-semibold">Editing message</span>
           </div>
           <button
@@ -246,15 +246,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Emoji Picker Popup */}
       {showEmojiPicker && (
-        <div className="absolute bottom-20 left-8 bg-[#1f2026] border border-[#2d2f38] p-3 rounded-2xl shadow-2xl z-30 animate-fade-in max-w-xs">
-          <div className="text-[11px] font-bold text-gray-400 mb-2 px-1">Emojis</div>
+        <div className="absolute bottom-20 left-8 bg-[#171821] border border-white/10 p-3 rounded-2xl shadow-2xl z-30 animate-fade-in max-w-xs backdrop-blur-2xl">
+          <div className="text-[11px] font-bold text-gray-400 mb-2 px-1 uppercase tracking-wider">Quick Reactions</div>
           <div className="grid grid-cols-5 gap-1.5">
             {commonEmojis.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
                 onClick={() => addEmoji(emoji)}
-                className="text-xl hover:scale-125 hover:bg-white/10 p-1.5 rounded-lg transition-transform text-center"
+                className="text-xl hover:scale-130 hover:bg-white/10 p-2 rounded-xl transition-all text-center cursor-pointer"
               >
                 {emoji}
               </button>
@@ -263,28 +263,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {/* Attachment Preview (if selected) */}
+      {/* Attachment Preview */}
       {currentAttachment && (
-        <div className="mb-2.5 flex items-center space-x-2.5 bg-[#1f2129] border border-[#2d303b] p-2 rounded-xl max-w-sm animate-fade-in">
+        <div className="mb-2.5 flex items-center space-x-3 bg-[#171922] border border-white/10 p-2.5 rounded-2xl max-w-sm animate-fade-in shadow-md">
           {currentAttachment.type === 'image' ? (
             <img
               src={currentAttachment.url}
               alt="attachment preview"
-              className="w-12 h-12 rounded-lg object-cover"
+              className="w-12 h-12 rounded-xl object-cover border border-white/10"
             />
           ) : (
-            <div className="w-12 h-12 rounded-lg bg-[#272935] flex items-center justify-center text-gray-300">
-              <Paperclip className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gray-300 border border-white/10">
+              <Paperclip className="w-5 h-5 text-[#00ff73]" />
             </div>
           )}
           <div className="flex-1 min-w-0 pr-2">
-            <p className="text-xs font-semibold text-white truncate">{currentAttachment.name}</p>
+            <p className="text-xs font-bold text-white truncate">{currentAttachment.name}</p>
             <p className="text-[10px] text-gray-400">{currentAttachment.size}</p>
           </div>
           <button
             type="button"
             onClick={() => setCurrentAttachment(null)}
-            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+            className="text-gray-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -293,11 +293,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Voice Recording Active Bar */}
       {isRecording ? (
-        <div className="h-12 bg-[#1b1d24] border border-red-500/50 rounded-2xl flex items-center justify-between px-4 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+        <div className="h-13 bg-[#181920] border border-rose-500/50 rounded-2xl flex items-center justify-between px-4 animate-pulse shadow-[0_0_20px_rgba(244,63,94,0.25)]">
           <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
-            <span className="text-xs font-bold text-red-400 tracking-wide font-mono">
-              Recording: {formatTimer(recordingSeconds)}
+            <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+            <span className="text-xs font-bold text-rose-400 tracking-wide font-mono">
+              Recording Voice Note: {formatTimer(recordingSeconds)}
             </span>
           </div>
 
@@ -305,7 +305,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={cancelRecording}
-              className="p-2 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
               title="Cancel recording"
             >
               <Trash2 className="w-4 h-4" />
@@ -313,7 +313,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={stopAndSendRecording}
-              className="p-2 rounded-xl bg-[#00ff73] text-black hover:bg-[#1aff85] transition-colors shadow-neon-sm cursor-pointer"
+              className="p-2.5 rounded-xl bg-[#00ff73] text-black hover:bg-[#1aff85] transition-all shadow-[0_0_15px_rgba(0,255,115,0.4)] cursor-pointer"
               title="Send voice message"
             >
               <Send className="w-4 h-4" />
@@ -321,29 +321,29 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         </div>
       ) : (
-        /* Regular Message Input Bar */
+        /* Regular Message Input Floating Capsule Bar */
         <form
           onSubmit={handleSend}
-          className="h-12 bg-[#1b1d24] border border-[#262830] focus-within:border-[#00ff73]/60 focus-within:shadow-[0_0_12px_rgba(0,255,115,0.15)] rounded-2xl flex items-center px-3.5 transition-all duration-200"
+          className="h-13 bg-[#16171e] border border-white/10 focus-within:border-[#00ff73]/60 focus-within:shadow-[0_0_20px_rgba(0,255,115,0.15)] rounded-2xl flex items-center px-3.5 transition-all duration-200 backdrop-blur-md"
         >
           {/* Paperclip attachment button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="text-gray-400 hover:text-white p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
             title="Attach image or file"
           >
-            <Paperclip className="w-4 h-4" />
+            <Paperclip className="w-4.5 h-4.5" />
           </button>
 
           {/* Emoji button */}
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="text-gray-400 hover:text-white p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer ml-0.5"
+            className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer ml-0.5"
             title="Insert emoji"
           >
-            <Smile className="w-4 h-4" />
+            <Smile className="w-4.5 h-4.5" />
           </button>
 
           {/* Text Input */}
@@ -354,7 +354,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={editingMessage ? 'Edit your message...' : `Message ${recipientHandle || 'in chat'}...`}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-100 placeholder-gray-500 px-3 min-w-0"
+            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-100 placeholder-gray-500 px-3 min-w-0 font-sans"
           />
 
           {/* Microphone voice button (when no text typed) */}
@@ -362,10 +362,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={startRecording}
-              className="text-gray-400 hover:text-[#00ff73] p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer mr-1"
+              className="text-gray-400 hover:text-[#00ff73] p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer mr-1"
               title="Record voice note"
             >
-              <Mic className="w-4 h-4" />
+              <Mic className="w-4.5 h-4.5" />
             </button>
           )}
 
@@ -373,9 +373,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           <button
             type="submit"
             disabled={!inputText.trim() && !currentAttachment}
-            className={`p-2 rounded-xl transition-all duration-150 flex items-center justify-center cursor-pointer ${
+            className={`p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center cursor-pointer ${
               inputText.trim() || currentAttachment
-                ? 'bg-[#00ff73] text-black shadow-neon-sm hover:scale-105 active:scale-95'
+                ? 'bg-[#00ff73] text-black shadow-[0_0_15px_rgba(0,255,115,0.4)] hover:scale-105 active:scale-95'
                 : 'bg-transparent text-gray-600 cursor-not-allowed'
             }`}
             title={editingMessage ? 'Save edit' : 'Send message'}
