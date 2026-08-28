@@ -151,6 +151,10 @@ class SocketService {
     };
   }
 
+  public updateStatus(user: User) {
+    this.socket?.emit('update_status', user);
+  }
+
   public disconnect() {
     this.socket?.disconnect();
     this.socket = null;

@@ -227,7 +227,7 @@ export default function App() {
     const interval = setInterval(() => {
       refreshUsersAndGroups();
       refreshMessages();
-    }, 2500);
+    }, 15000);
     return () => clearInterval(interval);
   }, [refreshUsersAndGroups, refreshMessages]);
 
@@ -457,7 +457,11 @@ export default function App() {
     socketService.disconnect();
   };
 
-  const isSelectedUserMuted = selectedUser ? Boolean(mutedUsers[selectedUser.id]) : false;
+  const isSelectedUserMuted = selectedUser
+    ? Boolean(mutedUsers[selectedUser.id])
+    : selectedGroupId
+    ? Boolean(mutedUsers[selectedGroupId])
+    : false;
   const isCurrentContactTyping = selectedUser
     ? Boolean(typingUsers[normalizeHandle(selectedUser.handle)])
     : false;
@@ -779,7 +783,13 @@ export default function App() {
                 setSelectedUserId('');
                 setSelectedGroupId(null);
               }}
-              onToggleMute={() => selectedUser && handleToggleMute(selectedUser.id)}
+              onToggleMute={() => {
+                if (selectedGroupId) {
+                  handleToggleMute(selectedGroupId);
+                } else if (selectedUser) {
+                  handleToggleMute(selectedUser.id);
+                }
+              }}
               onToggleBlock={() => selectedUser && handleToggleBlock(selectedUser.handle)}
               onSendMessage={handleSendMessage}
               onEditMessage={handleEditMessage}

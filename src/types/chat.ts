@@ -3,7 +3,7 @@ export interface User {
   name: string;
   handle: string; // e.g. "@AlexR"
   avatar: string;
-  status: 'Online' | 'Offline' | 'Away' | 'Busy';
+  status: 'Online' | 'Offline';
   statusEmoji?: string;
   customStatusText?: string;
   banner?: string;

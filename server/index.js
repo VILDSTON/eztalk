@@ -805,16 +805,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Health check endpoint for UptimeRobot / Ping services
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: process.uptime(),
-    dbConnected: isMongoConnected,
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // Serve frontend dist if available (for single-server / Docker / VPS / Render deployments)
 const DIST_PATH = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_PATH)) {
