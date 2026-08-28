@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
