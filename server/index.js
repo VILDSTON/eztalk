@@ -6,9 +6,9 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
+import { GroupModel } from './models/Group.js';
 
 dotenv.config();
 
@@ -630,8 +630,13 @@ app.post('/api/messages/:id/reaction', async (req, res) => {
 // Groups Endpoints
 app.get('/api/groups', async (req, res) => {
   try {
-    const db = readLocalDB();
-    res.json({ groups: db.groups || [] });
+    if (isMongoConnected) {
+      const groups = await GroupModel.find().lean();
+      res.json({ groups });
+    } else {
+      const db = readLocalDB();
+      res.json({ groups: db.groups || [] });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -640,27 +645,34 @@ app.get('/api/groups', async (req, res) => {
 app.post('/api/groups', async (req, res) => {
   try {
     const { name, avatar, creatorHandle, memberHandles } = req.body;
-    const db = readLocalDB();
-    if (!db.groups) db.groups = [];
+    const cleanCreator = normalizeHandle(creatorHandle);
+    const cleanMembers = (memberHandles || []).map((h) => normalizeHandle(h));
 
-    const newGroup = {
+    if (!cleanMembers.includes(cleanCreator)) {
+      cleanMembers.push(cleanCreator);
+    }
+
+    const groupData = {
       id: `group_${Date.now()}`,
       name: name || 'Unnamed Group',
       avatar: avatar || CURATED_AVATARS[0],
-      creatorHandle: normalizeHandle(creatorHandle),
-      memberHandles: (memberHandles || []).map((h) => normalizeHandle(h)),
+      creatorHandle: cleanCreator,
+      memberHandles: cleanMembers,
       createdAt: new Date().toISOString(),
     };
 
-    // Ensure creator is in memberHandles
-    if (!newGroup.memberHandles.includes(newGroup.creatorHandle)) {
-      newGroup.memberHandles.push(newGroup.creatorHandle);
+    if (isMongoConnected) {
+      const created = await GroupModel.create(groupData);
+      io.emit('new_group', created);
+      return res.json({ group: created });
+    } else {
+      const db = readLocalDB();
+      if (!db.groups) db.groups = [];
+      db.groups.push(groupData);
+      writeLocalDB(db);
+      io.emit('new_group', groupData);
+      return res.json({ group: groupData });
     }
-
-    db.groups.push(newGroup);
-    writeLocalDB(db);
-    io.emit('new_group', newGroup);
-    res.json({ group: newGroup });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -670,11 +682,16 @@ app.post('/api/groups', async (req, res) => {
 app.delete('/api/groups/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const db = readLocalDB();
-    if (db.groups) {
-      db.groups = db.groups.filter((g) => g.id !== id);
-      db.messages = db.messages.filter((m) => m.groupId !== id && m.conversationKey !== `group__${id}`);
-      writeLocalDB(db);
+    if (isMongoConnected) {
+      await GroupModel.findOneAndDelete({ id });
+      await MessageModel.deleteMany({ groupId: id });
+    } else {
+      const db = readLocalDB();
+      if (db.groups) {
+        db.groups = db.groups.filter((g) => g.id !== id);
+        db.messages = db.messages.filter((m) => m.groupId !== id && m.conversationKey !== `group__${id}`);
+        writeLocalDB(db);
+      }
     }
     io.emit('group_deleted', { groupId: id });
     res.json({ success: true, groupId: id });

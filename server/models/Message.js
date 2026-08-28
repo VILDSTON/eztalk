@@ -2,10 +2,21 @@ import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema(
   {
+    id: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
     conversationKey: {
       type: String,
       required: true,
       index: true,
+    },
+    groupId: {
+      type: String,
+      index: true,
+      default: null,
     },
     senderHandle: {
       type: String,
@@ -16,10 +27,10 @@ const messageSchema = new mongoose.Schema(
     },
     recipientHandle: {
       type: String,
-      required: true,
       index: true,
       trim: true,
       lowercase: true,
+      default: null,
     },
     text: {
       type: String,
@@ -28,17 +39,30 @@ const messageSchema = new mongoose.Schema(
     attachment: {
       id: String,
       name: String,
-      type: { type: String, enum: ['image', 'file'] },
+      type: { type: String, enum: ['image', 'file', 'audio'] },
       url: String,
       size: String,
+      duration: Number,
     },
-    timestamp: {
-      type: String,
-      default: 'Sent PM',
+    replyTo: {
+      type: Object,
+      default: null,
     },
     callInfo: {
       type: Object,
       default: null,
+    },
+    reactions: {
+      type: Object,
+      default: {},
+    },
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    timestamp: {
+      type: String,
+      default: 'Sent PM',
     },
   },
   { timestamps: true }
