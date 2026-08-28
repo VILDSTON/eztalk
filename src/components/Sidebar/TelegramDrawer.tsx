@@ -96,23 +96,12 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           </h3>
           <p className="text-xs text-[#00ff73] font-mono mt-0.5">{currentUser.handle}</p>
 
-          {/* Status Switcher Pills */}
-          <div className="flex items-center space-x-1.5 mt-3 pt-2 border-t border-white/5">
-            {(['Online', 'Away', 'Busy', 'Offline'] as const).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => onUpdateStatus(st)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                  currentUser.status === st
-                    ? 'bg-[#00ff73] text-black shadow-xs'
-                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
+          {/* Bio */}
+          {currentUser.bio && (
+            <p className="text-xs text-gray-400 mt-2 line-clamp-2 leading-relaxed">
+              {currentUser.bio}
+            </p>
+          )}
         </div>
 
         {/* Navigation List Items */}
@@ -236,7 +225,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
               className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-gray-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
             >
               <Layers className="w-5 h-5 text-[#00ff73]" />
-              <span className="font-semibold text-xs">+ Add Account</span>
+              <span className="font-semibold text-xs">Add Account</span>
             </button>
           )}
 

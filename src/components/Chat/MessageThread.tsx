@@ -87,8 +87,8 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-4"
       >
-        {/* Centered Telegram Column */}
-        <div className="w-full max-w-3xl mx-auto px-4 flex flex-col flex-1">
+        {/* Full Width Telegram Message Canvas */}
+        <div className="w-full max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-col flex-1">
           {/* Dynamic top spacer */}
           <div className="flex-1 min-h-4" />
 

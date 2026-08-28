@@ -14,9 +14,11 @@ interface ChatWindowProps {
   isMuted?: boolean;
   isTyping?: boolean;
   isFriend?: boolean;
+  isBlocked?: boolean;
   isSavedMessages?: boolean;
   onBack?: () => void;
   onToggleMute?: () => void;
+  onToggleBlock?: () => void;
   onSendMessage: (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => void;
   onEditMessage?: (id: string, newText: string) => void;
   onDeleteMessage?: (id: string) => void;
@@ -37,9 +39,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isMuted = false,
   isTyping = false,
   isFriend = true,
+  isBlocked = false,
   isSavedMessages = false,
   onBack,
   onToggleMute,
+  onToggleBlock,
   onSendMessage,
   onEditMessage,
   onDeleteMessage,
@@ -77,10 +81,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         messages={messages}
         isMuted={isMuted}
         isFriend={isFriend}
+        isBlocked={isBlocked}
         isSavedMessages={isSavedMessages}
         onBack={onBack}
         onSearchChange={(q) => setInChatSearchQuery(q)}
         onToggleMute={onToggleMute}
+        onToggleBlock={onToggleBlock}
         onClearChat={onClearChat}
         onRemoveFriend={onRemoveFriend}
         onAddFriend={onAddFriend}

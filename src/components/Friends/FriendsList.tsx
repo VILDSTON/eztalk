@@ -10,6 +10,7 @@ import {
   Trash2,
   PlusCircle,
   MessageSquare,
+  Bookmark,
 } from 'lucide-react';
 import { User, Group } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
@@ -21,6 +22,8 @@ interface FriendsListProps {
   users: User[];
   allExistingUsers?: User[];
   groups?: Group[];
+  unreadCounts?: Record<string, number>;
+  onlineHandles?: string[];
   selectedUserId: string;
   selectedGroupId?: string | null;
   onOpenMenu?: () => void;
@@ -35,6 +38,8 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   users,
   allExistingUsers = [],
   groups = [],
+  unreadCounts = {},
+  onlineHandles = [],
   selectedUserId,
   selectedGroupId,
   onOpenMenu,
@@ -51,9 +56,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
 
+  const isUserOnline = (handle: string) => {
+    return onlineHandles.some((h) => normalizeHandle(h).toLowerCase() === normalizeHandle(handle).toLowerCase());
+  };
+
   // Filter users
   const matchedUsers = users.filter((u) => {
-    if (activeTab === 'online' && u.status !== 'Online') return false;
+    if (activeTab === 'online' && !isUserOnline(u.handle)) return false;
     if (!cleanQuery) return true;
     return (
       u.handle.toLowerCase().replace('@', '').includes(cleanQuery) ||
@@ -98,25 +107,24 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       <div className="w-80 sm:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
         {/* Telegram Top Bar: Hamburger Menu + Search */}
         <div className="p-3 pb-2 flex items-center space-x-2.5 bg-[#111216]">
-          {/* Hamburger Menu Button */}
           <button
             type="button"
             onClick={onOpenMenu}
-            className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer shrink-0"
             title="Open Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Search Input Box */}
-          <div className="relative flex-1 flex items-center">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
+          {/* Search Input */}
+          <div className="flex-1 relative flex items-center">
+            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search"
-              className="w-full bg-[#1c1e24] focus:bg-[#23262f] border border-transparent focus:border-[#00ff73]/40 rounded-full pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all"
+              placeholder="Search chats, contacts, groups..."
+              className="w-full bg-[#1b1d24] focus:bg-[#22242d] border border-transparent focus:border-[#00ff73]/40 rounded-full pl-10 pr-8 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -130,235 +138,256 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           </div>
         </div>
 
-        {/* Telegram Folder Tabs: All Chats / Direct / Groups / Online */}
-        {!searchQuery && (
-          <div className="flex items-center px-2 border-b border-white/5 overflow-x-auto custom-scrollbar bg-[#111216]">
-            {(
-              [
-                { id: 'all', label: 'All Chats' },
-                { id: 'direct', label: 'Personal' },
-                { id: 'groups', label: 'Groups' },
-                { id: 'online', label: 'Online' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-3 text-xs font-semibold tracking-wide border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-[#00ff73] text-[#00ff73] font-bold'
-                    : 'border-transparent text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Telegram Navigation Tabs */}
+        <div className="flex items-center px-3 border-b border-white/5 text-xs font-semibold overflow-x-auto custom-scrollbar">
+          {(
+            [
+              { id: 'all', label: 'All Chats' },
+              { id: 'direct', label: 'Personal' },
+              { id: 'groups', label: 'Groups' },
+              { id: 'online', label: 'Online' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2.5 px-3 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-[#00ff73] text-[#00ff73]'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Chat List Stream */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar py-1">
-          {/* Groups Tab Empty Action */}
-          {activeTab === 'groups' && filteredGroups.length === 0 && (
-            <div className="p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#1c1e24] flex items-center justify-center text-[#00ff73] mx-auto mb-3">
-                <Users className="w-6 h-6" />
+        {/* Chats & Contacts Stream */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+          {/* Pinned Saved Messages in All Chats Tab */}
+          {activeTab === 'all' && !searchQuery && currentUser && (
+            <div
+              onClick={() => onSelectUser(currentUser)}
+              className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${
+                selectedUserId === currentUser.id && !selectedGroupId
+                  ? 'bg-[#00ff73]/15 border border-[#00ff73]/40 shadow-sm'
+                  : 'hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              <div className="flex items-center space-x-3 min-w-0 pr-2">
+                <div className="w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px] rounded-full bg-[#00ff73]/20 border border-[#00ff73]/40 flex items-center justify-center text-[#00ff73] shrink-0">
+                  <Bookmark className="w-5 h-5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-white tracking-tight">Saved Messages</span>
+                  </div>
+                  <span className="text-xs text-[#00ff73] font-mono truncate">Cloud Storage</span>
+                </div>
               </div>
-              <h4 className="text-sm font-bold text-white mb-1">No groups yet</h4>
-              <p className="text-xs text-gray-400 mb-4">Create a group chat to talk with multiple friends at once.</p>
-              <button
-                type="button"
-                onClick={() => setIsGroupModalOpen(true)}
-                className="px-4 py-2 bg-[#00ff73] hover:bg-[#1aff85] text-black text-xs font-bold rounded-xl shadow-xs transition-transform hover:scale-105 cursor-pointer inline-flex items-center space-x-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Create Group</span>
-              </button>
             </div>
           )}
 
-          {/* Groups Section */}
+          {/* Group Chats */}
           {(activeTab === 'all' || activeTab === 'groups') &&
             filteredGroups.map((group) => {
               const isSelected = selectedGroupId === group.id;
+              const unread = unreadCounts[group.id] || 0;
               return (
                 <div
                   key={group.id}
                   onClick={() => onSelectGroup && onSelectGroup(group)}
-                  className={`group/item flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
+                  className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-[#182c21] border-l-3 border-[#00ff73]'
-                      : 'hover:bg-white/5 border-l-3 border-transparent'
+                      ? 'bg-[#00ff73]/15 border border-[#00ff73]/40 shadow-sm'
+                      : 'hover:bg-white/5 border border-transparent'
                   }`}
                 >
-                  {/* Group Avatar Container with fixed dimensions */}
-                  <div className="relative shrink-0 mr-3 w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px]">
-                    <img
-                      src={group.avatar}
-                      alt={group.name}
-                      className="w-12 h-12 rounded-full object-cover border border-white/10 bg-gray-800"
-                    />
-                    <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[9px] font-bold border border-[#111216]">
-                      <Users className="w-2.5 h-2.5" />
+                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                    <div className="relative w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px] rounded-full overflow-hidden border border-white/10 shrink-0 bg-gray-800">
+                      <img src={group.avatar} alt={group.name} className="w-full h-full object-cover" />
+                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[8px] font-bold border border-[#111216]">
+                        <Users className="w-2 h-2" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-white truncate tracking-tight">{group.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-400 font-mono truncate">
+                        {group.memberHandles.length} members
+                      </span>
                     </div>
                   </div>
 
-                  {/* Group Details */}
-                  <div className="flex-1 min-w-0 pr-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-white truncate">{group.name}</span>
-                      <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-2">Group</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-xs text-gray-400 truncate">
-                        {group.memberHandles.length} members ({group.memberHandles.slice(0, 2).join(', ')}...)
+                  <div className="flex items-center space-x-2 shrink-0">
+                    {unread > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#00ff73] text-black text-xs font-extrabold shadow-[0_0_8px_#00ff73]">
+                        {unread}
                       </span>
-                      {onDeleteGroup && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                    )}
+
+                    {onDeleteGroup && group.creatorHandle === normalizeHandle(currentUser?.handle || '') && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete group "${group.name}"?`)) {
                             onDeleteGroup(group.id);
-                          }}
-                          className="opacity-0 group-hover/item:opacity-100 p-1 text-gray-400 hover:text-red-400 rounded cursor-pointer transition-opacity ml-1"
-                          title="Delete group"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                        title="Delete Group"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })}
 
-          {/* Direct Chats */}
+          {/* User Chats */}
           {(activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
             filteredUsers.map((user) => {
-              const isSelected = !selectedGroupId && user.id === selectedUserId;
+              const isSelected = selectedUserId === user.id && !selectedGroupId;
+              const online = isUserOnline(user.handle);
+              const unread = unreadCounts[normalizeHandle(user.handle)] || unreadCounts[user.id] || 0;
+
               return (
                 <div
                   key={user.id}
                   onClick={() => onSelectUser(user)}
-                  className={`group/user flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
+                  className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-[#182c21] border-l-3 border-[#00ff73]'
-                      : 'hover:bg-white/5 border-l-3 border-transparent'
+                      ? 'bg-[#00ff73]/15 border border-[#00ff73]/40 shadow-sm'
+                      : 'hover:bg-white/5 border border-transparent'
                   }`}
                 >
-                  {/* User Avatar with fixed dimension container */}
-                  <div className="relative shrink-0 mr-3 w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px]">
-                    <img
-                      src={user.avatar}
-                      alt={user.handle}
-                      className="w-12 h-12 rounded-full object-cover border border-white/10 bg-gray-800"
-                    />
-                    <div
-                      className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#111216] ${
-                        user.status === 'Online'
-                          ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]'
-                          : user.status === 'Away'
-                          ? 'bg-amber-400'
-                          : user.status === 'Busy'
-                          ? 'bg-rose-500'
-                          : 'bg-slate-400'
-                      }`}
-                    />
+                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                    {/* Fixed Avatar Container */}
+                    <div className="relative w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px] rounded-full overflow-hidden border border-white/10 shrink-0 bg-gray-800">
+                      <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                      <div
+                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#111216] ${
+                          online ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]' : 'bg-gray-500'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-white truncate tracking-tight">
+                          {user.name || user.handle}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400 truncate">
+                        {user.bio || (online ? 'online' : 'offline')}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* User Details */}
-                  <div className="flex-1 min-w-0 pr-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-white truncate">
-                        {user.name || user.handle}
+                  {/* Status / Unread Counter */}
+                  <div className="flex flex-col items-end shrink-0 space-y-1">
+                    {unread > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-[#00ff73] text-black text-xs font-extrabold shadow-[0_0_8px_#00ff73] animate-pulse">
+                        {unread}
                       </span>
-                      <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-2">
-                        {user.status === 'Online' ? (
-                          <span className="text-[#00ff73]">online</span>
-                        ) : (
-                          user.status.toLowerCase()
-                        )}
+                    ) : (
+                      <span
+                        className={`text-[11px] font-mono ${
+                          online ? 'text-[#00ff73] font-medium' : 'text-gray-500'
+                        }`}
+                      >
+                        {online ? 'online' : 'offline'}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-xs text-gray-400 truncate">{user.bio || user.handle}</span>
-                      {user.statusEmoji && (
-                        <span className="text-xs shrink-0 ml-1.5">{user.statusEmoji}</span>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               );
             })}
 
-          {/* Empty State */}
-          {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && (
-            <div className="py-16 px-4 text-center text-gray-500 text-xs">
-              <p className="font-semibold text-gray-300">No chats found</p>
-              <p className="mt-1 text-gray-500">Tap the pencil button below to start a conversation.</p>
-            </div>
-          )}
-
-          {/* Global Search Results */}
+          {/* Global Directory Search Header & Items */}
           {cleanQuery && globalResults.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/5 px-3">
-              <div className="px-1 py-1 text-[11px] font-bold text-[#00ff73] uppercase tracking-wider flex items-center space-x-1.5 mb-1">
-                <Globe className="w-3.5 h-3.5 animate-spin" />
+            <div className="pt-3 border-t border-white/5">
+              <div className="flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                <Globe className="w-3 h-3 text-[#00ff73]" />
                 <span>Global Search</span>
               </div>
               {globalResults.map((user) => (
                 <div
                   key={user.id}
-                  onClick={() => {
-                    onSelectUser(user);
-                    setSearchQuery('');
-                  }}
-                  className="flex items-center px-2 py-2 rounded-2xl hover:bg-white/5 cursor-pointer transition-colors"
+                  onClick={() => onSelectUser(user)}
+                  className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/5 cursor-pointer transition-all"
                 >
-                  <div className="w-10 h-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] rounded-full overflow-hidden mr-3 border border-[#00ff73]/30">
-                    <img
-                      src={user.avatar}
-                      alt={user.handle}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                    <div className="w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px] rounded-full overflow-hidden border border-white/10 shrink-0">
+                      <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-bold text-white truncate">{user.name || user.handle}</span>
+                      <span className="text-xs text-[#00ff73] font-mono truncate">{user.handle}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-white block truncate">{user.name || user.handle}</span>
-                    <span className="text-[11px] text-[#00ff73] font-mono block truncate">{user.handle}</span>
-                  </div>
+                  <span className="text-xs text-[#00ff73] bg-[#00ff73]/10 px-2.5 py-1 rounded-xl font-bold">
+                    Chat
+                  </span>
                 </div>
               ))}
             </div>
           )}
-        </div>
 
-        {/* Telegram Floating Action Button (FAB - New Chat / Compose) */}
-        <div className="absolute bottom-6 right-6 z-20">
-          {/* FAB Action Popover Menu */}
-          {showFabMenu && (
-            <div className="absolute bottom-16 right-0 bg-[#1e2028] border border-white/10 p-1.5 rounded-2xl shadow-2xl z-30 mb-2 w-48 animate-fade-in backdrop-blur-md">
+          {/* Empty States */}
+          {activeTab === 'groups' && filteredGroups.length === 0 && (
+            <div className="text-center py-12 px-4 text-xs text-gray-500">
+              <Users className="w-8 h-8 mx-auto text-gray-600 mb-2" />
+              <p className="font-semibold text-gray-400">No Groups Found</p>
+              <p className="mt-1 text-gray-500">Create a new group to collaborate with friends.</p>
               <button
                 type="button"
-                onClick={() => {
-                  setShowFabMenu(false);
-                  setIsGroupModalOpen(true);
-                }}
-                className="w-full flex items-center space-x-2.5 p-2.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/10 text-xs font-semibold cursor-pointer transition-colors"
+                onClick={() => setIsGroupModalOpen(true)}
+                className="mt-3 px-4 py-2 bg-[#00ff73]/15 text-[#00ff73] hover:bg-[#00ff73] hover:text-black text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
-                <Users className="w-4 h-4 text-[#00ff73]" />
-                <span>New Group</span>
+                + Create Group
               </button>
+            </div>
+          )}
+
+          {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && activeTab !== 'groups' && (
+            <div className="text-center py-12 px-4 text-xs text-gray-500">
+              <p className="font-semibold text-gray-400">No chats found</p>
+              <p className="mt-1 text-gray-500">Search for people by handle or start a new conversation.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Telegram Floating Pencil FAB Action Button */}
+        <div className="absolute bottom-5 right-5 z-20">
+          {showFabMenu && (
+            <div className="absolute bottom-16 right-0 bg-[#1b1d24] border border-white/10 p-2 rounded-2xl shadow-2xl space-y-1 w-44 animate-scale-up backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => {
                   setShowFabMenu(false);
                   setIsComposeOpen(true);
                 }}
-                className="w-full flex items-center space-x-2.5 p-2.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/10 text-xs font-semibold cursor-pointer transition-colors"
+                className="w-full flex items-center space-x-2.5 p-2 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 text-[#00ff73]" />
                 <span>New Direct Chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFabMenu(false);
+                  setIsGroupModalOpen(true);
+                }}
+                className="w-full flex items-center space-x-2.5 p-2 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-[#00ff73]" />
+                <span>New Group</span>
               </button>
             </div>
           )}
@@ -366,10 +395,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           <button
             type="button"
             onClick={() => setShowFabMenu(!showFabMenu)}
-            className="w-12 h-12 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.45)] hover:shadow-[0_4px_30px_rgba(0,255,115,0.65)] transition-all hover:scale-108 active:scale-95 flex items-center justify-center cursor-pointer border border-[#00ff73]"
-            title="New Message"
+            className="w-13 h-13 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.4)] flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title="New Chat"
           >
-            <SquarePen className="w-5 h-5" />
+            <SquarePen className="w-6 h-6" />
           </button>
         </div>
       </div>
@@ -387,18 +416,16 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       />
 
       {/* Create Group Modal */}
-      {onCreateGroup && (
-        <CreateGroupModal
-          isOpen={isGroupModalOpen}
-          existingUsers={allExistingUsers}
-          currentUserHandle={currentUser?.handle}
-          onClose={() => setIsGroupModalOpen(false)}
-          onCreateGroup={(name, avatar, members) => {
-            onCreateGroup(name, avatar, members);
-            setIsGroupModalOpen(false);
-          }}
-        />
-      )}
+      <CreateGroupModal
+        isOpen={isGroupModalOpen}
+        existingUsers={allExistingUsers}
+        currentUserHandle={currentUser?.handle}
+        onClose={() => setIsGroupModalOpen(false)}
+        onCreateGroup={(name, avatar, members) => {
+          if (onCreateGroup) onCreateGroup(name, avatar, members);
+          setIsGroupModalOpen(false);
+        }}
+      />
     </>
   );
 };

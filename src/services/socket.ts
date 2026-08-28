@@ -144,14 +144,10 @@ class SocketService {
     };
   }
 
-  public updateStatus(user: User) {
-    this.socket?.emit('status_changed', user);
-  }
-
-  public onStatusUpdated(callback: (user: User) => void) {
-    this.socket?.on('user_status_updated', callback);
+  public onOnlineUsers(callback: (onlineHandles: string[]) => void) {
+    this.socket?.on('online_users', callback);
     return () => {
-      this.socket?.off('user_status_updated', callback);
+      this.socket?.off('online_users', callback);
     };
   }
 

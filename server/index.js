@@ -634,12 +634,44 @@ app.post('/api/messages/clear', async (req, res) => {
   }
 });
 
-// --- SOCKET.IO REAL-TIME EVENTS ---
+// --- SOCKET.IO REAL-TIME EVENTS & PRESENCE ---
+const socketHandleMap = new Map(); // socket.id -> handle
+const handleSocketCount = new Map(); // handle -> count
+
+function getOnlineHandles() {
+  return Array.from(handleSocketCount.keys()).filter((h) => (handleSocketCount.get(h) || 0) > 0);
+}
+
 io.on('connection', (socket) => {
+  // Send current online users immediately on connection
+  socket.emit('online_users', getOnlineHandles());
+
   socket.on('join', (userHandle) => {
     if (userHandle) {
-      const room = normalizeHandle(userHandle);
-      socket.join(room);
+      const handle = normalizeHandle(userHandle);
+      socket.join(handle);
+
+      // Track presence
+      socketHandleMap.set(socket.id, handle);
+      const prevCount = handleSocketCount.get(handle) || 0;
+      handleSocketCount.set(handle, prevCount + 1);
+
+      // Broadcast updated online list
+      io.emit('online_users', getOnlineHandles());
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const handle = socketHandleMap.get(socket.id);
+    if (handle) {
+      socketHandleMap.delete(socket.id);
+      const count = (handleSocketCount.get(handle) || 1) - 1;
+      if (count <= 0) {
+        handleSocketCount.delete(handle);
+      } else {
+        handleSocketCount.set(handle, count);
+      }
+      io.emit('online_users', getOnlineHandles());
     }
   });
 
@@ -678,10 +710,6 @@ io.on('connection', (socket) => {
       fromHandle: normalizeHandle(fromHandle),
       signal,
     });
-  });
-
-  socket.on('status_changed', (user) => {
-    io.emit('user_status_updated', user);
   });
 });
 

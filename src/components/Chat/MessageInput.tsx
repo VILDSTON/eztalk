@@ -107,13 +107,26 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : 'audio/webm';
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
@@ -122,7 +135,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         stream.getTracks().forEach((track) => track.stop());
       };
 
-      mediaRecorder.start();
+      // Flush every 200ms so no audio chunks are lost
+      mediaRecorder.start(200);
       setIsRecording(true);
       setRecordingSeconds(0);
 
@@ -135,15 +149,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const stopAndSendRecording = () => {
-    if (!mediaRecorderRef.current || !isRecording) return;
+    const mr = mediaRecorderRef.current;
+    if (!mr || !isRecording) return;
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
     }
 
-    const duration = recordingSeconds;
+    const duration = Math.max(1, recordingSeconds);
 
-    mediaRecorderRef.current.onstop = () => {
+    // Request remaining audio buffer before stopping
+    try {
+      mr.requestData();
+    } catch {
+      // ignore
+    }
+
+    mr.onstop = () => {
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -163,7 +185,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       reader.readAsDataURL(audioBlob);
     };
 
-    mediaRecorderRef.current.stop();
+    mr.stop();
     setIsRecording(false);
     setRecordingSeconds(0);
   };
@@ -193,7 +215,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <div className="w-full bg-[#111216] border-t border-white/5 select-none font-sans">
-      <div className="max-w-3xl mx-auto px-4 py-2 relative">
+      <div className="w-full max-w-6xl mx-auto px-3 sm:px-6 py-2 relative">
         {/* Hidden File Input */}
         <input
           type="file"

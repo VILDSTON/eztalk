@@ -10,10 +10,12 @@ interface ChatHeaderProps {
   messages?: Message[];
   isMuted?: boolean;
   isFriend?: boolean;
+  isBlocked?: boolean;
   isSavedMessages?: boolean;
   onBack?: () => void;
   onSearchChange?: (query: string) => void;
   onToggleMute?: () => void;
+  onToggleBlock?: () => void;
   onClearChat?: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
@@ -27,10 +29,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   messages = [],
   isMuted = false,
   isFriend = true,
+  isBlocked = false,
   isSavedMessages = false,
   onBack,
   onSearchChange,
   onToggleMute,
+  onToggleBlock,
   onClearChat,
   onRemoveFriend,
   onAddFriend,
@@ -180,11 +184,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#17181c] ${
                   user.status === 'Online'
                     ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]'
-                    : user.status === 'Away'
-                    ? 'bg-amber-400'
-                    : user.status === 'Busy'
-                    ? 'bg-rose-500'
-                    : 'bg-slate-400'
+                    : 'bg-gray-500'
                 }`}
               />
             </div>
@@ -204,7 +204,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   user.status === 'Online' ? 'text-[#00ff73] font-medium' : 'text-gray-400'
                 }`}
               >
-                {user.status === 'Online' ? 'online' : `last seen recently • ${user.status.toLowerCase()}`}
+                {user.status === 'Online' ? 'online' : 'offline'}
               </span>
             </div>
           </div>
@@ -283,6 +283,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         isOpen={isProfileOpen}
         isMuted={isMuted}
         isFriend={isFriend}
+        isBlocked={isBlocked}
         messages={messages}
         onClose={() => setIsProfileOpen(false)}
         onStartCall={() => {
@@ -291,6 +292,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         }}
         onToggleNotifications={() => {
           if (onToggleMute) onToggleMute();
+        }}
+        onToggleBlock={() => {
+          if (onToggleBlock) onToggleBlock();
         }}
         onRemoveFriend={onRemoveFriend}
         onAddFriend={onAddFriend}

@@ -73,6 +73,16 @@ export default function App() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const [mutedUsers, setMutedUsers] = useState<Record<string, boolean>>({});
+  const [onlineHandles, setOnlineHandles] = useState<string[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [blockedUsers, setBlockedUsers] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('eztalk_blocked_users') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
   const [activeLiveCall, setActiveLiveCall] = useState<{ user: User; isInitiator?: boolean } | null>(null);
@@ -97,6 +107,12 @@ export default function App() {
   const selectedUserIdRef = useRef(selectedUserId);
   selectedUserIdRef.current = selectedUserId;
 
+  const mutedUsersRef = useRef(mutedUsers);
+  mutedUsersRef.current = mutedUsers;
+
+  const blockedUsersRef = useRef(blockedUsers);
+  blockedUsersRef.current = blockedUsers;
+
   const selectedUserRef = useRef<User | null>(null);
 
   // Request browser notification permission on load
@@ -105,6 +121,16 @@ export default function App() {
       Notification.requestPermission().catch(() => {});
     }
   }, []);
+
+  // Update dynamic document title with unread count
+  useEffect(() => {
+    const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) EzTalk - Telegram Web`;
+    } else {
+      document.title = 'EzTalk - Telegram Web';
+    }
+  }, [unreadCounts]);
 
   // Filter friends list (ONLY explicitly added friends)
   const friendsList = allUsers.filter(
@@ -229,6 +255,9 @@ export default function App() {
       const rHandle = normalizeHandle(newMsg.recipientHandle || '');
       const myHandle = normalizeHandle(cUser.handle);
 
+      // Ignore messages from blocked users
+      if (blockedUsersRef.current.includes(sHandle)) return;
+
       // Check if message is for this user or for a group user belongs to
       const isForGroup = Boolean(newMsg.groupId);
       const isForMe = sHandle === myHandle || rHandle === myHandle;
@@ -238,6 +267,21 @@ export default function App() {
       // Add to active chats (WITHOUT auto-adding to friends list)
       if (!isForGroup && sHandle !== myHandle) {
         setActiveChatHandles((prev) => [...new Set([...prev, sHandle])]);
+      }
+
+      // Check if this incoming message is for the currently open chat
+      const isForActiveChat = isForGroup
+        ? selectedGroupIdRef.current === newMsg.groupId
+        : selectedUserRef.current &&
+          getConversationKey(cUser.handle, selectedUserRef.current.handle) === getConversationKey(sHandle, rHandle);
+
+      // Track unread badge if message is not in currently active chat and not from me
+      if (!isForActiveChat && sHandle !== myHandle) {
+        const unreadKey = isForGroup ? newMsg.groupId! : sHandle;
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [unreadKey]: (prev[unreadKey] || 0) + 1,
+        }));
       }
 
       // Update active messages thread if active chat matches
@@ -267,8 +311,14 @@ export default function App() {
         }
       }
 
-      // If message is from someone else, play sound & show toast
-      if (sHandle !== myHandle && !mutedUsers[newMsg.senderId]) {
+      // Check if notifications are muted for this sender or group
+      const isMuted =
+        mutedUsersRef.current[newMsg.senderId] ||
+        mutedUsersRef.current[sHandle] ||
+        (isForGroup && mutedUsersRef.current[newMsg.groupId!]);
+
+      // If message is from someone else and NOT muted, play sound & show toast
+      if (sHandle !== myHandle && !isMuted) {
         playReceiveChime();
 
         const sender = allUsersRef.current.find((u) => normalizeHandle(u.handle) === sHandle);
@@ -325,6 +375,11 @@ export default function App() {
       }
     });
 
+    // Online users presence event
+    const unsubOnline = socketService.onOnlineUsers((handles) => {
+      setOnlineHandles(handles);
+    });
+
     // Typing state event
     const unsubTyping = socketService.onTyping(({ senderHandle, recipientHandle, isTyping }) => {
       const cUser = currentUserRef.current;
@@ -337,12 +392,14 @@ export default function App() {
       }
     });
 
-    // Incoming Call event (Filtered to target recipient only)
+    // Incoming Call event (Filtered to target recipient only & non-blocked)
     const unsubCall = socketService.onIncomingCall(({ caller, recipientHandle }) => {
       const cUser = currentUserRef.current;
       if (!cUser) return;
       if (normalizeHandle(recipientHandle) === normalizeHandle(cUser.handle)) {
-        setIncomingCall({ caller });
+        if (!blockedUsersRef.current.includes(normalizeHandle(caller.handle))) {
+          setIncomingCall({ caller });
+        }
       }
     });
 
@@ -367,13 +424,6 @@ export default function App() {
       setMessages([]);
     });
 
-    // Remote user status updated event
-    const unsubStatus = socketService.onStatusUpdated((updatedUser) => {
-      setAllUsers((prev) =>
-        prev.map((u) => (normalizeHandle(u.handle) === normalizeHandle(updatedUser.handle) ? { ...u, ...updatedUser } : u))
-      );
-    });
-
     return () => {
       unsubMsg();
       unsubEdit();
@@ -381,12 +431,12 @@ export default function App() {
       unsubReact();
       unsubGroup();
       unsubGroupDel();
+      unsubOnline();
       unsubTyping();
       unsubCall();
       unsubCallAccepted();
       unsubCallEnded();
       unsubClear();
-      unsubStatus();
     };
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
@@ -606,6 +656,15 @@ export default function App() {
     setMyAccounts(updated);
   };
 
+  const handleToggleBlock = (handle: string) => {
+    const clean = normalizeHandle(handle);
+    setBlockedUsers((prev) => {
+      const next = prev.includes(clean) ? prev.filter((h) => h !== clean) : [...prev, clean];
+      localStorage.setItem('eztalk_blocked_users', JSON.stringify(next));
+      return next;
+    });
+  };
+
   // If not authenticated, render AuthScreen (Login / Register)
   if (!currentUser) {
     return <AuthScreen onLogin={handleLogin} />;
@@ -620,6 +679,7 @@ export default function App() {
             if (toast.groupId) {
               setSelectedGroupId(toast.groupId);
               setSelectedUserId('');
+              setUnreadCounts((prev) => ({ ...prev, [toast.groupId!]: 0 }));
             } else if (toast.senderId) {
               const target = allUsers.find(
                 (u) => u.id === toast.senderId || normalizeHandle(u.handle) === normalizeHandle(toast.senderHandle)
@@ -627,6 +687,11 @@ export default function App() {
               if (target) {
                 setSelectedUserId(target.id);
                 setSelectedGroupId(null);
+                setUnreadCounts((prev) => ({
+                  ...prev,
+                  [normalizeHandle(target.handle)]: 0,
+                  [target.id]: 0,
+                }));
               }
             }
             setToast(null);
@@ -675,17 +740,21 @@ export default function App() {
             users={chatUsers}
             allExistingUsers={allUsers}
             groups={userGroups}
+            unreadCounts={unreadCounts}
+            onlineHandles={onlineHandles}
             selectedUserId={selectedUserId}
             selectedGroupId={selectedGroupId}
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               setSelectedUserId(u.id);
               setSelectedGroupId(null);
+              setUnreadCounts((prev) => ({ ...prev, [normalizeHandle(u.handle)]: 0, [u.id]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
             }}
             onSelectGroup={(g) => {
               setSelectedGroupId(g.id);
               setSelectedUserId('');
+              setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
             onCreateGroup={handleCreateGroup}
             onDeleteGroup={handleDeleteGroup}
@@ -704,12 +773,14 @@ export default function App() {
               isMuted={isSelectedUserMuted}
               isTyping={isCurrentContactTyping}
               isFriend={isSelectedUserInFriends}
+              isBlocked={Boolean(selectedUser && blockedUsers.includes(normalizeHandle(selectedUser.handle)))}
               isSavedMessages={isSavedMessages}
               onBack={() => {
                 setSelectedUserId('');
                 setSelectedGroupId(null);
               }}
               onToggleMute={() => selectedUser && handleToggleMute(selectedUser.id)}
+              onToggleBlock={() => selectedUser && handleToggleBlock(selectedUser.handle)}
               onSendMessage={handleSendMessage}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}

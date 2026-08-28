@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { X, Phone, MessageSquare, Bell, BellOff, FileText, Globe, UserMinus, UserPlus, ExternalLink } from 'lucide-react';
+import {
+  X,
+  Phone,
+  MessageSquare,
+  Bell,
+  BellOff,
+  FileText,
+  Globe,
+  UserMinus,
+  UserPlus,
+  ExternalLink,
+  Download,
+  Ban,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 
 interface UserProfileModalProps {
@@ -7,10 +22,12 @@ interface UserProfileModalProps {
   isOpen: boolean;
   isMuted?: boolean;
   isFriend?: boolean;
+  isBlocked?: boolean;
   messages?: Message[];
   onClose: () => void;
   onStartCall: () => void;
   onToggleNotifications: () => void;
+  onToggleBlock?: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
 }
@@ -20,10 +37,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isOpen,
   isMuted = false,
   isFriend = true,
+  isBlocked = false,
   messages = [],
   onClose,
   onStartCall,
   onToggleNotifications,
+  onToggleBlock,
   onRemoveFriend,
   onAddFriend,
 }) => {
@@ -37,15 +56,49 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     .map((m) => m.attachment as Attachment);
 
   const bannerStyle = user.banner || 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)';
-  const accentColor = user.accentColor || '#00ff73';
+  const isImageBanner = user.banner && (user.banner.startsWith('http') || user.banner.startsWith('data:image'));
+
+  const handleExportChat = () => {
+    if (messages.length === 0) {
+      alert('No messages to export.');
+      return;
+    }
+
+    const lines = [
+      `=== EzTalk Chat History: ${user.name || user.handle} (${user.handle}) ===`,
+      `Exported at: ${new Date().toLocaleString()}`,
+      `Total Messages: ${messages.length}`,
+      '-------------------------------------------------------',
+      '',
+    ];
+
+    messages.forEach((m) => {
+      const time = m.createdAt ? new Date(m.createdAt).toLocaleString() : m.timestamp || 'Just now';
+      const sender = m.senderHandle || 'User';
+      const text = m.text || '';
+      const att = m.attachment ? ` [Attachment: ${m.attachment.name} (${m.attachment.type})]` : '';
+      const reply = m.replyTo ? ` (Replying to: "${m.replyTo.text}")` : '';
+      lines.push(`[${time}] ${sender}${reply}: ${text}${att}`);
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eztalk_chat_${user.handle.replace('@', '')}_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in select-none p-4">
-      <div className="bg-[#15161b] border border-[#2b2d36] rounded-3xl w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-4 font-sans">
+      <div className="bg-[#15161b] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col">
         {/* Floating Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-white/80 hover:text-white p-1.5 rounded-xl bg-black/50 hover:bg-black/70 transition-colors z-30 cursor-pointer"
+          className="absolute top-4 right-4 text-white/80 hover:text-white p-1.5 rounded-full bg-black/60 hover:bg-black/80 transition-colors z-30 cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -53,17 +106,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Scrollable Container with Banner and Content */}
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
           {/* Top Banner Header */}
-          <div className="h-28 w-full shrink-0 relative" style={{ background: bannerStyle }} />
+          <div
+            className="h-28 w-full shrink-0 relative bg-cover bg-center"
+            style={
+              isImageBanner
+                ? { backgroundImage: `url(${user.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                : { background: bannerStyle }
+            }
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-[#15161b] to-transparent opacity-80" />
+          </div>
 
           {/* Profile Card Body */}
           <div className="px-6 pb-6 pt-0 flex-1 flex flex-col">
             {/* Avatar & Identity Header */}
             <div className="flex flex-col items-center text-center -mt-12 mb-4 relative z-20">
               <div className="relative mb-2 shrink-0">
-                <div
-                  className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#15161b] bg-[#1d1f27] shadow-xl shrink-0"
-                  style={{ width: '80px', height: '80px' }}
-                >
+                <div className="w-20 h-20 min-w-[80px] min-h-[80px] rounded-full overflow-hidden border-4 border-[#15161b] bg-[#1d1f27] shadow-xl shrink-0">
                   <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
                 </div>
 
@@ -72,170 +131,133 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-[#15161b] z-30 ${
                     user.status === 'Online'
                       ? 'bg-[#00ff73] shadow-[0_0_8px_#00ff73]'
-                      : user.status === 'Away'
-                      ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]'
-                      : user.status === 'Busy'
-                      ? 'bg-red-400 shadow-[0_0_8px_#f87171]'
-                      : 'bg-gray-400 shadow-[0_0_6px_rgba(156,163,175,0.5)]'
+                      : 'bg-gray-400'
                   }`}
                   title={user.status}
                 />
               </div>
 
-              {/* Name & Status Emoji */}
-              <div className="flex items-center space-x-1.5">
-                <h3 className="text-xl font-bold text-white tracking-tight">{user.name || user.handle}</h3>
-                {user.statusEmoji && <span className="text-base">{user.statusEmoji}</span>}
-              </div>
+              {/* Name & Status */}
+              <h3 className="text-lg font-bold text-white tracking-tight leading-tight">{user.name || user.handle}</h3>
+              <p className="text-xs font-mono font-bold text-[#00ff73] mt-0.5">{user.handle}</p>
 
-              {/* Handle */}
-              <p className="text-xs font-mono font-bold mt-0.5" style={{ color: accentColor }}>
-                {user.handle}
-              </p>
-
-              {/* Custom Status Message if present */}
-              {user.customStatusText && (
-                <p className="text-xs text-gray-300 italic mt-1.5 px-3 py-1 bg-white/5 rounded-full border border-white/10 max-w-xs truncate">
-                  {user.customStatusText}
+              {/* Bio */}
+              {user.bio && (
+                <p className="text-xs text-gray-300 mt-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5 max-w-xs leading-relaxed">
+                  {user.bio}
                 </p>
               )}
-
-              {/* Prominent Website / Social Link if present */}
-              {user.website && (
-                <a
-                  href={user.website.startsWith('http') ? user.website : `https://${user.website}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#1b1e26] border border-[#2d313e] hover:border-[#00ff73] text-xs font-medium text-[#00ff73] transition-colors shadow-xs"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-[200px]">{user.website.replace(/^https?:\/\//, '')}</span>
-                  <ExternalLink className="w-3 h-3 text-gray-400" />
-                </a>
-              )}
             </div>
 
-            {/* Quick Actions Row: Voice Call, Message, and Notifications */}
+            {/* Quick Actions Row: Voice Call, Notifications, Export Chat */}
             <div className="grid grid-cols-3 gap-2 mb-4">
               <button
-                onClick={() => {
-                  onClose();
-                  onStartCall();
-                }}
-                className="py-2.5 text-black font-bold text-xs rounded-xl shadow-neon-sm transition-all flex items-center justify-center space-x-1.5 cursor-pointer hover:opacity-90"
-                style={{ backgroundColor: accentColor }}
+                type="button"
+                onClick={onStartCall}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#1b1e26] hover:bg-[#252934] border border-white/5 hover:border-[#00ff73]/40 transition-colors cursor-pointer"
               >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call</span>
+                <Phone className="w-5 h-5 text-[#00ff73] mb-1" />
+                <span className="text-[11px] font-semibold text-gray-200">Call</span>
               </button>
 
               <button
-                onClick={onClose}
-                className="py-2.5 bg-[#23252d] hover:bg-[#2c2f3a] text-white font-semibold text-xs rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-[#00ff73]" />
-                <span>Message</span>
-              </button>
-
-              <button
+                type="button"
                 onClick={onToggleNotifications}
-                className={`py-2.5 font-semibold text-xs rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors cursor-pointer ${
                   isMuted
-                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
-                    : 'bg-[#23252d] hover:bg-[#2c2f3a] text-gray-300 hover:text-white'
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    : 'bg-[#1b1e26] hover:bg-[#252934] border-white/5 text-gray-200'
                 }`}
-                title={isMuted ? 'Unmute notifications' : 'Mute notifications'}
               >
-                {isMuted ? <BellOff className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5 text-[#00ff73]" />}
-                <span>{isMuted ? 'Muted' : 'Mute'}</span>
+                {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-[#00ff73] mb-1" />}
+                <span className="text-[11px] font-semibold">{isMuted ? 'Muted' : 'Mute'}</span>
               </button>
-            </div>
 
-            {/* Bio & Details Section */}
-            <div className="space-y-3 bg-[#111216] p-4 rounded-2xl border border-[#252731] text-xs">
-              <div>
-                <span className="text-gray-400 font-semibold block mb-0.5">About</span>
-                <p className="text-gray-200 leading-relaxed">{user.bio || 'Hey there! I am using EzTalk.'}</p>
-              </div>
+              <button
+                type="button"
+                onClick={handleExportChat}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#1b1e26] hover:bg-[#252934] border border-white/5 hover:border-[#00ff73]/40 transition-colors cursor-pointer"
+                title="Export Chat History"
+              >
+                <Download className="w-5 h-5 text-[#00ff73] mb-1" />
+                <span className="text-[11px] font-semibold text-gray-200">Export</span>
+              </button>
             </div>
 
             {/* Shared Media Section */}
-            {sharedAttachments.length > 0 && (
-              <div className="mt-4">
-                <span className="text-xs font-bold text-gray-300 block mb-2 px-1">
-                  Shared Files & Media ({sharedAttachments.length})
-                </span>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Shared Media</span>
+                <span className="text-[10px] font-mono text-gray-500">{sharedAttachments.length} items</span>
+              </div>
+
+              {sharedAttachments.length === 0 ? (
+                <div className="p-3 bg-[#1b1e26] rounded-xl text-center text-xs text-gray-500">
+                  No photos or files shared yet.
+                </div>
+              ) : (
                 <div className="grid grid-cols-4 gap-2">
-                  {sharedAttachments.slice(0, 8).map((att) => (
+                  {sharedAttachments.slice(0, 8).map((att, idx) => (
                     <div
-                      key={att.id}
-                      onClick={() => setPreviewAttachment(att)}
-                      className="h-16 rounded-xl overflow-hidden bg-[#1f2129] border border-[#2d303b] hover:border-[#00ff73] cursor-pointer flex items-center justify-center transition-all group relative"
+                      key={idx}
+                      onClick={() => att.type === 'image' && setPreviewAttachment(att)}
+                      className="h-16 rounded-xl overflow-hidden bg-black/40 border border-white/5 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                     >
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
                       ) : (
-                        <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73]" />
+                        <FileText className="w-6 h-6 text-[#00ff73]" />
                       )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Friend Status Action Button (Add to Friends or Remove from Friends) */}
-            {isFriend ? (
-              onRemoveFriend && (
+            {/* Danger / Manage Section: Block & Remove Friend */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              {onToggleBlock && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onRemoveFriend();
-                    onClose();
-                  }}
-                  className="w-full mt-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 font-bold text-xs rounded-xl transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                  onClick={onToggleBlock}
+                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    isBlocked
+                      ? 'bg-[#00ff73]/15 text-[#00ff73] border border-[#00ff73]/30'
+                      : 'bg-white/5 hover:bg-rose-500/15 text-rose-400 border border-transparent hover:border-rose-500/30'
+                  }`}
                 >
-                  <UserMinus className="w-4 h-4" />
-                  <span>Remove from Friends</span>
+                  <Ban className="w-4 h-4" />
+                  <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
                 </button>
-              )
-            ) : (
-              onAddFriend && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAddFriend();
-                    onClose();
-                  }}
-                  className="w-full mt-4 py-2.5 bg-[#00ff73] hover:bg-[#1aff85] text-black font-bold text-xs rounded-xl shadow-neon-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Add to Friends</span>
-                </button>
-              )
-            )}
+              )}
+
+              {isFriend ? (
+                onRemoveFriend && (
+                  <button
+                    type="button"
+                    onClick={onRemoveFriend}
+                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/15 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                  >
+                    <UserMinus className="w-4 h-4" />
+                    <span>Remove from Friends</span>
+                  </button>
+                )
+              ) : (
+                onAddFriend && (
+                  <button
+                    type="button"
+                    onClick={onAddFriend}
+                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-[#00ff73] hover:bg-[#1aff85] text-black text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Add to Friends</span>
+                  </button>
+                )
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Shared Attachment Lightbox */}
-      {previewAttachment && (
-        <div
-          onClick={() => setPreviewAttachment(null)}
-          className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4"
-        >
-          <div className="relative max-w-xl max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
-            {previewAttachment.type === 'image' ? (
-              <img src={previewAttachment.url} alt={previewAttachment.name} className="max-h-[75vh] max-w-full rounded-2xl object-contain" />
-            ) : (
-              <div className="bg-[#1b1d24] p-6 rounded-2xl border border-gray-700 text-white flex flex-col items-center">
-                <FileText className="w-12 h-12 text-[#00ff73] mb-2" />
-                <p className="text-sm font-bold">{previewAttachment.name}</p>
-                <a href={previewAttachment.url} download={previewAttachment.name} className="mt-3 px-4 py-2 bg-[#00ff73] text-black font-bold text-xs rounded-xl">Download File</a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

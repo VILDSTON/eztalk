@@ -227,29 +227,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   className="w-full bg-[#23242c] border border-white/10 focus:border-[#00ff73] rounded-xl px-3.5 py-2 text-sm text-white outline-none resize-none transition-colors"
                 />
               </div>
-
-              {/* Status Badge Switcher */}
-              <div>
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
-                  Status
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {(['Online', 'Away', 'Busy', 'Offline'] as const).map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => setStatus(st)}
-                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                        status === st
-                          ? 'bg-[#00ff73] text-black shadow-xs'
-                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 

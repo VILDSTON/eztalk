@@ -5,7 +5,6 @@ import {
   CheckCheck,
   Download,
   X,
-  ExternalLink,
   Play,
   Pause,
   CornerUpLeft,
@@ -83,14 +82,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       audioRef.current = audio;
 
       audio.ontimeupdate = () => {
-        if (audio.duration) {
-          setAudioProgress((audio.currentTime / audio.duration) * 100);
-        }
+        const total =
+          audio.duration && isFinite(audio.duration) && audio.duration > 0
+            ? audio.duration
+            : message.attachment?.duration || 1;
+        setAudioProgress(Math.min(100, (audio.currentTime / total) * 100));
       };
 
       audio.onended = () => {
         setIsPlaying(false);
         setAudioProgress(0);
+      };
+
+      audio.onerror = () => {
+        setIsPlaying(false);
       };
 
       return () => {
@@ -107,7 +112,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
   };
@@ -137,11 +142,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </span>
         )}
 
-        {/* Hover Quick Action Toolbar */}
+        {/* Hover Quick Action Toolbar with clean offset */}
         <div
-          className={`absolute -top-7 ${
-            isMe ? 'right-2' : 'left-2'
-          } hidden group-hover/bubble:flex items-center space-x-0.5 bg-[#1f2026]/95 border border-white/10 p-1 rounded-full shadow-xl z-20 animate-fade-in backdrop-blur-md`}
+          className={`absolute -top-8.5 ${
+            isMe ? 'right-0' : 'left-0'
+          } hidden group-hover/bubble:flex items-center space-x-0.5 bg-[#171821] border border-white/15 p-1 rounded-full shadow-2xl z-30 animate-fade-in backdrop-blur-xl`}
         >
           {/* Reaction Picker Button */}
           <div className="relative">
@@ -156,7 +161,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
             {/* Quick Emoji Reaction Popup */}
             {showEmojiMenu && (
-              <div className="absolute bottom-8 left-0 flex items-center space-x-1 bg-[#1f2026] border border-white/15 p-1.5 rounded-full shadow-2xl z-30 animate-fade-in backdrop-blur-xl">
+              <div className="absolute bottom-8 left-0 flex items-center space-x-1 bg-[#1f2026] border border-white/15 p-1.5 rounded-full shadow-2xl z-40 animate-fade-in backdrop-blur-xl">
                 {EMOJI_OPTIONS.map((emoji) => (
                   <button
                     key={emoji}
@@ -241,9 +246,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Voice Audio Message */}
+          {/* Voice Audio Message Player */}
           {message.attachment?.type === 'audio' && (
-            <div className="flex items-center space-x-2.5 py-1 pr-2 min-w-[200px]">
+            <div className="flex items-center space-x-2.5 py-1 pr-2 min-w-[210px]">
               <button
                 type="button"
                 onClick={togglePlayAudio}
@@ -258,7 +263,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-gray-400 font-mono mt-1">Voice message</span>
+                <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono mt-1">
+                  <span>Voice message</span>
+                  <span>{message.attachment.duration ? `0:0${message.attachment.duration}` : '0:05'}</span>
+                </div>
               </div>
             </div>
           )}
