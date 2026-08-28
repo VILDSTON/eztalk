@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: #08080a;
+  color: #f1f5f9;
+  user-select: none;
+}
+
+/* Custom glowing effects */
+.neon-glow-btn {
+  background-color: #00ff73;
+  box-shadow: 0 0 25px 3px rgba(0, 255, 115, 0.48), 0 0 10px 1px rgba(0, 255, 115, 0.35);
+  transition: all 0.2s ease-in-out;
+}
+
+.neon-glow-btn:hover {
+  background-color: #1aff85;
+  box-shadow: 0 0 35px 6px rgba(0, 255, 115, 0.65), 0 0 15px 2px rgba(0, 255, 115, 0.45);
+  transform: translateY(-1px);
+}
+
+.neon-glow-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 18px 2px rgba(0, 255, 115, 0.4);
+}
+
+.neon-dot {
+  background-color: #00ff73;
+  box-shadow: 0 0 8px #00ff73, 0 0 14px rgba(0, 255, 115, 0.6);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 12px rgba(0, 255, 115, 0.4);
+}
+
+/* Custom Scrollbar for Chat Thread */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Chrome tab curve aesthetics */
+.tab-active-shape {
+  position: relative;
+  background-color: #121316;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+/* Subtle border outline */
+.subtle-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
