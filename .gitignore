@@ -7,7 +7,6 @@ dist-ssr/
 *.local
 
 # Environment variables
-.env
 .env.production
 .env.local
 
