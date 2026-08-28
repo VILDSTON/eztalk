@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { SquarePen, Users, Search, X, Trash2, Globe, MessageSquare, Flame } from 'lucide-react';
+import {
+  Menu,
+  Search,
+  X,
+  SquarePen,
+  Users,
+  CheckCheck,
+  Globe,
+  Trash2,
+  Bookmark,
+} from 'lucide-react';
 import { User, Group } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
@@ -12,24 +22,11 @@ interface FriendsListProps {
   groups?: Group[];
   selectedUserId: string;
   selectedGroupId?: string | null;
+  onOpenMenu?: () => void;
   onSelectUser: (user: User) => void;
   onSelectGroup?: (group: Group) => void;
   onCreateGroup?: (name: string, avatar: string, memberHandles: string[]) => void;
   onDeleteGroup?: (groupId: string) => void;
-}
-
-function getStatusDotColor(status: string): string {
-  switch (status) {
-    case 'Online':
-      return 'bg-[#00ff73] shadow-[0_0_8px_#00ff73]';
-    case 'Away':
-      return 'bg-amber-400 shadow-[0_0_8px_#fbbf24]';
-    case 'Busy':
-      return 'bg-rose-500 shadow-[0_0_8px_#f43f5e]';
-    case 'Offline':
-    default:
-      return 'bg-slate-500 shadow-[0_0_6px_rgba(148,163,184,0.4)]';
-  }
 }
 
 export const FriendsList: React.FC<FriendsListProps> = ({
@@ -39,6 +36,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   groups = [],
   selectedUserId,
   selectedGroupId,
+  onOpenMenu,
   onSelectUser,
   onSelectGroup,
   onCreateGroup,
@@ -47,13 +45,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
 
   const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
 
-  // 1. Direct active chats
+  // Filter users
   const matchedUsers = users.filter((u) => {
-    if (filterTab === 'online' && u.status !== 'Online') return false;
+    if (activeTab === 'online' && u.status !== 'Online') return false;
     if (!cleanQuery) return true;
     return (
       u.handle.toLowerCase().replace('@', '').includes(cleanQuery) ||
@@ -61,20 +59,20 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       (u.bio && u.bio.toLowerCase().includes(cleanQuery))
     );
   });
-  const filteredUsers = cleanQuery ? matchedUsers.slice(0, 5) : matchedUsers;
+  const filteredUsers = cleanQuery ? matchedUsers.slice(0, 6) : matchedUsers;
 
-  // 2. Groups
+  // Filter groups
   const matchedGroups = groups.filter((g) => {
-    if (filterTab === 'online') return false;
+    if (activeTab === 'online') return false;
     if (!cleanQuery) return true;
     return (
       g.name.toLowerCase().includes(cleanQuery) ||
       g.memberHandles.some((h) => h.toLowerCase().replace('@', '').includes(cleanQuery))
     );
   });
-  const filteredGroups = cleanQuery ? matchedGroups.slice(0, 5) : matchedGroups;
+  const filteredGroups = cleanQuery ? matchedGroups.slice(0, 6) : matchedGroups;
 
-  // 3. Global Search: Registered users across website not in existing active filtered chats
+  // Global search across all users
   const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
   const existingChatHandles = new Set(filteredUsers.map((u) => normalizeHandle(u.handle).toLowerCase()));
 
@@ -95,63 +93,48 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   return (
     <>
-      <div className="w-80 flex flex-col py-4 px-3.5 border-r border-white/5 bg-[#0d0e12] select-none shrink-0 overflow-hidden font-sans">
-        {/* Header with "Chats", Group Create & Compose */}
-        <div className="flex items-center justify-between px-1 mb-3">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-lg font-black text-white tracking-tight">Messages</h2>
-            <span className="text-[11px] font-mono text-[#00ff73] bg-[#00ff73]/10 px-2 py-0.5 rounded-full font-bold border border-[#00ff73]/20">
-              {filteredUsers.length + filteredGroups.length}
-            </span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <button
-              type="button"
-              onClick={() => setIsGroupModalOpen(true)}
-              className="text-gray-400 hover:text-[#00ff73] p-1.5 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
-              title="Create group chat"
-            >
-              <Users className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsComposeOpen(true)}
-              className="text-[#00ff73] hover:text-[#39ff8e] p-1.5 rounded-xl hover:bg-[#00ff73]/10 transition-all cursor-pointer border border-[#00ff73]/20"
-              title="Start direct chat"
-            >
-              <SquarePen className="w-4 h-4" />
-            </button>
+      <div className="w-88 sm:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
+        {/* Telegram Top Bar: Hamburger Menu + Search */}
+        <div className="p-3 pb-2 flex items-center space-x-2.5">
+          {/* Hamburger Menu Button */}
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            title="Open Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Search Input Box */}
+          <div className="relative flex-1 flex items-center">
+            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className="w-full bg-[#1c1e24] focus:bg-[#22252d] border border-transparent focus:border-[#00ff73]/40 rounded-full pl-9.5 pr-8 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 text-gray-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Live Global Search Bar */}
-        <div className="relative flex items-center mb-3">
-          <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search chats & users..."
-            className="w-full bg-[#13151b] border border-white/5 focus:border-[#00ff73]/50 rounded-xl pl-8.5 pr-7 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all shadow-inner focus:shadow-[0_0_15px_rgba(0,255,115,0.15)]"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 text-gray-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Quick Filter Tags */}
+        {/* Telegram Folder Tabs: All Chats / Direct / Groups / Online */}
         {!searchQuery && (
-          <div className="flex items-center space-x-1 mb-3 px-0.5">
+          <div className="flex items-center px-3 border-b border-white/5 overflow-x-auto custom-scrollbar">
             {(
               [
-                { id: 'all', label: 'All' },
-                { id: 'direct', label: 'Direct' },
+                { id: 'all', label: 'All Chats' },
+                { id: 'direct', label: 'Personal' },
                 { id: 'groups', label: 'Groups' },
                 { id: 'online', label: 'Online' },
               ] as const
@@ -159,11 +142,11 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setFilterTab(tab.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                  filterTab === tab.id
-                    ? 'bg-[#00ff73] text-black shadow-[0_0_10px_rgba(0,255,115,0.3)]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-3 text-xs font-semibold tracking-wide border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-[#00ff73] text-[#00ff73] font-bold'
+                    : 'border-transparent text-gray-400 hover:text-gray-200'
                 }`}
               >
                 {tab.label}
@@ -172,52 +155,44 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           </div>
         )}
 
-        {/* Chats, Groups & Global Search Results List */}
-        <div className="flex flex-col space-y-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
+        {/* Chat List Stream */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-1">
           {/* Groups Section */}
-          {(filterTab === 'all' || filterTab === 'groups') && filteredGroups.length > 0 && (
-            <div className="mb-2">
-              <div className="px-2 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                Groups ({filteredGroups.length})
-              </div>
-              <div className="space-y-1 mt-1">
-                {filteredGroups.map((group) => {
-                  const isSelected = selectedGroupId === group.id;
-                  return (
-                    <div
-                      key={group.id}
-                      onClick={() => onSelectGroup && onSelectGroup(group)}
-                      className={`group/item relative flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all duration-150 border ${
-                        isSelected
-                          ? 'bg-[#181a22] text-white shadow-md border-[#00ff73]/40'
-                          : 'hover:bg-white/5 text-gray-300 border-transparent hover:border-white/5'
-                      }`}
-                    >
-                      {/* Active Indicator Line */}
-                      {isSelected && (
-                        <div className="absolute left-0 top-3 bottom-3 w-1 bg-[#00ff73] rounded-r-full shadow-[0_0_8px_#00ff73]" />
-                      )}
+          {(activeTab === 'all' || activeTab === 'groups') &&
+            filteredGroups.map((group) => {
+              const isSelected = selectedGroupId === group.id;
+              return (
+                <div
+                  key={group.id}
+                  onClick={() => onSelectGroup && onSelectGroup(group)}
+                  className={`group/item flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
+                    isSelected
+                      ? 'bg-[#1a2e23] border-l-3 border-[#00ff73]'
+                      : 'hover:bg-white/5 border-l-3 border-transparent'
+                  }`}
+                >
+                  {/* Group Avatar */}
+                  <div className="relative shrink-0 mr-3">
+                    <img
+                      src={group.avatar}
+                      alt={group.name}
+                      className="w-13 h-13 rounded-full object-cover border border-white/10 bg-gray-800"
+                    />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[9px] font-bold border border-[#111216]">
+                      <Users className="w-2.5 h-2.5" />
+                    </div>
+                  </div>
 
-                      <div className="flex items-center space-x-3 min-w-0 flex-1 pl-1">
-                        <div className="relative shrink-0">
-                          <img
-                            src={group.avatar}
-                            alt={group.name}
-                            className="w-10 h-10 rounded-full object-cover border border-white/10 bg-gray-800"
-                          />
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[8px] font-bold border border-[#0d0e12]">
-                            <Users className="w-2 h-2" />
-                          </div>
-                        </div>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-xs font-bold text-white truncate">{group.name}</span>
-                          <span className="text-[11px] text-gray-400 truncate">
-                            {group.memberHandles.length} members
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Hover Delete Group button */}
+                  {/* Group Details */}
+                  <div className="flex-1 min-w-0 pr-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-white truncate">{group.name}</span>
+                      <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-2">Group</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-xs text-gray-400 truncate">
+                        {group.memberHandles.length} members ({group.memberHandles.slice(0, 2).join(', ')}...)
+                      </span>
                       {onDeleteGroup && (
                         <button
                           type="button"
@@ -225,133 +200,125 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                             e.stopPropagation();
                             onDeleteGroup(group.id);
                           }}
-                          className="opacity-0 group-hover/item:opacity-100 p-1.5 text-gray-400 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer shrink-0 ml-1"
+                          className="opacity-0 group-hover/item:opacity-100 p-1 text-gray-400 hover:text-red-400 rounded cursor-pointer transition-opacity ml-1"
                           title="Delete group"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Direct Chats Section */}
-          {(filterTab === 'all' || filterTab === 'direct' || filterTab === 'online') && (
-            <div>
-              {filteredGroups.length > 0 && filterTab === 'all' && (
-                <div className="px-2 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                  Direct Chats ({filteredUsers.length})
-                </div>
-              )}
-              {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 ? (
-                <div className="text-xs text-gray-500 italic p-6 text-center bg-white/2 rounded-2xl border border-white/5 mt-2">
-                  {searchQuery ? 'No users found matching search' : 'No chats yet. Click + to start.'}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredUsers.map((user) => {
-                    const isSelected = !selectedGroupId && user.id === selectedUserId;
-                    return (
-                      <div
-                        key={user.id}
-                        onClick={() => onSelectUser(user)}
-                        className={`group/useritem relative flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all duration-150 border ${
-                          isSelected
-                            ? 'bg-[#181a22] text-white shadow-md border-[#00ff73]/40'
-                            : 'hover:bg-white/5 text-gray-300 border-transparent hover:border-white/5'
-                        }`}
-                      >
-                        {/* Active Indicator Line */}
-                        {isSelected && (
-                          <div className="absolute left-0 top-3 bottom-3 w-1 bg-[#00ff73] rounded-r-full shadow-[0_0_8px_#00ff73]" />
-                        )}
-
-                        <div className="flex items-center space-x-3 min-w-0 flex-1 pl-1">
-                          {/* Avatar with status dot badge */}
-                          <div className="relative shrink-0">
-                            <img
-                              src={user.avatar}
-                              alt={user.handle}
-                              className="w-10 h-10 rounded-full object-cover border border-white/10 bg-gray-800"
-                            />
-                            {/* Dynamic badge indicator */}
-                            <div
-                              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d0e12] ${getStatusDotColor(
-                                user.status
-                              )}`}
-                              title={user.status}
-                            />
-                          </div>
-
-                          {/* Contact Info */}
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold truncate text-white">
-                                {user.name || user.handle}
-                              </span>
-                              {user.statusEmoji && (
-                                <span className="text-xs shrink-0">{user.statusEmoji}</span>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-gray-400 font-mono truncate">
-                              {user.handle}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Global Search Results (Registered Website Users) */}
-          {cleanQuery && globalResults.length > 0 && (
-            <div className="mt-2.5 pt-2.5 border-t border-white/5">
-              <div className="px-2 py-1 text-[10px] uppercase font-bold text-[#00ff73] tracking-wider flex items-center space-x-1.5">
-                <Globe className="w-3 h-3 animate-spin" />
-                <span>Global Users Found</span>
-              </div>
-              <div className="space-y-1 mt-1">
-                {globalResults.map((user) => (
-                  <div
-                    key={user.id}
-                    onClick={() => {
-                      onSelectUser(user);
-                      setSearchQuery('');
-                    }}
-                    className="flex items-center justify-between p-2 rounded-xl hover:bg-[#00ff73]/10 text-gray-300 hover:text-white cursor-pointer transition-colors border border-dashed border-[#00ff73]/30"
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                      <div className="relative shrink-0">
-                        <img
-                          src={user.avatar}
-                          alt={user.handle}
-                          className="w-8 h-8 rounded-full object-cover border border-[#00ff73]/40"
-                        />
-                      </div>
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-white truncate">
-                          {user.name || user.handle}
-                        </span>
-                        <span className="text-[10px] text-[#00ff73] font-mono truncate">
-                          {user.handle}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-black bg-[#00ff73] px-2 py-0.5 rounded-lg shrink-0">
-                      Message
-                    </span>
                   </div>
-                ))}
+                </div>
+              );
+            })}
+
+          {/* Direct Chats */}
+          {(activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
+            filteredUsers.map((user) => {
+              const isSelected = !selectedGroupId && user.id === selectedUserId;
+              return (
+                <div
+                  key={user.id}
+                  onClick={() => onSelectUser(user)}
+                  className={`group/user flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
+                    isSelected
+                      ? 'bg-[#1a2e23] border-l-3 border-[#00ff73]'
+                      : 'hover:bg-white/5 border-l-3 border-transparent'
+                  }`}
+                >
+                  {/* User Avatar with Status */}
+                  <div className="relative shrink-0 mr-3">
+                    <img
+                      src={user.avatar}
+                      alt={user.handle}
+                      className="w-13 h-13 rounded-full object-cover border border-white/10 bg-gray-800"
+                    />
+                    <div
+                      className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#111216] ${
+                        user.status === 'Online'
+                          ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]'
+                          : user.status === 'Away'
+                          ? 'bg-amber-400'
+                          : user.status === 'Busy'
+                          ? 'bg-rose-500'
+                          : 'bg-slate-400'
+                      }`}
+                    />
+                  </div>
+
+                  {/* User Details */}
+                  <div className="flex-1 min-w-0 pr-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-white truncate">
+                        {user.name || user.handle}
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-2">
+                        {user.status === 'Online' ? (
+                          <span className="text-[#00ff73]">online</span>
+                        ) : (
+                          user.status.toLowerCase()
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-xs text-gray-400 truncate">{user.bio || user.handle}</span>
+                      {user.statusEmoji && (
+                        <span className="text-xs shrink-0 ml-1.5">{user.statusEmoji}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+          {/* Empty State */}
+          {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && (
+            <div className="py-16 px-4 text-center text-gray-500 text-xs">
+              <p className="font-semibold text-gray-300">No chats found</p>
+              <p className="mt-1 text-gray-500">Tap the pencil button below to start a conversation.</p>
+            </div>
+          )}
+
+          {/* Global Search Results */}
+          {cleanQuery && globalResults.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/5 px-3">
+              <div className="px-1 py-1 text-[11px] font-bold text-[#00ff73] uppercase tracking-wider flex items-center space-x-1.5 mb-1">
+                <Globe className="w-3.5 h-3.5 animate-spin" />
+                <span>Global Search</span>
               </div>
+              {globalResults.map((user) => (
+                <div
+                  key={user.id}
+                  onClick={() => {
+                    onSelectUser(user);
+                    setSearchQuery('');
+                  }}
+                  className="flex items-center px-2 py-2 rounded-2xl hover:bg-white/5 cursor-pointer transition-colors"
+                >
+                  <img
+                    src={user.avatar}
+                    alt={user.handle}
+                    className="w-10 h-10 rounded-full object-cover border border-[#00ff73]/30 mr-3"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">{user.name || user.handle}</span>
+                    <span className="text-[11px] text-[#00ff73] font-mono block truncate">{user.handle}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+
+        {/* Telegram Floating Action Button (FAB - New Chat / Compose) */}
+        <button
+          type="button"
+          onClick={() => setIsComposeOpen(true)}
+          className="absolute bottom-6 right-6 w-13 h-13 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.45)] hover:shadow-[0_4px_30px_rgba(0,255,115,0.65)] transition-all hover:scale-108 active:scale-95 flex items-center justify-center cursor-pointer z-20 border border-[#00ff73]"
+          title="New Message"
+        >
+          <SquarePen className="w-6 h-6" />
+        </button>
       </div>
 
       {/* Direct Chat Compose Modal */}

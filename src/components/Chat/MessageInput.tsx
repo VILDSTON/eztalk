@@ -35,7 +35,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync editing text if editingMessage changes
   useEffect(() => {
     if (editingMessage) {
       setInputText(editingMessage.text);
@@ -43,7 +42,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   }, [editingMessage]);
 
-  // Clean up recording timer on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -107,7 +105,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     e.target.value = '';
   };
 
-  // Start Voice Recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -137,7 +134,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // Stop & Send Voice Recording
   const stopAndSendRecording = () => {
     if (!mediaRecorderRef.current || !isRecording) return;
 
@@ -172,7 +168,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     setRecordingSeconds(0);
   };
 
-  // Cancel Recording
   const cancelRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -197,193 +192,186 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   ];
 
   return (
-    <div className="px-5 pt-2 pb-4 bg-[#0f1014] relative select-none font-sans">
-      {/* Hidden File Input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*,.pdf,.doc,.txt"
-      />
+    <div className="w-full bg-[#111216] border-t border-white/5 select-none font-sans">
+      <div className="max-w-3xl mx-auto px-4 py-2 relative">
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept="image/*,.pdf,.doc,.txt"
+        />
 
-      {/* Quoted Message Banner */}
-      {replyingTo && (
-        <div className="mb-2 flex items-center justify-between bg-[#171922] border border-[#00ff73]/30 px-4 py-2 rounded-2xl text-xs text-gray-200 animate-fade-in shadow-md">
-          <div className="flex items-center space-x-2 min-w-0 pr-2">
-            <CornerUpLeft className="w-4 h-4 text-[#00ff73] shrink-0" />
-            <div className="truncate">
-              <span className="font-bold text-[#00ff73] mr-1.5">{replyingTo.senderHandle}:</span>
-              <span className="text-gray-300 italic truncate">{replyingTo.text || 'Attachment'}</span>
+        {/* Quoted Message Banner */}
+        {replyingTo && (
+          <div className="mb-2 flex items-center justify-between bg-[#1b1d24] border-l-3 border-[#00ff73] px-3 py-1.5 rounded-lg text-xs animate-fade-in">
+            <div className="flex items-center space-x-2 min-w-0 pr-2">
+              <CornerUpLeft className="w-4 h-4 text-[#00ff73] shrink-0" />
+              <div className="truncate">
+                <span className="font-bold text-[#00ff73] mr-1.5">{replyingTo.senderHandle}:</span>
+                <span className="text-gray-300 italic truncate">{replyingTo.text || 'Attachment'}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelReply}
+              className="text-gray-400 hover:text-white p-1 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Editing Message Banner */}
+        {editingMessage && (
+          <div className="mb-2 flex items-center justify-between bg-[#1b1d24] border-l-3 border-amber-500 px-3 py-1.5 rounded-lg text-xs text-amber-400 animate-fade-in">
+            <div className="flex items-center space-x-2 min-w-0">
+              <Edit3 className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-semibold">Editing message</span>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="text-gray-400 hover:text-white p-1 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Emoji Picker Popup */}
+        {showEmojiPicker && (
+          <div className="absolute bottom-16 right-6 bg-[#1b1d24] border border-white/10 p-3 rounded-2xl shadow-2xl z-30 animate-fade-in max-w-xs backdrop-blur-md">
+            <div className="text-[11px] font-bold text-gray-400 mb-2 px-1 uppercase tracking-wider">
+              Emoji
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {commonEmojis.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => addEmoji(emoji)}
+                  className="text-xl hover:scale-130 p-2 rounded-xl hover:bg-white/10 transition-transform cursor-pointer"
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onCancelReply}
-            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Editing Message Banner */}
-      {editingMessage && (
-        <div className="mb-2 flex items-center justify-between bg-[#171922] border border-amber-500/40 px-4 py-2 rounded-2xl text-xs text-amber-400 animate-fade-in shadow-md">
-          <div className="flex items-center space-x-2 min-w-0">
-            <Edit3 className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="font-semibold">Editing message</span>
+        {/* Attachment Preview */}
+        {currentAttachment && (
+          <div className="mb-2 flex items-center space-x-2.5 bg-[#1b1d24] border border-white/10 p-2 rounded-xl max-w-sm animate-fade-in">
+            {currentAttachment.type === 'image' ? (
+              <img
+                src={currentAttachment.url}
+                alt="preview"
+                className="w-10 h-10 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
+                <Paperclip className="w-4 h-4 text-[#00ff73]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 pr-2">
+              <p className="text-xs font-semibold text-white truncate">{currentAttachment.name}</p>
+              <p className="text-[10px] text-gray-400">{currentAttachment.size}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentAttachment(null)}
+              className="text-gray-400 hover:text-white p-1 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Emoji Picker Popup */}
-      {showEmojiPicker && (
-        <div className="absolute bottom-20 left-8 bg-[#171821] border border-white/10 p-3 rounded-2xl shadow-2xl z-30 animate-fade-in max-w-xs backdrop-blur-2xl">
-          <div className="text-[11px] font-bold text-gray-400 mb-2 px-1 uppercase tracking-wider">Quick Reactions</div>
-          <div className="grid grid-cols-5 gap-1.5">
-            {commonEmojis.map((emoji) => (
+        {/* Voice Recording State */}
+        {isRecording ? (
+          <div className="h-11 bg-[#1c1e24] border border-rose-500/40 rounded-full flex items-center justify-between px-4 animate-pulse">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+              <span className="text-xs font-bold text-rose-400 font-mono">
+                Recording: {formatTimer(recordingSeconds)}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
               <button
-                key={emoji}
                 type="button"
-                onClick={() => addEmoji(emoji)}
-                className="text-xl hover:scale-130 hover:bg-white/10 p-2 rounded-xl transition-all text-center cursor-pointer"
+                onClick={cancelRecording}
+                className="p-1.5 rounded-full text-gray-400 hover:text-rose-400 hover:bg-white/10 cursor-pointer"
               >
-                {emoji}
+                <Trash2 className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Attachment Preview */}
-      {currentAttachment && (
-        <div className="mb-2.5 flex items-center space-x-3 bg-[#171922] border border-white/10 p-2.5 rounded-2xl max-w-sm animate-fade-in shadow-md">
-          {currentAttachment.type === 'image' ? (
-            <img
-              src={currentAttachment.url}
-              alt="attachment preview"
-              className="w-12 h-12 rounded-xl object-cover border border-white/10"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gray-300 border border-white/10">
-              <Paperclip className="w-5 h-5 text-[#00ff73]" />
+              <button
+                type="button"
+                onClick={stopAndSendRecording}
+                className="w-8 h-8 rounded-full bg-[#00ff73] text-black flex items-center justify-center cursor-pointer shadow-xs"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
-          )}
-          <div className="flex-1 min-w-0 pr-2">
-            <p className="text-xs font-bold text-white truncate">{currentAttachment.name}</p>
-            <p className="text-[10px] text-gray-400">{currentAttachment.size}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setCurrentAttachment(null)}
-            className="text-gray-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Voice Recording Active Bar */}
-      {isRecording ? (
-        <div className="h-13 bg-[#181920] border border-rose-500/50 rounded-2xl flex items-center justify-between px-4 animate-pulse shadow-[0_0_20px_rgba(244,63,94,0.25)]">
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-            <span className="text-xs font-bold text-rose-400 tracking-wide font-mono">
-              Recording Voice Note: {formatTimer(recordingSeconds)}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2">
+        ) : (
+          /* Telegram Standard Input Bar */
+          <form onSubmit={handleSend} className="flex items-center space-x-2">
+            {/* Attachment Button */}
             <button
               type="button"
-              onClick={cancelRecording}
-              className="p-2 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-              title="Cancel recording"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+              title="Attach File"
             >
-              <Trash2 className="w-4 h-4" />
+              <Paperclip className="w-5 h-5" />
             </button>
-            <button
-              type="button"
-              onClick={stopAndSendRecording}
-              className="p-2.5 rounded-xl bg-[#00ff73] text-black hover:bg-[#1aff85] transition-all shadow-[0_0_15px_rgba(0,255,115,0.4)] cursor-pointer"
-              title="Send voice message"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Regular Message Input Floating Capsule Bar */
-        <form
-          onSubmit={handleSend}
-          className="h-13 bg-[#16171e] border border-white/10 focus-within:border-[#00ff73]/60 focus-within:shadow-[0_0_20px_rgba(0,255,115,0.15)] rounded-2xl flex items-center px-3.5 transition-all duration-200 backdrop-blur-md"
-        >
-          {/* Paperclip attachment button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
-            title="Attach image or file"
-          >
-            <Paperclip className="w-4.5 h-4.5" />
-          </button>
 
-          {/* Emoji button */}
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer ml-0.5"
-            title="Insert emoji"
-          >
-            <Smile className="w-4.5 h-4.5" />
-          </button>
+            {/* Input Box */}
+            <div className="flex-1 flex items-center bg-[#1c1e24] rounded-2xl px-4 py-2 border border-transparent focus-within:border-[#00ff73]/30 transition-all">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={editingMessage ? 'Edit your message...' : 'Write a message...'}
+                className="flex-1 bg-transparent border-none outline-none text-sm text-gray-100 placeholder-gray-500 font-sans min-w-0"
+              />
 
-          {/* Text Input */}
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={editingMessage ? 'Edit your message...' : `Message ${recipientHandle || 'in chat'}...`}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-100 placeholder-gray-500 px-3 min-w-0 font-sans"
-          />
+              {/* Emoji Button inside input */}
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer ml-1.5 shrink-0"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+            </div>
 
-          {/* Microphone voice button (when no text typed) */}
-          {!inputText.trim() && !currentAttachment && !editingMessage && (
-            <button
-              type="button"
-              onClick={startRecording}
-              className="text-gray-400 hover:text-[#00ff73] p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer mr-1"
-              title="Record voice note"
-            >
-              <Mic className="w-4.5 h-4.5" />
-            </button>
-          )}
-
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!inputText.trim() && !currentAttachment}
-            className={`p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center cursor-pointer ${
-              inputText.trim() || currentAttachment
-                ? 'bg-[#00ff73] text-black shadow-[0_0_15px_rgba(0,255,115,0.4)] hover:scale-105 active:scale-95'
-                : 'bg-transparent text-gray-600 cursor-not-allowed'
-            }`}
-            title={editingMessage ? 'Save edit' : 'Send message'}
-          >
-            {editingMessage ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-          </button>
-        </form>
-      )}
+            {/* Dynamic Mic / Send Action Button (Telegram style) */}
+            {inputText.trim() || currentAttachment || editingMessage ? (
+              <button
+                type="submit"
+                className="w-10 h-10 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black flex items-center justify-center cursor-pointer shadow-xs transition-transform hover:scale-105 shrink-0"
+                title={editingMessage ? 'Save edit' : 'Send'}
+              >
+                {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5 ml-0.5" />}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={startRecording}
+                className="p-2.5 rounded-full text-gray-400 hover:text-[#00ff73] hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                title="Record Voice Note"
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { LeftSidebar } from './components/Sidebar/LeftSidebar';
 import { FriendsList } from './components/Friends/FriendsList';
 import { ChatWindow } from './components/Chat/ChatWindow';
 import { AuthScreen } from './components/Auth/AuthScreen';
 import { IncomingCallModal } from './components/Chat/IncomingCallModal';
 import { CallModal } from './components/Chat/CallModal';
+import { TelegramDrawer } from './components/Sidebar/TelegramDrawer';
+import { EditProfileModal } from './components/Profile/EditProfileModal';
+import { AddFriendModal } from './components/Sidebar/AddFriendModal';
 import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
 import { ChatStorageService, getConversationKey, normalizeHandle } from './utils/chatStorage';
 import { ApiService } from './services/api';
 import { socketService } from './services/socket';
-import { X, MessageSquare, UserPlus } from 'lucide-react';
+import { X, MessageSquare, Send } from 'lucide-react';
 
 // Play audible notification chime on receiving a message
 function playReceiveChime() {
@@ -73,6 +75,11 @@ export default function App() {
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
   const [activeLiveCall, setActiveLiveCall] = useState<{ user: User; isInitiator?: boolean } | null>(null);
   const [toast, setToast] = useState<ToastNotification | null>(null);
+
+  // Telegram Drawer & Modals State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
@@ -648,89 +655,118 @@ export default function App() {
         </div>
       )}
 
-      {/* Main EzTalk Application Body */}
-      <div className="flex-1 flex overflow-hidden bg-[#08080a]">
-        {/* Panel 1: Left Sidebar with Friends ONLY */}
-        <LeftSidebar
+      {/* Main Telegram Web 2-Panel Application Body */}
+      <div className="flex-1 flex overflow-hidden bg-[#0e0f12]">
+        {/* Panel 1: Telegram Chats List Sidebar */}
+        <FriendsList
           currentUser={currentUser}
-          existingUsers={friendsList}
-          myAccounts={myAccounts}
-          onSelectUserByHandle={handleSelectUserByHandle}
-          onAddNewFriend={handleAddNewFriend}
-          onUpdateCurrentUser={handleUpdateCurrentUser}
-          onSwitchUser={handleLogin}
-          onRemoveAccount={handleRemoveAccount}
-          onAddAccount={() => setCurrentUser(null)}
-          onLogout={handleLogout}
+          users={chatUsers}
+          allExistingUsers={allUsers}
+          groups={userGroups}
+          selectedUserId={selectedUserId}
+          selectedGroupId={selectedGroupId}
+          onOpenMenu={() => setIsDrawerOpen(true)}
+          onSelectUser={(u) => {
+            setSelectedUserId(u.id);
+            setSelectedGroupId(null);
+            setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
+          }}
+          onSelectGroup={(g) => {
+            setSelectedGroupId(g.id);
+            setSelectedUserId('');
+          }}
+          onCreateGroup={handleCreateGroup}
+          onDeleteGroup={handleDeleteGroup}
         />
 
-        {/* Main Messenger Area (Panel 2 Chats + Panel 3 Chat Window) */}
-        <div className="flex-1 flex p-3 pl-2 overflow-hidden bg-[#08080a]">
-          <div className="flex-1 flex rounded-2xl border border-white/5 overflow-hidden bg-[#0f1014] shadow-2xl backdrop-blur-2xl">
-            {/* Panel 2: Chats List (Search, Direct Chats, Groups & Global Search) */}
-            <FriendsList
-              currentUser={currentUser}
-              users={chatUsers}
-              allExistingUsers={allUsers}
-              groups={userGroups}
-              selectedUserId={selectedUserId}
-              selectedGroupId={selectedGroupId}
-              onSelectUser={(u) => {
-                setSelectedUserId(u.id);
-                setSelectedGroupId(null);
-                setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
-              }}
-              onSelectGroup={(g) => {
-                setSelectedGroupId(g.id);
-                setSelectedUserId('');
-              }}
-              onCreateGroup={handleCreateGroup}
+        {/* Panel 2: Telegram Chat Window Area */}
+        <div className="flex-1 flex overflow-hidden bg-[#0b0c0e]">
+          {selectedUser || selectedGroup ? (
+            <ChatWindow
+              user={selectedUser}
+              group={selectedGroup}
+              messages={messages}
+              currentUserId={currentUser.id}
+              currentUserHandle={currentUser.handle}
+              isMuted={isSelectedUserMuted}
+              isTyping={isCurrentContactTyping}
+              isFriend={isSelectedUserInFriends}
+              onToggleMute={() => selectedUser && handleToggleMute(selectedUser.id)}
+              onSendMessage={handleSendMessage}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onToggleReaction={handleToggleReaction}
+              onClearChat={handleClearChat}
+              onAddFriend={() => selectedUser && handleAddExistingFriend(selectedUser.handle)}
+              onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
               onDeleteGroup={handleDeleteGroup}
+              onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
             />
-
-            {/* Panel 3: Main Chat Window */}
-            {selectedUser || selectedGroup ? (
-              <ChatWindow
-                user={selectedUser}
-                group={selectedGroup}
-                messages={messages}
-                currentUserId={currentUser.id}
-                currentUserHandle={currentUser.handle}
-                isMuted={isSelectedUserMuted}
-                isTyping={isCurrentContactTyping}
-                isFriend={isSelectedUserInFriends}
-                onToggleMute={() => selectedUser && handleToggleMute(selectedUser.id)}
-                onSendMessage={handleSendMessage}
-                onEditMessage={handleEditMessage}
-                onDeleteMessage={handleDeleteMessage}
-                onToggleReaction={handleToggleReaction}
-                onClearChat={handleClearChat}
-                onAddFriend={() => selectedUser && handleAddExistingFriend(selectedUser.handle)}
-                onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
-                onDeleteGroup={handleDeleteGroup}
-                onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
-              />
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none bg-[#0f1014] relative overflow-hidden">
-                {/* Subtle Ambient Glow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00ff73]/5 rounded-full blur-3xl pointer-events-none" />
-
-                <div className="w-18 h-18 rounded-3xl bg-gradient-to-br from-[#00ff73]/20 to-[#00ff73]/5 border border-[#00ff73]/30 flex items-center justify-center text-[#00ff73] mb-5 shadow-[0_0_30px_rgba(0,255,115,0.2)]">
-                  <UserPlus className="w-8 h-8" />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none telegram-chat-bg relative overflow-hidden">
+              <div className="bg-[#17181c]/80 backdrop-blur-md border border-white/5 p-6 rounded-3xl max-w-sm flex flex-col items-center shadow-xl">
+                <div className="w-16 h-16 rounded-full bg-[#00ff73]/15 text-[#00ff73] flex items-center justify-center text-2xl mb-4 shadow-[0_0_20px_rgba(0,255,115,0.2)]">
+                  <Send className="w-7 h-7 ml-0.5" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Select a conversation</h3>
-                <p className="text-xs text-gray-400 max-w-sm mb-6 leading-relaxed">
-                  Choose an active chat from the messages list or click <span className="text-[#00ff73] font-semibold">New Chat</span> to start messaging with real-time sync and HD voice calls.
+                <h3 className="text-lg font-bold text-white mb-1.5">Select a chat to start messaging</h3>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Choose from your existing conversations or search for contacts to start chatting with instant sync.
                 </p>
-                <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-gray-400 font-mono">
-                  <span className="w-2 h-2 rounded-full bg-[#00ff73] animate-pulse" />
-                  <span>Ready & Connected</span>
-                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Slide-out Telegram Navigation Drawer */}
+      <TelegramDrawer
+        isOpen={isDrawerOpen}
+        currentUser={currentUser}
+        myAccounts={myAccounts}
+        friendsCount={friendsList.length}
+        onClose={() => setIsDrawerOpen(false)}
+        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        onOpenAddFriend={() => setIsAddFriendOpen(true)}
+        onSelectSavedMessages={() => {
+          setSelectedUserId(currentUser.id);
+          setSelectedGroupId(null);
+        }}
+        onUpdateStatus={(st) => {
+          handleUpdateCurrentUser({ ...currentUser, status: st });
+        }}
+        onSwitchAccount={handleLogin}
+        onAddAccount={() => setCurrentUser(null)}
+        onRemoveAccount={handleRemoveAccount}
+        onLogout={handleLogout}
+      />
+
+      {/* Edit Profile Modal */}
+      {isEditProfileOpen && currentUser && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          currentUser={currentUser}
+          existingUsers={allUsers}
+          onClose={() => setIsEditProfileOpen(false)}
+          onSave={(updated) => {
+            handleUpdateCurrentUser(updated);
+            setIsEditProfileOpen(false);
+          }}
+        />
+      )}
+
+      {/* Add Contact / Friend Modal */}
+      {isAddFriendOpen && currentUser && (
+        <AddFriendModal
+          isOpen={isAddFriendOpen}
+          currentUser={currentUser}
+          existingUsers={allUsers}
+          onClose={() => setIsAddFriendOpen(false)}
+          onAddFriend={(friend) => {
+            handleAddNewFriend(friend);
+            setIsAddFriendOpen(false);
+          }}
+        />
+      )}
 
       {/* Real-time Incoming Call Modal */}
       {incomingCall && (

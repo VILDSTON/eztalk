@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, MoreHorizontal, BellOff, Users, Trash2, ShieldCheck } from 'lucide-react';
+import { Phone, MoreVertical, Search, BellOff, Users, Trash2 } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
@@ -16,20 +16,6 @@ interface ChatHeaderProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onStartCall?: () => void;
-}
-
-function getStatusDotColor(status: string): string {
-  switch (status) {
-    case 'Online':
-      return 'bg-[#00ff73] shadow-[0_0_8px_#00ff73]';
-    case 'Away':
-      return 'bg-amber-400 shadow-[0_0_8px_#fbbf24]';
-    case 'Busy':
-      return 'bg-rose-500 shadow-[0_0_8px_#f43f5e]';
-    case 'Offline':
-    default:
-      return 'bg-slate-500 shadow-[0_0_6px_rgba(148,163,184,0.4)]';
-  }
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -50,34 +36,39 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   if (group) {
     return (
-      <div className="h-16 px-6 flex items-center justify-between border-b border-white/5 bg-[#101116]/90 backdrop-blur-md select-none relative z-20 font-sans">
-        <div className="flex items-center space-x-3.5">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-white/5 bg-[#17181c] select-none relative z-20 font-sans">
+        <div className="flex items-center space-x-3 cursor-pointer">
           <div className="relative">
-            <img src={group.avatar} alt={group.name} className="w-10 h-10 rounded-full object-cover border border-white/10 bg-gray-800" />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[8px] font-bold border border-[#101116]">
+            <img
+              src={group.avatar}
+              alt={group.name}
+              className="w-10 h-10 rounded-full object-cover border border-white/10 bg-gray-800"
+            />
+            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[8px] font-bold border border-[#17181c]">
               <Users className="w-2 h-2" />
             </div>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-white tracking-tight">{group.name}</span>
-            <span className="text-[11px] text-gray-400 font-mono">
-              {group.memberHandles.length} members ({group.memberHandles.slice(0, 3).join(', ')}{group.memberHandles.length > 3 ? '...' : ''})
+            <span className="text-sm font-bold text-white tracking-tight leading-tight">{group.name}</span>
+            <span className="text-xs text-gray-400 font-mono">
+              {group.memberHandles.length} members
             </span>
           </div>
         </div>
 
-        {/* Delete Group Action */}
-        {onDeleteGroup && (
-          <button
-            type="button"
-            onClick={onDeleteGroup}
-            className="text-gray-400 hover:text-red-400 p-2 rounded-xl hover:bg-red-500/10 transition-all cursor-pointer flex items-center space-x-1.5"
-            title="Delete group chat for everyone"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="text-xs font-semibold">Delete Group</span>
-          </button>
-        )}
+        {/* Right Actions */}
+        <div className="flex items-center space-x-1 text-gray-400">
+          {onDeleteGroup && (
+            <button
+              type="button"
+              onClick={onDeleteGroup}
+              className="p-2 rounded-full hover:text-red-400 hover:bg-white/10 transition-colors cursor-pointer"
+              title="Delete group"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -86,22 +77,27 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   return (
     <>
-      <div className="h-16 px-6 flex items-center justify-between border-b border-white/5 bg-[#101116]/90 backdrop-blur-md select-none relative z-20 font-sans">
-        {/* Left: Contact Info */}
+      <div className="h-14 px-4 flex items-center justify-between border-b border-white/5 bg-[#17181c] select-none relative z-20 font-sans">
+        {/* Left: Avatar + Title + Status */}
         <div
           onClick={() => setIsProfileOpen(true)}
-          className="flex items-center space-x-3.5 cursor-pointer group"
-          title="Click to view full profile"
+          className="flex items-center space-x-3 cursor-pointer group"
+          title="Click to view profile"
         >
           <div className="relative">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 group-hover:border-[#00ff73] transition-all bg-gray-800 shadow-sm">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 group-hover:border-[#00ff73] transition-colors bg-gray-800">
               <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
             </div>
-            {/* Dynamic dot badge on bottom right */}
             <div
-              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#101116] ${getStatusDotColor(
-                user.status
-              )}`}
+              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#17181c] ${
+                user.status === 'Online'
+                  ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]'
+                  : user.status === 'Away'
+                  ? 'bg-amber-400'
+                  : user.status === 'Busy'
+                  ? 'bg-rose-500'
+                  : 'bg-slate-400'
+              }`}
             />
           </div>
           <div className="flex flex-col min-w-0">
@@ -109,48 +105,47 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <span className="text-sm font-bold text-white tracking-tight group-hover:text-[#00ff73] transition-colors truncate">
                 {user.name || user.handle}
               </span>
-              <ShieldCheck className="w-3.5 h-3.5 text-[#00ff73]" />
-              {user.statusEmoji && <span className="text-xs shrink-0">{user.statusEmoji}</span>}
               {isMuted && (
-                <span title="Notifications muted" className="text-gray-400 shrink-0">
-                  <BellOff className="w-3.5 h-3.5 text-rose-400" />
+                <span title="Notifications muted">
+                  <BellOff className="w-3.5 h-3.5 text-gray-500" />
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2 text-[11px]">
-              <span className="font-mono text-gray-400 truncate">{user.handle}</span>
-              <span className="text-gray-600">•</span>
-              <span className={`font-semibold ${user.status === 'Online' ? 'text-[#00ff73]' : 'text-gray-400'}`}>
-                {user.status}
-              </span>
-            </div>
+            <span
+              className={`text-xs font-mono leading-tight ${
+                user.status === 'Online' ? 'text-[#00ff73] font-medium' : 'text-gray-400'
+              }`}
+            >
+              {user.status === 'Online' ? 'online' : `last seen recently • ${user.status.toLowerCase()}`}
+            </span>
           </div>
         </div>
 
-        {/* Right: Phone & Menu Actions */}
-        <div className="flex items-center space-x-2">
+        {/* Right: Phone, Search, Menu */}
+        <div className="flex items-center space-x-1">
+          {/* Call button */}
           <button
             type="button"
             onClick={() => {
               if (onStartCall) onStartCall();
             }}
-            className="text-black bg-[#00ff73] hover:bg-[#1aff85] p-2.5 rounded-xl shadow-[0_0_15px_rgba(0,255,115,0.35)] hover:shadow-[0_0_25px_rgba(0,255,115,0.55)] transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5 font-bold text-xs"
-            title="Start voice call"
+            className="p-2 rounded-full text-gray-400 hover:text-[#00ff73] hover:bg-white/10 transition-colors cursor-pointer"
+            title="Voice Call"
           >
-            <Phone className="w-4 h-4" />
-            <span className="hidden sm:inline">Call</span>
+            <Phone className="w-5 h-5" />
           </button>
 
+          {/* More options menu button */}
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+            className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
-            <MoreHorizontal className="w-5 h-5" />
+            <MoreVertical className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Top Right Actions Dropdown Menu */}
+        {/* Dropdown Menu */}
         {isMenuOpen && (
           <ChatMenuDropdown
             isOpen={isMenuOpen}

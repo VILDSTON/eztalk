@@ -30,24 +30,24 @@ interface MessageBubbleProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
 }
 
-function formatMessageTime(createdAt?: string, fallbackText?: string): string {
+function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
   if (createdAt) {
     try {
       const d = new Date(createdAt);
       if (!isNaN(d.getTime())) {
-        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
       }
     } catch {
       // ignore
     }
   }
-  if (fallbackText && (fallbackText.includes('AM') || fallbackText.includes('PM') || fallbackText.includes(':'))) {
+  if (fallbackText && (fallbackText.includes(':') || fallbackText.includes('M'))) {
     return fallbackText;
   }
-  return 'Just now';
+  return '12:00';
 }
 
-const EMOJI_OPTIONS = ['❤️', '🔥', '👍', '😂', '🚀', '👏', '😮'];
+const EMOJI_OPTIONS = ['👍', '❤️', '🔥', '😂', '👏', '🚀', '😮', '😢'];
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -74,7 +74,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     (currentUserId && message.senderId === currentUserId) ||
     message.senderId === 'me';
 
-  const timeString = formatMessageTime(message.createdAt, message.timestamp);
+  const timeString = formatTelegramTime(message.createdAt, message.timestamp);
 
   // Audio Playback
   useEffect(() => {
@@ -126,13 +126,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <>
       <div
-        className={`group/bubble relative flex flex-col mb-3.5 ${
+        className={`group/bubble relative flex flex-col mb-1.5 max-w-full ${
           isMe ? 'items-end' : 'items-start'
         } animate-fade-in font-sans`}
       >
-        {/* Group Sender Handle Tag */}
+        {/* Telegram Group Sender Name */}
         {isGroupChat && !isMe && message.senderHandle && (
-          <span className="text-[11px] font-bold text-[#00ff73] mb-1 px-1 font-mono">
+          <span className="text-[12px] font-bold text-[#00ff73] mb-0.5 ml-3">
             {message.senderHandle}
           </span>
         )}
@@ -140,15 +140,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Hover Quick Action Toolbar */}
         <div
           className={`absolute -top-7 ${
-            isMe ? 'right-1' : 'left-1'
-          } hidden group-hover/bubble:flex items-center space-x-1 bg-[#15161c]/95 border border-white/10 p-1 rounded-xl shadow-xl z-20 animate-fade-in backdrop-blur-md`}
+            isMe ? 'right-2' : 'left-2'
+          } hidden group-hover/bubble:flex items-center space-x-0.5 bg-[#1f2026]/95 border border-white/10 p-1 rounded-full shadow-xl z-20 animate-fade-in backdrop-blur-md`}
         >
           {/* Reaction Picker Button */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowEmojiMenu(!showEmojiMenu)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-white/10 transition-all cursor-pointer"
+              className="p-1 rounded-full text-gray-400 hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer"
               title="React"
             >
               <Smile className="w-3.5 h-3.5" />
@@ -156,7 +156,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
             {/* Quick Emoji Reaction Popup */}
             {showEmojiMenu && (
-              <div className="absolute bottom-8 left-0 flex items-center space-x-1.5 bg-[#171821] border border-white/15 p-1.5 rounded-2xl shadow-2xl z-30 animate-fade-in backdrop-blur-xl">
+              <div className="absolute bottom-8 left-0 flex items-center space-x-1 bg-[#1f2026] border border-white/15 p-1.5 rounded-full shadow-2xl z-30 animate-fade-in backdrop-blur-xl">
                 {EMOJI_OPTIONS.map((emoji) => (
                   <button
                     key={emoji}
@@ -174,7 +174,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             )}
           </div>
 
-          {/* Reply Button */}
+          {/* Reply */}
           <button
             type="button"
             onClick={() => {
@@ -186,142 +186,126 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 });
               }
             }}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-[#00ff73] hover:bg-white/10 transition-all cursor-pointer"
+            className="p-1 rounded-full text-gray-400 hover:text-[#00ff73] hover:bg-white/10 transition-colors cursor-pointer"
             title="Reply"
           >
             <CornerUpLeft className="w-3.5 h-3.5" />
           </button>
 
-          {/* Edit Button (Own messages only) */}
+          {/* Edit (Me only) */}
           {isMe && (
             <button
               type="button"
               onClick={() => {
                 if (onEdit) onEdit(message);
               }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-white/10 transition-all cursor-pointer"
-              title="Edit message"
+              className="p-1 rounded-full text-gray-400 hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer"
+              title="Edit"
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
           )}
 
-          {/* Delete Button (Own messages only) */}
+          {/* Delete (Me only) */}
           {isMe && (
             <button
               type="button"
               onClick={() => {
                 if (onDelete) onDelete(message.id);
               }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
-              title="Delete message"
+              className="p-1 rounded-full text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              title="Delete"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Bubble Container with Elevated Aesthetics */}
+        {/* Telegram Bubble Geometry */}
         <div
-          className={`px-4 py-2.5 rounded-2xl max-w-lg text-sm leading-relaxed transition-all ${
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm transition-all ${
             isMe
-              ? 'bg-gradient-to-br from-[#0c2a1c] via-[#091f15] to-[#10141a] text-white border border-[#00ff73]/35 rounded-br-xs shadow-[0_4px_20px_rgba(0,255,115,0.08)]'
-              : 'bg-[#181a22]/95 text-slate-100 border border-white/10 rounded-bl-xs shadow-md backdrop-blur-md'
+              ? 'bg-[#103823] text-white border border-[#00ff73]/25 rounded-br-xs telegram-bubble-out'
+              : 'bg-[#212121] text-slate-100 border border-white/5 rounded-bl-xs telegram-bubble-in'
           }`}
         >
-          {/* Quoted Message Preview inside bubble */}
+          {/* Quoted Message */}
           {message.replyTo && (
             <div
-              className={`mb-2 px-3 py-1.5 rounded-xl border-l-2 text-xs truncate ${
-                isMe
-                  ? 'bg-black/30 border-[#00ff73] text-gray-200'
-                  : 'bg-black/40 border-[#00ff73] text-gray-300'
+              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate ${
+                isMe ? 'bg-black/25 border-[#00ff73]' : 'bg-black/35 border-[#00ff73]'
               }`}
             >
               <span className="font-bold block text-[11px] text-[#00ff73]">{message.replyTo.senderHandle}</span>
-              <span className="italic text-gray-400 truncate block text-[11px]">{message.replyTo.text}</span>
+              <span className="text-gray-300 italic text-[11px] truncate block">{message.replyTo.text}</span>
             </div>
           )}
 
-          {/* Voice Audio Message Player */}
+          {/* Voice Audio Message */}
           {message.attachment?.type === 'audio' && (
-            <div className="flex items-center space-x-3 p-2 rounded-xl mb-1 min-w-[220px] bg-black/30 border border-white/5">
+            <div className="flex items-center space-x-2.5 py-1 pr-2 min-w-[200px]">
               <button
                 type="button"
                 onClick={togglePlayAudio}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#00ff73] text-black hover:scale-105 shadow-[0_0_12px_rgba(0,255,115,0.4)] transition-all cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#00ff73] text-black hover:scale-105 shadow-xs transition-transform cursor-pointer shrink-0"
               >
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
               </button>
-
-              <div className="flex-1 flex flex-col justify-center min-w-0 pr-1">
-                {/* Visual Audio Progress Waveform */}
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden w-full">
+              <div className="flex-1 flex flex-col justify-center min-w-0">
+                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden w-full">
                   <div
-                    className="h-full bg-[#00ff73] transition-all duration-100 rounded-full"
+                    className="h-full bg-[#00ff73] rounded-full transition-all duration-100"
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
-                <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400 font-mono">
-                  <span>Voice Note</span>
-                  <span>{message.attachment.duration ? `0:0${message.attachment.duration}` : '0:05'}</span>
-                </div>
+                <span className="text-[10px] text-gray-400 font-mono mt-1">Voice message</span>
               </div>
             </div>
           )}
 
           {/* Image preview */}
           {message.attachment && message.attachment.type === 'image' && (
-            <div className="mb-2 rounded-xl overflow-hidden">
+            <div className="mb-1 rounded-xl overflow-hidden">
               <div
                 onClick={() => setShowFullImage(true)}
-                className="relative group/img cursor-pointer rounded-xl overflow-hidden bg-black/40 border border-white/5"
+                className="relative cursor-pointer rounded-xl overflow-hidden bg-black/30"
               >
                 <img
                   src={message.attachment.url}
                   alt={message.attachment.name}
-                  className="max-h-64 max-w-full rounded-xl object-contain hover:scale-[1.02] transition-transform"
+                  className="max-h-72 max-w-full rounded-xl object-contain hover:scale-[1.01] transition-transform"
                 />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center space-x-2 text-white transition-opacity">
-                  <span className="text-xs font-semibold bg-black/70 px-3 py-1.5 rounded-xl flex items-center space-x-1.5 border border-white/10">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>View Full Size</span>
-                  </span>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Document / File preview */}
+          {/* Document attachment */}
           {message.attachment && message.attachment.type === 'file' && (
             <div
               onClick={handleDownloadFile}
-              className="flex items-center justify-between space-x-3 p-2.5 rounded-xl cursor-pointer transition-all mb-1 bg-black/30 hover:bg-black/50 border border-white/5"
-              title="Click to download file"
+              className="flex items-center justify-between space-x-2.5 p-2 rounded-xl cursor-pointer bg-black/25 hover:bg-black/40 mb-1 border border-white/5"
             >
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <div className="p-2 rounded-lg bg-[#00ff73]/15 text-[#00ff73] border border-[#00ff73]/20">
-                  <FileText className="w-5 h-5 shrink-0" />
+              <div className="flex items-center space-x-2 min-w-0">
+                <div className="p-1.5 rounded-lg bg-[#00ff73]/20 text-[#00ff73]">
+                  <FileText className="w-4 h-4" />
                 </div>
                 <div className="text-xs truncate min-w-0">
-                  <span className="font-bold block truncate text-white">{message.attachment.name}</span>
-                  <span className="text-gray-400 text-[10px]">{message.attachment.size}</span>
+                  <span className="font-semibold block truncate text-white">{message.attachment.name}</span>
+                  <span className="text-[10px] text-gray-400">{message.attachment.size}</span>
                 </div>
               </div>
-              <Download className="w-4 h-4 shrink-0 text-gray-400 hover:text-white ml-2" />
+              <Download className="w-4 h-4 text-gray-400 hover:text-white shrink-0 ml-1" />
             </div>
           )}
 
-          {/* Call Event Bubble */}
+          {/* Call event */}
           {message.callInfo && (
-            <div className="flex items-center space-x-3 py-1 min-w-[210px]">
+            <div className="flex items-center space-x-2.5 py-1 min-w-[180px]">
               <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                   message.callInfo.type === 'missed' || message.callInfo.type === 'declined'
-                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                    : message.callInfo.type === 'canceled'
-                    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                    : 'bg-[#00ff73]/20 text-[#00ff73] border border-[#00ff73]/30'
+                    ? 'bg-rose-500/20 text-rose-400'
+                    : 'bg-[#00ff73]/20 text-[#00ff73]'
                 }`}
               >
                 {message.callInfo.type === 'missed' ? (
@@ -334,40 +318,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <PhoneIncoming className="w-4 h-4" />
                 )}
               </div>
-
               <div className="flex-1 min-w-0">
-                <span className="font-bold text-xs block truncate text-white">
+                <span className="font-bold text-xs block text-white truncate">
                   {message.callInfo.type === 'missed'
-                    ? isMe
-                      ? 'Canceled Call'
-                      : 'Missed Voice Call'
+                    ? 'Missed Call'
                     : message.callInfo.type === 'declined'
-                    ? isMe
-                      ? 'Call Declined'
-                      : 'Declined Voice Call'
-                    : message.callInfo.type === 'canceled'
-                    ? 'Canceled Voice Call'
-                    : isMe
-                    ? 'Outgoing Voice Call'
-                    : 'Incoming Voice Call'}
+                    ? 'Declined Call'
+                    : 'Voice Call'}
                 </span>
-                <span className="text-[11px] text-gray-400 block font-mono">
+                <span className="text-[10px] text-gray-400 block font-mono">
                   {message.callInfo.duration
                     ? `${Math.floor(message.callInfo.duration / 60)}:${(message.callInfo.duration % 60)
                         .toString()
                         .padStart(2, '0')}`
-                    : message.callInfo.type === 'missed' || message.callInfo.type === 'declined'
-                    ? 'No answer'
                     : 'Voice call'}
                 </span>
               </div>
             </div>
           )}
 
-          {message.text && !message.callInfo && <p className="break-words select-text">{message.text}</p>}
+          {/* Text & Inline Telegram Timestamp */}
+          {message.text && !message.callInfo && (
+            <span className="break-words select-text mr-1.5">{message.text}</span>
+          )}
+
+          {/* Telegram Inline Time + Checkmark Footer */}
+          <span className="inline-flex items-center float-right ml-2 mt-1 space-x-1 select-none text-[11px] text-gray-400 font-mono">
+            {message.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
+            <span>{timeString}</span>
+            {isMe && (
+              <span className="text-[#00ff73] flex items-center ml-0.5">
+                <CheckCheck className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </span>
         </div>
 
-        {/* Reaction Badges Pill Row below Bubble */}
+        {/* Telegram Reaction Badges below Bubble */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1 px-1">
             {Object.entries(message.reactions).map(([emoji, users]) => {
@@ -378,46 +365,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   key={emoji}
                   type="button"
                   onClick={() => onToggleReaction && onToggleReaction(message.id, emoji)}
-                  className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs transition-all cursor-pointer ${
+                  className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] transition-all cursor-pointer ${
                     hasReacted
-                      ? 'bg-[#00ff73]/20 border border-[#00ff73]/60 text-white font-bold shadow-[0_0_8px_rgba(0,255,115,0.2)]'
-                      : 'bg-[#15161c] border border-white/10 text-gray-300 hover:border-white/20'
+                      ? 'bg-[#00ff73]/20 border border-[#00ff73]/60 text-white font-bold'
+                      : 'bg-[#1e2026] border border-white/10 text-gray-300 hover:border-white/20'
                   }`}
-                  title={`Reacted: ${users.join(', ')}`}
                 >
                   <span>{emoji}</span>
-                  <span className="text-[10px] text-gray-400 font-mono">{users.length}</span>
+                  <span className="text-[10px] font-mono text-gray-400">{users.length}</span>
                 </button>
               );
             })}
           </div>
         )}
-
-        {/* Timestamp, Edited Tag & Delivery State */}
-        <div
-          className={`flex items-center space-x-1.5 text-[11px] text-gray-400 mt-1 px-1 select-none ${
-            isMe ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          {message.isEdited && <span className="italic text-[10px] text-gray-400">(edited)</span>}
-          <span>{timeString}</span>
-          {isMe && (
-            <span className="text-[#00ff73] flex items-center" title="Delivered">
-              <CheckCheck className="w-3.5 h-3.5" />
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Full Image Preview Lightbox Modal */}
+      {/* Full Image Preview Modal */}
       {showFullImage && message.attachment && (
         <div
           onClick={() => setShowFullImage(false)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in select-none"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none"
         >
           <button
             onClick={() => setShowFullImage(false)}
-            className="absolute top-5 right-5 text-gray-300 hover:text-white p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 transition-all cursor-pointer z-10"
+            className="absolute top-5 right-5 text-gray-300 hover:text-white p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
           </button>
@@ -428,18 +399,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <img
               src={message.attachment.url}
               alt={message.attachment.name}
-              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl border border-white/10"
+              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
             />
-            <div className="mt-4 flex items-center space-x-3">
-              <span className="text-xs text-gray-300 font-mono">{message.attachment.name}</span>
-              <button
-                onClick={handleDownloadFile}
-                className="px-4 py-2 rounded-xl bg-[#00ff73] hover:bg-[#1aff85] text-black text-xs font-bold flex items-center space-x-1.5 shadow-[0_0_20px_rgba(0,255,115,0.4)] cursor-pointer transition-all hover:scale-105"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
