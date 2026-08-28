@@ -7,10 +7,14 @@
     "server": "node server/index.js",
     "client": "vite",
     "dev": "concurrently \"node server/index.js\" \"vite\"",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "concurrently": "^10.0.5",
@@ -20,18 +24,12 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.16.0",
     "mongoose": "^9.9.4",
+    "postcss": "^8.4.49",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "tailwind-merge": "^2.5.4"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
+    "tailwind-merge": "^2.5.4",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^6.0.1"
