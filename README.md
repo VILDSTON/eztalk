@@ -14,7 +14,6 @@ Designed and prototyped in record time using **Gemini 3.7 Flash** (Extended Thin
 
 ## ✨ Key Features
 
-- 🟢 **Pixel-Perfect Dark & Neon UI:** High-contrast, modern dark interface with custom neon green glowing accents.
 - 💬 **Real-Time Direct Messaging:** Instant, bi-directional message delivery with zero page reload.
 - 👥 **Clean Friends List:** Easily search by `@username`, manage friend requests, and see live online/offline statuses.
 - ⚡ **Lightweight & Fast:** Zero bloat, instant load times, minimal RAM footprint compared to desktop clients.
