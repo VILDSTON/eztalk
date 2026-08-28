@@ -94,7 +94,7 @@ function writeLocalDB(data) {
 
 let mongoConnectionError = null;
 
-// Automatic sanitizer for MongoDB URI passwords containing special unescaped characters (like @, #, %, ?, etc.)
+// Automatic sanitizer for MongoDB URI passwords containing special unescaped characters or duplicated prefixes
 function sanitizeMongoUri(rawUri) {
   if (!rawUri || typeof rawUri !== 'string') return rawUri;
   const trimmed = rawUri.trim().replace(/^["']|["']$/g, '');
@@ -109,13 +109,21 @@ function sanitizeMongoUri(rawUri) {
   if (lastAtIndex === -1) return trimmed;
 
   const userPassPart = restOfUri.substring(0, lastAtIndex);
-  const hostPart = restOfUri.substring(lastAtIndex + 1);
+  let hostPart = restOfUri.substring(lastAtIndex + 1);
 
   const colonIndex = userPassPart.indexOf(':');
   if (colonIndex === -1) return trimmed;
 
-  const user = userPassPart.substring(0, colonIndex);
-  const pass = userPassPart.substring(colonIndex + 1);
+  let user = userPassPart.substring(0, colonIndex);
+  let pass = userPassPart.substring(colonIndex + 1);
+
+  // Clean user and pass (strip duplicate prefixes if pasted accidentally)
+  user = user.replace(/^mongodb(?:\+srv)?:\/?\/?/i, '');
+  pass = pass.replace(/^mongodb(?:\+srv)?:\/?\/?/i, '');
+  if (pass.includes(':')) {
+    const parts = pass.split(':');
+    pass = parts[parts.length - 1];
+  }
 
   let cleanUser = user;
   let cleanPass = pass;
@@ -128,6 +136,15 @@ function sanitizeMongoUri(rawUri) {
 
   const encodedUser = encodeURIComponent(cleanUser);
   const encodedPass = encodeURIComponent(cleanPass);
+
+  // Ensure default database is /eztalk if root path is empty
+  if (hostPart.startsWith('?')) {
+    hostPart = `eztalk${hostPart}`;
+  } else if (/^[^\/]+\/\?/.test(hostPart)) {
+    hostPart = hostPart.replace(/\/\?/, '/eztalk?');
+  } else if (/^[^\/]+$/.test(hostPart)) {
+    hostPart = `${hostPart}/eztalk?retryWrites=true&w=majority`;
+  }
 
   return `${protocol}${encodedUser}:${encodedPass}@${hostPart}`;
 }
