@@ -92,16 +92,30 @@ function writeLocalDB(data) {
   }
 }
 
+let mongoConnectionError = null;
+
 // Connect to MongoDB with graceful local fallback
 async function connectDatabase() {
+  if (!process.env.MONGODB_URI) {
+    mongoConnectionError = 'MONGODB_URI environment variable is not defined on server.';
+    isMongoConnected = false;
+    readLocalDB();
+    console.log('ℹ️ Running with high-performance Local JSON Database (MONGODB_URI not set).');
+    return;
+  }
+
   try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 2000,
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
     isMongoConnected = true;
+    mongoConnectionError = null;
     console.log('✅ Connected to MongoDB Database successfully.');
-  } catch {
+  } catch (err) {
     isMongoConnected = false;
+    mongoConnectionError = err.message;
+    console.error('❌ MongoDB Connection Error:', err.message);
     console.log('ℹ️ Running with high-performance Local JSON Database.');
     readLocalDB();
   }
@@ -116,6 +130,9 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     database: isMongoConnected ? 'MongoDB' : 'Local JSON DB',
+    isMongoConnected,
+    mongoConfigured: Boolean(process.env.MONGODB_URI),
+    mongoError: isMongoConnected ? null : mongoConnectionError,
     timestamp: new Date().toISOString(),
   });
 });
