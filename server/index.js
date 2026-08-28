@@ -94,6 +94,44 @@ function writeLocalDB(data) {
 
 let mongoConnectionError = null;
 
+// Automatic sanitizer for MongoDB URI passwords containing special unescaped characters (like @, #, %, ?, etc.)
+function sanitizeMongoUri(rawUri) {
+  if (!rawUri || typeof rawUri !== 'string') return rawUri;
+  const trimmed = rawUri.trim().replace(/^["']|["']$/g, '');
+
+  const protoMatch = trimmed.match(/^(mongodb(?:\+srv)?:\/\/)(.*)$/);
+  if (!protoMatch) return trimmed;
+
+  const protocol = protoMatch[1];
+  const restOfUri = protoMatch[2];
+
+  const lastAtIndex = restOfUri.lastIndexOf('@');
+  if (lastAtIndex === -1) return trimmed;
+
+  const userPassPart = restOfUri.substring(0, lastAtIndex);
+  const hostPart = restOfUri.substring(lastAtIndex + 1);
+
+  const colonIndex = userPassPart.indexOf(':');
+  if (colonIndex === -1) return trimmed;
+
+  const user = userPassPart.substring(0, colonIndex);
+  const pass = userPassPart.substring(colonIndex + 1);
+
+  let cleanUser = user;
+  let cleanPass = pass;
+  try {
+    cleanUser = decodeURIComponent(user);
+  } catch {}
+  try {
+    cleanPass = decodeURIComponent(pass);
+  } catch {}
+
+  const encodedUser = encodeURIComponent(cleanUser);
+  const encodedPass = encodeURIComponent(cleanPass);
+
+  return `${protocol}${encodedUser}:${encodedPass}@${hostPart}`;
+}
+
 // Connect to MongoDB with graceful local fallback
 async function connectDatabase() {
   if (!process.env.MONGODB_URI) {
@@ -104,8 +142,10 @@ async function connectDatabase() {
     return;
   }
 
+  const sanitizedUri = sanitizeMongoUri(process.env.MONGODB_URI);
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
+    await mongoose.connect(sanitizedUri, {
       serverSelectionTimeoutMS: 10000,
       connectTimeoutMS: 10000,
     });
