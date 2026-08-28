@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   X,
-  UserCog,
+  Settings,
   Bookmark,
   Users,
   UserPlus,
@@ -9,7 +9,7 @@ import {
   Sparkles,
   ChevronRight,
   Layers,
-  Circle,
+  PlusCircle,
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -20,7 +20,8 @@ interface TelegramDrawerProps {
   myAccounts?: User[];
   friendsCount?: number;
   onClose: () => void;
-  onOpenEditProfile: () => void;
+  onOpenSettings: () => void;
+  onOpenCreateGroup: () => void;
   onOpenAddFriend: () => void;
   onSelectSavedMessages: () => void;
   onUpdateStatus: (status: User['status']) => void;
@@ -36,7 +37,8 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
   myAccounts = [],
   friendsCount = 0,
   onClose,
-  onOpenEditProfile,
+  onOpenSettings,
+  onOpenCreateGroup,
   onOpenAddFriend,
   onSelectSavedMessages,
   onUpdateStatus,
@@ -73,11 +75,11 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
 
           {/* User Avatar with Status */}
           <div className="relative inline-block mb-3">
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#00ff73] shadow-[0_0_20px_rgba(0,255,115,0.3)] bg-gray-800">
+            <div className="w-14 h-14 min-w-[56px] min-h-[56px] rounded-full overflow-hidden border-2 border-[#00ff73] shadow-[0_0_15px_rgba(0,255,115,0.3)] bg-gray-800">
               <img src={currentUser.avatar} alt={currentUser.handle} className="w-full h-full object-cover" />
             </div>
             <div
-              className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#17181c] ${
+              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#17181c] ${
                 currentUser.status === 'Online'
                   ? 'bg-[#00ff73] shadow-[0_0_6px_#00ff73]'
                   : currentUser.status === 'Away'
@@ -89,7 +91,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             />
           </div>
 
-          <h3 className="text-base font-bold text-white tracking-tight leading-snug">
+          <h3 className="text-base font-bold text-white tracking-tight leading-snug truncate">
             {currentUser.name || currentUser.handle}
           </h3>
           <p className="text-xs text-[#00ff73] font-mono mt-0.5">{currentUser.handle}</p>
@@ -115,20 +117,36 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
 
         {/* Navigation List Items */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1 text-sm">
-          {/* Edit Profile */}
+          {/* Settings / My Profile */}
           <button
             type="button"
             onClick={() => {
               onClose();
-              onOpenEditProfile();
+              onOpenSettings();
             }}
             className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div className="flex items-center space-x-3.5">
-              <UserCog className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
-              <span className="font-semibold">My Profile</span>
+              <Settings className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
+              <span className="font-semibold">Settings</span>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+          </button>
+
+          {/* New Group */}
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenCreateGroup();
+            }}
+            className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center space-x-3.5">
+              <Users className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
+              <span className="font-semibold">New Group</span>
+            </div>
+            <PlusCircle className="w-4 h-4 text-gray-500 group-hover:text-[#00ff73] transition-colors" />
           </button>
 
           {/* Saved Messages */}
@@ -159,23 +177,10 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div className="flex items-center space-x-3.5">
-              <Users className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
+              <UserPlus className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
               <span className="font-semibold">Contacts & Friends</span>
             </div>
             <span className="text-xs text-gray-500 font-mono font-bold">{friendsCount}</span>
-          </button>
-
-          {/* Add New Contact */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenAddFriend();
-            }}
-            className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
-          >
-            <UserPlus className="w-5 h-5 text-gray-400 group-hover:text-[#00ff73] transition-colors" />
-            <span className="font-semibold">Add Friend</span>
           </button>
 
           {/* Switch Accounts Section */}
@@ -197,7 +202,9 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
                     }}
                     className="flex items-center space-x-3 min-w-0 flex-1 text-left cursor-pointer"
                   >
-                    <img src={acc.avatar} alt={acc.handle} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                    <div className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full overflow-hidden border border-white/10">
+                      <img src={acc.avatar} alt={acc.handle} className="w-full h-full object-cover" />
+                    </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-xs font-bold text-white truncate">{acc.name || acc.handle}</span>
                       <span className="text-[10px] text-gray-400 font-mono truncate">{acc.handle}</span>

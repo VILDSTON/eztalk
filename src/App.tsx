@@ -5,6 +5,8 @@ import { AuthScreen } from './components/Auth/AuthScreen';
 import { IncomingCallModal } from './components/Chat/IncomingCallModal';
 import { CallModal } from './components/Chat/CallModal';
 import { TelegramDrawer } from './components/Sidebar/TelegramDrawer';
+import { TelegramSettingsModal } from './components/Settings/TelegramSettingsModal';
+import { CreateGroupModal } from './components/Groups/CreateGroupModal';
 import { EditProfileModal } from './components/Profile/EditProfileModal';
 import { AddFriendModal } from './components/Sidebar/AddFriendModal';
 import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
@@ -78,6 +80,8 @@ export default function App() {
 
   // Telegram Drawer & Modals State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
@@ -725,7 +729,8 @@ export default function App() {
         myAccounts={myAccounts}
         friendsCount={friendsList.length}
         onClose={() => setIsDrawerOpen(false)}
-        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenCreateGroup={() => setIsGroupModalOpen(true)}
         onOpenAddFriend={() => setIsAddFriendOpen(true)}
         onSelectSavedMessages={() => {
           setSelectedUserId(currentUser.id);
@@ -739,6 +744,33 @@ export default function App() {
         onRemoveAccount={handleRemoveAccount}
         onLogout={handleLogout}
       />
+
+      {/* Telegram Full Settings Modal */}
+      {isSettingsOpen && currentUser && (
+        <TelegramSettingsModal
+          isOpen={isSettingsOpen}
+          currentUser={currentUser}
+          onClose={() => setIsSettingsOpen(false)}
+          onSaveProfile={(updated) => {
+            handleUpdateCurrentUser(updated);
+          }}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {/* Create Group Modal */}
+      {isGroupModalOpen && (
+        <CreateGroupModal
+          isOpen={isGroupModalOpen}
+          existingUsers={allUsers}
+          currentUserHandle={currentUser.handle}
+          onClose={() => setIsGroupModalOpen(false)}
+          onCreateGroup={(name, avatar, members) => {
+            handleCreateGroup(name, avatar, members);
+            setIsGroupModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Edit Profile Modal */}
       {isEditProfileOpen && currentUser && (

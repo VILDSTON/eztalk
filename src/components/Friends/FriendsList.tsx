@@ -5,10 +5,11 @@ import {
   X,
   SquarePen,
   Users,
-  CheckCheck,
+  UserPlus,
   Globe,
   Trash2,
-  Bookmark,
+  PlusCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { User, Group } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
@@ -44,6 +45,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 }) => {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [showFabMenu, setShowFabMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
 
@@ -59,7 +61,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       (u.bio && u.bio.toLowerCase().includes(cleanQuery))
     );
   });
-  const filteredUsers = cleanQuery ? matchedUsers.slice(0, 6) : matchedUsers;
+  const filteredUsers = cleanQuery ? matchedUsers.slice(0, 8) : matchedUsers;
 
   // Filter groups
   const matchedGroups = groups.filter((g) => {
@@ -70,7 +72,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       g.memberHandles.some((h) => h.toLowerCase().replace('@', '').includes(cleanQuery))
     );
   });
-  const filteredGroups = cleanQuery ? matchedGroups.slice(0, 6) : matchedGroups;
+  const filteredGroups = cleanQuery ? matchedGroups.slice(0, 8) : matchedGroups;
 
   // Global search across all users
   const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
@@ -88,14 +90,14 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             (u.bio && u.bio.toLowerCase().includes(cleanQuery))
           );
         })
-        .slice(0, 4)
+        .slice(0, 5)
     : [];
 
   return (
     <>
-      <div className="w-88 sm:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
+      <div className="w-80 sm:w-96 h-full flex flex-col bg-[#111216] border-r border-white/5 select-none shrink-0 relative overflow-hidden font-sans">
         {/* Telegram Top Bar: Hamburger Menu + Search */}
-        <div className="p-3 pb-2 flex items-center space-x-2.5">
+        <div className="p-3 pb-2 flex items-center space-x-2.5 bg-[#111216]">
           {/* Hamburger Menu Button */}
           <button
             type="button"
@@ -108,13 +110,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
           {/* Search Input Box */}
           <div className="relative flex-1 flex items-center">
-            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 pointer-events-none" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search"
-              className="w-full bg-[#1c1e24] focus:bg-[#22252d] border border-transparent focus:border-[#00ff73]/40 rounded-full pl-9.5 pr-8 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all"
+              className="w-full bg-[#1c1e24] focus:bg-[#23262f] border border-transparent focus:border-[#00ff73]/40 rounded-full pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -130,7 +132,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
         {/* Telegram Folder Tabs: All Chats / Direct / Groups / Online */}
         {!searchQuery && (
-          <div className="flex items-center px-3 border-b border-white/5 overflow-x-auto custom-scrollbar">
+          <div className="flex items-center px-2 border-b border-white/5 overflow-x-auto custom-scrollbar bg-[#111216]">
             {(
               [
                 { id: 'all', label: 'All Chats' },
@@ -157,6 +159,25 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
         {/* Chat List Stream */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-1">
+          {/* Groups Tab Empty Action */}
+          {activeTab === 'groups' && filteredGroups.length === 0 && (
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#1c1e24] flex items-center justify-center text-[#00ff73] mx-auto mb-3">
+                <Users className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-white mb-1">No groups yet</h4>
+              <p className="text-xs text-gray-400 mb-4">Create a group chat to talk with multiple friends at once.</p>
+              <button
+                type="button"
+                onClick={() => setIsGroupModalOpen(true)}
+                className="px-4 py-2 bg-[#00ff73] hover:bg-[#1aff85] text-black text-xs font-bold rounded-xl shadow-xs transition-transform hover:scale-105 cursor-pointer inline-flex items-center space-x-1.5"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Create Group</span>
+              </button>
+            </div>
+          )}
+
           {/* Groups Section */}
           {(activeTab === 'all' || activeTab === 'groups') &&
             filteredGroups.map((group) => {
@@ -167,16 +188,16 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   onClick={() => onSelectGroup && onSelectGroup(group)}
                   className={`group/item flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
                     isSelected
-                      ? 'bg-[#1a2e23] border-l-3 border-[#00ff73]'
+                      ? 'bg-[#182c21] border-l-3 border-[#00ff73]'
                       : 'hover:bg-white/5 border-l-3 border-transparent'
                   }`}
                 >
-                  {/* Group Avatar */}
-                  <div className="relative shrink-0 mr-3">
+                  {/* Group Avatar Container with fixed dimensions */}
+                  <div className="relative shrink-0 mr-3 w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px]">
                     <img
                       src={group.avatar}
                       alt={group.name}
-                      className="w-13 h-13 rounded-full object-cover border border-white/10 bg-gray-800"
+                      className="w-12 h-12 rounded-full object-cover border border-white/10 bg-gray-800"
                     />
                     <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-[#00ff73] text-black flex items-center justify-center text-[9px] font-bold border border-[#111216]">
                       <Users className="w-2.5 h-2.5" />
@@ -222,16 +243,16 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   onClick={() => onSelectUser(user)}
                   className={`group/user flex items-center px-3 py-2.5 cursor-pointer transition-colors relative ${
                     isSelected
-                      ? 'bg-[#1a2e23] border-l-3 border-[#00ff73]'
+                      ? 'bg-[#182c21] border-l-3 border-[#00ff73]'
                       : 'hover:bg-white/5 border-l-3 border-transparent'
                   }`}
                 >
-                  {/* User Avatar with Status */}
-                  <div className="relative shrink-0 mr-3">
+                  {/* User Avatar with fixed dimension container */}
+                  <div className="relative shrink-0 mr-3 w-12 h-12 min-w-[48px] min-h-[48px] max-w-[48px] max-h-[48px]">
                     <img
                       src={user.avatar}
                       alt={user.handle}
-                      className="w-13 h-13 rounded-full object-cover border border-white/10 bg-gray-800"
+                      className="w-12 h-12 rounded-full object-cover border border-white/10 bg-gray-800"
                     />
                     <div
                       className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#111216] ${
@@ -295,11 +316,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   }}
                   className="flex items-center px-2 py-2 rounded-2xl hover:bg-white/5 cursor-pointer transition-colors"
                 >
-                  <img
-                    src={user.avatar}
-                    alt={user.handle}
-                    className="w-10 h-10 rounded-full object-cover border border-[#00ff73]/30 mr-3"
-                  />
+                  <div className="w-10 h-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] rounded-full overflow-hidden mr-3 border border-[#00ff73]/30">
+                    <img
+                      src={user.avatar}
+                      alt={user.handle}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-bold text-white block truncate">{user.name || user.handle}</span>
                     <span className="text-[11px] text-[#00ff73] font-mono block truncate">{user.handle}</span>
@@ -311,14 +334,44 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         </div>
 
         {/* Telegram Floating Action Button (FAB - New Chat / Compose) */}
-        <button
-          type="button"
-          onClick={() => setIsComposeOpen(true)}
-          className="absolute bottom-6 right-6 w-13 h-13 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.45)] hover:shadow-[0_4px_30px_rgba(0,255,115,0.65)] transition-all hover:scale-108 active:scale-95 flex items-center justify-center cursor-pointer z-20 border border-[#00ff73]"
-          title="New Message"
-        >
-          <SquarePen className="w-6 h-6" />
-        </button>
+        <div className="absolute bottom-6 right-6 z-20">
+          {/* FAB Action Popover Menu */}
+          {showFabMenu && (
+            <div className="absolute bottom-16 right-0 bg-[#1e2028] border border-white/10 p-1.5 rounded-2xl shadow-2xl z-30 mb-2 w-48 animate-fade-in backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFabMenu(false);
+                  setIsGroupModalOpen(true);
+                }}
+                className="w-full flex items-center space-x-2.5 p-2.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/10 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                <Users className="w-4 h-4 text-[#00ff73]" />
+                <span>New Group</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFabMenu(false);
+                  setIsComposeOpen(true);
+                }}
+                className="w-full flex items-center space-x-2.5 p-2.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/10 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                <MessageSquare className="w-4 h-4 text-[#00ff73]" />
+                <span>New Direct Chat</span>
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowFabMenu(!showFabMenu)}
+            className="w-12 h-12 rounded-full bg-[#00ff73] hover:bg-[#1aff85] text-black shadow-[0_4px_20px_rgba(0,255,115,0.45)] hover:shadow-[0_4px_30px_rgba(0,255,115,0.65)] transition-all hover:scale-108 active:scale-95 flex items-center justify-center cursor-pointer border border-[#00ff73]"
+            title="New Message"
+          >
+            <SquarePen className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Direct Chat Compose Modal */}
