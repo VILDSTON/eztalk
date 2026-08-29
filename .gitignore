@@ -7,8 +7,9 @@ dist-ssr/
 *.local
 
 # Environment variables
-.env.production
-.env.local
+.env
+.env.*
+!.env.example
 
 # Local database store & logs
 data/local_database.json
