@@ -173,11 +173,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   };
 
   const TABS = [
-    { id: 'profile' as const, label: 'Profile', icon: UserIcon, desc: 'Identity & Status' },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell, desc: 'Sounds & Alerts' },
-    { id: 'appearance' as const, label: 'Appearance', icon: Palette, desc: 'Themes & Accents' },
-    { id: 'privacy' as const, label: 'Privacy', icon: Shield, desc: 'Security & Sessions' },
-    { id: 'storage' as const, label: 'Storage', icon: HardDrive, desc: 'Data & Cache' },
+    { id: 'profile' as const, label: 'Profile', icon: UserIcon },
+    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
+    { id: 'appearance' as const, label: 'Appearance', icon: Palette },
+    { id: 'privacy' as const, label: 'Privacy', icon: Shield },
+    { id: 'storage' as const, label: 'Storage', icon: HardDrive },
   ];
 
   return (
@@ -194,7 +194,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         className="relative w-full max-w-3xl bg-ez-surface/95 border border-ez-border/80 rounded-3xl shadow-glass-lg overflow-hidden z-10 flex flex-col max-h-[92vh] animate-scale-up backdrop-blur-2xl"
       >
         {/* ─── Window Header (Titlebar) ─── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ez-border/50 bg-ez-elevated/70">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 mr-1">
               <div className="w-3 h-3 rounded-full bg-rose-500/80 border border-rose-400/40" />
@@ -223,8 +223,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-4 py-2.5 overflow-x-auto custom-scrollbar">
-          <div className="flex items-center space-x-2 min-w-max">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-6 py-2.5 shrink-0">
+          <div className="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-0.5">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -233,16 +233,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl transition-all duration-150 cursor-pointer text-left ${
+                  className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap text-xs ${
                     isActive
-                      ? 'bg-neon-green text-black font-extrabold shadow-neon-sm scale-[1.02]'
-                      : 'text-gray-300 hover:text-white hover:bg-white/5 border border-transparent font-medium'
+                      ? 'bg-neon-green text-black font-extrabold shadow-neon-sm'
+                      : 'text-gray-300 hover:text-white hover:bg-white/5 font-medium'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-black' : 'text-ez-muted'}`} />
-                  <div className="flex flex-col">
-                    <span className="text-xs tracking-tight">{tab.label}</span>
-                  </div>
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-ez-muted'}`} />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -264,7 +262,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-t from-ez-elevated via-transparent to-transparent opacity-80" />
                 </div>
 
-                <div className="px-5 pb-5 pt-0 relative flex items-end justify-between -mt-10">
+                <div className="px-5 pb-4 pt-0 relative flex items-end justify-between -mt-10">
                   <div className="flex items-end space-x-3.5">
                     <div
                       className="relative group cursor-pointer shrink-0"
@@ -277,7 +275,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                         <Camera className="w-5 h-5" />
                       </div>
                       <div
-                        className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-ez-elevated z-10 ${
+                        className={`absolute bottom-0.5 right-0.5 w-4.5 h-4.5 rounded-full border-2 border-ez-elevated z-10 ${
                           status === 'Online'
                             ? 'bg-neon-green shadow-neon-dot'
                             : status === 'Away'
@@ -318,17 +316,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               {/* Preset Avatars */}
               <div>
-                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1">
                   Choose from Curated Avatars
                 </label>
-                <div className="flex items-center space-x-3 overflow-x-auto pb-1 custom-scrollbar">
+                <div className="flex items-center space-x-3 overflow-x-auto py-2.5 px-1 custom-scrollbar">
                   {PRESET_AVATARS.map((avUrl, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setAvatar(avUrl)}
-                      className={`relative w-12 h-12 rounded-full shrink-0 transition-transform duration-150 cursor-pointer ${
-                        avatar === avUrl ? 'scale-110' : 'opacity-65 hover:opacity-100 hover:scale-105'
+                      className={`relative w-12 h-12 rounded-full shrink-0 transition-all duration-150 cursor-pointer ${
+                        avatar === avUrl ? 'scale-105' : 'opacity-65 hover:opacity-100 hover:scale-105'
                       }`}
                     >
                       <img
@@ -339,7 +337,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                         }`}
                       />
                       {avatar === avUrl && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neon-green text-black flex items-center justify-center shadow-sm">
+                        <div className="absolute top-0 right-0 w-4 h-4 rounded-full bg-neon-green text-black flex items-center justify-center shadow-sm border-2 border-ez-surface">
                           <Check className="w-2.5 h-2.5 font-black" />
                         </div>
                       )}
@@ -350,10 +348,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               {/* Preset Banners */}
               <div>
-                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
                   Profile Banner Gradient
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-1">
                   {PRESET_BANNERS.map((b) => (
                     <button
                       key={b.id}
@@ -361,7 +359,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       onClick={() => setBanner(b.gradient)}
                       className={`p-2 rounded-2xl border flex flex-col items-start space-y-1.5 transition-all duration-150 cursor-pointer ${
                         banner === b.gradient
-                          ? 'border-neon-green bg-neon-green/10 shadow-neon-sm scale-[1.02]'
+                          ? 'border-neon-green bg-neon-green/10 shadow-neon-sm'
                           : 'border-ez-border bg-white/[0.02] hover:bg-white/[0.05]'
                       }`}
                     >
@@ -568,7 +566,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       onClick={() => setSelectedAccent(th.id)}
                       className={`p-3 rounded-2xl border flex flex-col items-center space-y-2 transition-all duration-150 cursor-pointer ${
                         selectedAccent === th.id
-                          ? 'border-white/40 bg-white/10 scale-[1.03] shadow-glass'
+                          ? 'border-white/40 bg-white/10 shadow-glass'
                           : 'border-ez-border bg-ez-elevated hover:bg-white/5'
                       }`}
                     >
@@ -718,7 +716,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Footer Actions ─── */}
-        <div className="p-4 px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between">
+        <div className="p-4 px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
           <div className="text-xs text-ez-muted flex items-center space-x-1.5">
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
