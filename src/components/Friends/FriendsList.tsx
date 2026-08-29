@@ -22,6 +22,7 @@ interface FriendsListProps {
   groups?: Group[];
   unreadCounts?: Record<string, number>;
   onlineHandles?: string[];
+  blockedUsers?: string[];
   selectedUserId: string;
   selectedGroupId?: string | null;
   onOpenMenu?: () => void;
@@ -38,6 +39,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   groups = [],
   unreadCounts = {},
   onlineHandles = [],
+  blockedUsers = [],
   selectedUserId,
   selectedGroupId,
   onOpenMenu,
@@ -245,7 +247,8 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           {(activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
             filteredUsers.map((user) => {
               const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
-              const online = isUserOnline(user.handle);
+              const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));
+              const online = !isUserBlocked && isUserOnline(user.handle);
               const unread = unreadCounts[normalizeHandle(user.handle)] || unreadCounts[user.id] || 0;
 
               return (
@@ -263,7 +266,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
                       <div
                         className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-surface ${
-                          online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
+                          isUserBlocked ? 'bg-rose-500' : online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
                         }`}
                       />
                     </div>
@@ -272,23 +275,26 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         {user.name || user.handle}
                       </span>
                       <span className="text-[11px] text-ez-muted truncate">
-                        {user.bio || (online ? 'online' : 'offline')}
+                        {isUserBlocked ? 'User is blocked' : user.bio || (online ? 'online' : 'offline')}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-end shrink-0 space-y-1">
-                    {unread > 0 ? (
-                      <span className="px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-extrabold shadow-neon-sm min-w-[20px] text-center">
-                        {unread}
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-[10px] font-mono ${
-                          online ? 'text-neon-green font-medium' : 'text-ez-muted'
-                        }`}
-                      >
-                        {online ? 'online' : 'offline'}
+                    <span
+                      className={`text-[10px] font-mono ${
+                        isUserBlocked
+                          ? 'text-rose-400 font-semibold'
+                          : online
+                          ? 'text-neon-green font-medium'
+                          : 'text-ez-muted'
+                      }`}
+                    >
+                      {isUserBlocked ? 'blocked' : online ? 'online' : 'offline'}
+                    </span>
+                    {unread > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black shadow-neon-sm min-w-[20px] h-5 flex items-center justify-center animate-scale-up">
+                        {unread > 99 ? '99+' : unread}
                       </span>
                     )}
                   </div>

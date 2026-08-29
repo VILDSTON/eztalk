@@ -17,6 +17,46 @@ interface MessageThreadProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
 }
 
+function formatMessageDateDivider(createdAt?: string, timestamp?: string): string {
+  let date: Date | null = null;
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date && timestamp) {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date) date = new Date();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - targetDay.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+  }
+  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function getDateKey(createdAt?: string, timestamp?: string): string {
+  let date: Date | null = null;
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date && timestamp) {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date) date = new Date();
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 export const MessageThread: React.FC<MessageThreadProps> = ({
   messages,
   currentUserId,
@@ -92,15 +132,6 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
           {/* Top spacer */}
           <div className="flex-1 min-h-4" />
 
-          {/* Date Badge */}
-          {messages.length > 0 && (
-            <div className="flex justify-center my-3 select-none">
-              <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
-                Today
-              </span>
-            </div>
-          )}
-
           {messages.length === 0 ? (
             <div className="text-center py-20 text-ez-muted text-xs select-none flex flex-col items-center">
               <div className="w-16 h-16 rounded-2xl bg-ez-elevated border border-ez-border/50 flex items-center justify-center text-2xl mb-4 shadow-glass">
@@ -110,19 +141,34 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
               <p className="mt-1.5 text-ez-muted text-xs max-w-[240px]">Send a message to start the conversation!</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                currentUserId={currentUserId}
-                currentUserHandle={currentUserHandle}
-                isGroupChat={isGroupChat}
-                onReply={onReply}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onToggleReaction={onToggleReaction}
-              />
-            ))
+            messages.map((msg, index) => {
+              const prevMsg = index > 0 ? messages[index - 1] : null;
+              const currentKey = getDateKey(msg.createdAt, msg.timestamp);
+              const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
+              const showDateDivider = currentKey !== prevKey;
+
+              return (
+                <React.Fragment key={msg.id}>
+                  {showDateDivider && (
+                    <div className="flex justify-center my-3 select-none">
+                      <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
+                        {formatMessageDateDivider(msg.createdAt, msg.timestamp)}
+                      </span>
+                    </div>
+                  )}
+                  <MessageBubble
+                    message={msg}
+                    currentUserId={currentUserId}
+                    currentUserHandle={currentUserHandle}
+                    isGroupChat={isGroupChat}
+                    onReply={onReply}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleReaction={onToggleReaction}
+                  />
+                </React.Fragment>
+              );
+            })
           )}
 
           {/* Typing Indicator */}

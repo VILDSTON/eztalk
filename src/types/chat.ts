@@ -15,6 +15,7 @@ export interface User {
   bio?: string;
   lastSeen?: string;
   friends?: string[];
+  blockedUsers?: string[];
 }
 
 export interface Attachment {

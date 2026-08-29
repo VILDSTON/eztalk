@@ -207,6 +207,7 @@ function formatUser(u) {
   return {
     ...obj,
     id: uid,
+    blockedUsers: Array.isArray(obj.blockedUsers) ? obj.blockedUsers : [],
   };
 }
 
@@ -446,6 +447,49 @@ app.put('/api/users/profile', async (req, res) => {
       writeLocalDB(db);
       io.emit('user_updated', user);
       res.json({ user });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Toggle / Set Block User
+app.post('/api/users/:handle/block', async (req, res) => {
+  try {
+    const userHandle = normalizeHandle(req.params.handle);
+    const { targetHandle, action } = req.body;
+    const cleanTarget = normalizeHandle(targetHandle);
+
+    if (isMongoConnected) {
+      const user = await UserModel.findOne({ handle: userHandle });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user.blockedUsers) user.blockedUsers = [];
+
+      const isBlocked = user.blockedUsers.includes(cleanTarget);
+      if (action === 'unblock' || (action === 'toggle' && isBlocked)) {
+        user.blockedUsers = user.blockedUsers.filter((h) => h !== cleanTarget);
+      } else {
+        if (!isBlocked) user.blockedUsers.push(cleanTarget);
+      }
+      await user.save();
+      const formatted = formatUser(user);
+      io.emit('user_updated', formatted);
+      res.json({ success: true, blockedUsers: user.blockedUsers });
+    } else {
+      const db = readLocalDB();
+      const idx = db.users.findIndex((u) => u.handle.toLowerCase() === userHandle);
+      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+      if (!db.users[idx].blockedUsers) db.users[idx].blockedUsers = [];
+
+      const isBlocked = db.users[idx].blockedUsers.includes(cleanTarget);
+      if (action === 'unblock' || (action === 'toggle' && isBlocked)) {
+        db.users[idx].blockedUsers = db.users[idx].blockedUsers.filter((h) => h !== cleanTarget);
+      } else {
+        if (!isBlocked) db.users[idx].blockedUsers.push(cleanTarget);
+      }
+      writeLocalDB(db);
+      io.emit('user_updated', db.users[idx]);
+      res.json({ success: true, blockedUsers: db.users[idx].blockedUsers });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

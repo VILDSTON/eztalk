@@ -181,7 +181,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-elevated z-10 ${
-                  user.status === 'Online'
+                  isBlocked
+                    ? 'bg-rose-500'
+                    : user.status === 'Online'
                     ? 'bg-neon-green-glow shadow-neon-dot'
                     : 'bg-ez-muted'
                 }`}
@@ -200,10 +202,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </div>
               <span
                 className={`text-[11px] font-mono leading-tight ${
-                  user.status === 'Online' ? 'text-neon-green font-medium' : 'text-ez-muted'
+                  isBlocked
+                    ? 'text-rose-400 font-semibold'
+                    : user.status === 'Online'
+                    ? 'text-neon-green font-medium'
+                    : 'text-ez-muted'
                 }`}
               >
-                {user.status === 'Online' ? 'online' : 'offline'}
+                {isBlocked ? 'blocked' : user.status === 'Online' ? 'online' : 'offline'}
               </span>
             </div>
           </div>

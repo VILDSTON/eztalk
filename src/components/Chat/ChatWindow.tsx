@@ -3,7 +3,7 @@ import { User, Group, Message, Attachment, QuotedMessage } from '../../types/cha
 import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
 import { MessageInput } from './MessageInput';
-import { UserPlus, X } from 'lucide-react';
+import { UserPlus, X, Ban } from 'lucide-react';
 
 interface ChatWindowProps {
   user?: User | null;
@@ -59,7 +59,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showAddBanner, setShowAddBanner] = useState(true);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
 
-  const recipientLabel = group ? group.name : user?.handle;
+  const recipientLabel = group ? group.name : user ? user.name || user.handle : 'Contact';
 
   // In-chat search filter
   const displayedMessages = useMemo(() => {
@@ -73,7 +73,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages, inChatSearchQuery]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-ez-base overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-ez-base select-none overflow-hidden relative font-sans">
       {/* Header */}
       <ChatHeader
         user={user}
@@ -94,8 +94,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onStartCall={onStartCall}
       />
 
+      {/* Blocked User Banner */}
+      {isBlocked && user && (
+        <div className="bg-rose-500/10 border-b border-rose-500/30 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
+          <div className="flex items-center space-x-2 text-xs text-rose-300">
+            <Ban className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>
+              You have blocked <strong className="text-white font-mono">{user.handle}</strong>.
+            </span>
+          </div>
+          {onToggleBlock && (
+            <button
+              type="button"
+              onClick={onToggleBlock}
+              className="px-3 py-1 bg-neon-green hover:bg-neon-green-light text-black font-bold text-xs rounded-xl shadow-neon-sm transition-colors cursor-pointer"
+            >
+              Unblock
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Non-Friend Banner */}
-      {!group && user && !isFriend && !isSavedMessages && showAddBanner && (
+      {!isBlocked && !group && user && !isFriend && !isSavedMessages && showAddBanner && (
         <div className="bg-ez-elevated border-b border-ez-border/50 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
           <div className="flex items-center space-x-2.5 text-xs text-gray-300">
             <div className="p-1 rounded-md bg-neon-green/10 text-neon-green">
@@ -141,23 +162,41 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onToggleReaction={onToggleReaction}
       />
 
-      {/* Input Bar */}
-      <MessageInput
-        onSendMessage={(text, attachment, replyTo) => {
-          if (editingMessage && onEditMessage) {
-            onEditMessage(editingMessage.id, text);
-            setEditingMessage(null);
-          } else {
-            onSendMessage(text, attachment, replyTo);
-            setReplyingTo(null);
-          }
-        }}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-        editingMessage={editingMessage}
-        onCancelEdit={() => setEditingMessage(null)}
-        recipientHandle={recipientLabel}
-      />
+      {/* Input Bar or Blocked Action */}
+      {isBlocked ? (
+        <div className="p-4 bg-ez-surface/90 border-t border-ez-border/50 flex items-center justify-center space-x-3 text-center">
+          <span className="text-xs text-rose-400 font-semibold flex items-center space-x-1.5">
+            <Ban className="w-4 h-4" />
+            <span>You blocked this user. Messages cannot be sent.</span>
+          </span>
+          {onToggleBlock && (
+            <button
+              type="button"
+              onClick={onToggleBlock}
+              className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-colors cursor-pointer"
+            >
+              Unblock
+            </button>
+          )}
+        </div>
+      ) : (
+        <MessageInput
+          onSendMessage={(text, attachment, replyTo) => {
+            if (editingMessage && onEditMessage) {
+              onEditMessage(editingMessage.id, text);
+              setEditingMessage(null);
+            } else {
+              onSendMessage(text, attachment, replyTo);
+              setReplyingTo(null);
+            }
+          }}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          editingMessage={editingMessage}
+          onCancelEdit={() => setEditingMessage(null)}
+          recipientHandle={recipientLabel}
+        />
+      )}
     </div>
   );
 };
