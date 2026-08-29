@@ -111,18 +111,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       {/* ─── Middle: Navigation Icons ─── */}
       <div className="flex-1 flex flex-col items-center space-y-1">
         <NavItem
-          icon={<MessageSquare className="w-5 h-5" />}
-          label="Chats"
-          isActive={activeSection === 'chats'}
-          onClick={() => onSelectSection?.('chats')}
-        />
-        <NavItem
-          icon={<Users className="w-5 h-5" />}
-          label="Groups"
-          isActive={activeSection === 'groups'}
-          onClick={() => onSelectSection?.('groups')}
-        />
-        <NavItem
           icon={<UserPlus className="w-5 h-5" />}
           label="Add Friend"
           onClick={onOpenAddFriend}
