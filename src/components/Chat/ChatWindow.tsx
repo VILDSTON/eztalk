@@ -73,7 +73,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages, inChatSearchQuery]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b0c0e] overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-ez-base overflow-hidden">
       {/* Header */}
       <ChatHeader
         user={user}
@@ -94,11 +94,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onStartCall={onStartCall}
       />
 
-      {/* Non-Friend Prompt Banner */}
+      {/* Non-Friend Banner */}
       {!group && user && !isFriend && !isSavedMessages && showAddBanner && (
-        <div className="bg-[#14161f] border-b border-white/5 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
+        <div className="bg-ez-elevated border-b border-ez-border/50 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
           <div className="flex items-center space-x-2.5 text-xs text-gray-300">
-            <div className="p-1 rounded-md bg-[#00ff73]/10 text-[#00ff73]">
+            <div className="p-1 rounded-md bg-neon-green/10 text-neon-green">
               <UserPlus className="w-3.5 h-3.5" />
             </div>
             <span>
@@ -110,7 +110,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <button
                 type="button"
                 onClick={onAddFriend}
-                className="px-3 py-1 bg-[#00ff73] hover:bg-[#1aff85] text-black font-bold text-xs rounded-lg shadow-neon-sm transition-colors cursor-pointer"
+                className="px-3 py-1 bg-neon-green hover:bg-neon-green-light text-black font-bold text-xs rounded-lg shadow-neon-sm transition-colors duration-150 cursor-pointer"
               >
                 + Add to Friends
               </button>
@@ -118,7 +118,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <button
               type="button"
               onClick={() => setShowAddBanner(false)}
-              className="p-1 text-gray-400 hover:text-white rounded-md transition-colors cursor-pointer"
+              className="p-1 text-ez-muted hover:text-white rounded-md transition-colors duration-150 cursor-pointer"
               title="Dismiss banner"
             >
               <X className="w-3.5 h-3.5" />

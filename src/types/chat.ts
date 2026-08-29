@@ -1,9 +1,11 @@
+export type StatusType = 'Online' | 'Offline' | 'Away' | 'Busy';
+
 export interface User {
   id: string;
   name: string;
   handle: string; // e.g. "@AlexR"
   avatar: string;
-  status: 'Online' | 'Offline';
+  status: StatusType;
   statusEmoji?: string;
   customStatusText?: string;
   banner?: string;
@@ -74,4 +76,19 @@ export type ActiveTab = 'eztalk' | 'google';
 export interface AuthState {
   isAuthenticated: boolean;
   currentUser: User | null;
+}
+
+/** Unified chat application state (documentation type) */
+export interface ChatState {
+  currentUser: User | null;
+  allUsers: User[];
+  groups: Group[];
+  messages: Message[];
+  selectedUserId: string;
+  selectedGroupId: string | null;
+  onlineHandles: string[];
+  unreadCounts: Record<string, number>;
+  typingUsers: Record<string, boolean>;
+  mutedUsers: Record<string, boolean>;
+  blockedUsers: string[];
 }

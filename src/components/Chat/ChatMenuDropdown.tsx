@@ -45,7 +45,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute top-14 right-6 w-52 bg-[#181920] border border-[#2b2d38] rounded-2xl shadow-2xl p-1.5 z-40 animate-fade-in text-xs select-none"
+      className="absolute top-14 right-6 w-52 bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-40 animate-scale-up text-xs select-none"
     >
       <button
         type="button"
@@ -53,9 +53,9 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           onViewProfile();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors text-left cursor-pointer"
+        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
       >
-        <UserIcon className="w-4 h-4 text-[#00ff73]" />
+        <UserIcon className="w-4 h-4 text-neon-green" />
         <span>View Profile</span>
       </button>
 
@@ -65,11 +65,11 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           if (onToggleMute) onToggleMute();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors text-left cursor-pointer"
+        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
       >
         {isMuted ? (
           <>
-            <Bell className="w-4 h-4 text-[#00ff73]" />
+            <Bell className="w-4 h-4 text-neon-green" />
             <span>Unmute Notifications</span>
           </>
         ) : (
@@ -83,13 +83,13 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
       <button
         type="button"
         onClick={onClose}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors text-left cursor-pointer"
+        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
       >
-        <Download className="w-4 h-4 text-gray-400" />
+        <Download className="w-4 h-4 text-ez-muted" />
         <span>Export Chat History</span>
       </button>
 
-      <div className="h-px bg-[#262830] my-1" />
+      <div className="h-px bg-ez-border/50 my-1" />
 
       <button
         type="button"
@@ -97,13 +97,12 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           onClearChat();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
       >
         <Trash2 className="w-4 h-4" />
         <span>Clear Messages</span>
       </button>
 
-      {/* Show Remove Friend ONLY if isFriend, otherwise show Add to Friends */}
       {isFriend ? (
         onRemoveFriend && (
           <button
@@ -112,7 +111,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
               onRemoveFriend();
               onClose();
             }}
-            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
           >
             <UserMinus className="w-4 h-4" />
             <span>Remove Friend</span>
@@ -126,7 +125,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
               onAddFriend();
               onClose();
             }}
-            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-[#00ff73] hover:bg-[#00ff73]/10 transition-colors text-left cursor-pointer font-semibold"
+            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-neon-green hover:bg-neon-green/10 transition-colors duration-150 text-left cursor-pointer font-semibold"
           >
             <UserPlus className="w-4 h-4" />
             <span>Add to Friends</span>
@@ -137,7 +136,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
       <button
         type="button"
         onClick={onClose}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
       >
         <ShieldAlert className="w-4 h-4" />
         <span>Block User</span>

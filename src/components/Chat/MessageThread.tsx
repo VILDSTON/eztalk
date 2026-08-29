@@ -87,27 +87,27 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-4"
       >
-        {/* Full Width Telegram Message Canvas */}
-        <div className="w-full max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-col flex-1">
-          {/* Dynamic top spacer */}
+        {/* Message Canvas */}
+        <div className="w-full max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-col flex-1">
+          {/* Top spacer */}
           <div className="flex-1 min-h-4" />
 
-          {/* Centered Date Badge */}
+          {/* Date Badge */}
           {messages.length > 0 && (
             <div className="flex justify-center my-3 select-none">
-              <span className="bg-[#111216]/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-bold text-gray-300 shadow-sm border border-white/5">
+              <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
                 Today
               </span>
             </div>
           )}
 
           {messages.length === 0 ? (
-            <div className="text-center py-20 text-gray-500 text-xs select-none flex flex-col items-center">
-              <div className="w-14 h-14 rounded-full bg-[#17181c] border border-white/5 flex items-center justify-center text-xl mb-3 shadow-md">
+            <div className="text-center py-20 text-ez-muted text-xs select-none flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl bg-ez-elevated border border-ez-border/50 flex items-center justify-center text-2xl mb-4 shadow-glass">
                 ✈️
               </div>
-              <p className="font-semibold text-gray-300 text-sm">No messages here yet...</p>
-              <p className="mt-1 text-gray-500 text-xs">Send a message to start the conversation!</p>
+              <p className="font-bold text-gray-300 text-sm">No messages here yet...</p>
+              <p className="mt-1.5 text-ez-muted text-xs max-w-[240px]">Send a message to start the conversation!</p>
             </div>
           ) : (
             messages.map((msg) => (
@@ -127,11 +127,13 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
 
           {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex items-center space-x-2 text-xs text-[#00ff73] font-medium py-1 px-3 mb-2 animate-fade-in select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff73] animate-bounce" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff73] animate-bounce [animation-delay:0.2s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff73] animate-bounce [animation-delay:0.4s]" />
-              <span className="ml-1 text-gray-400 text-[11px]">{recipientHandle || 'Contact'} is typing...</span>
+            <div className="flex items-center space-x-2.5 text-xs text-neon-green font-medium py-2 px-3 mb-2 animate-fade-in select-none">
+              <div className="flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce [animation-delay:0.16s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce [animation-delay:0.32s]" />
+              </div>
+              <span className="text-ez-muted text-[11px]">{recipientHandle || 'Contact'} is typing...</span>
             </div>
           )}
 
@@ -139,17 +141,17 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         </div>
       </div>
 
-      {/* Floating Scroll To Bottom Button */}
+      {/* Scroll To Bottom */}
       {isScrolledUp && (
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-5 right-8 z-30 w-11 h-11 rounded-full bg-[#1c1e24] hover:bg-[#252830] text-[#00ff73] border border-white/10 shadow-xl transition-all hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-fade-in backdrop-blur-md"
+          className="absolute bottom-5 right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated hover:bg-ez-hover text-neon-green border border-ez-border shadow-glass transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-fade-in"
           title="Scroll to bottom"
         >
           <ChevronDown className="w-5 h-5" />
           {newMessagesCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-[#00ff73] text-black text-[10px] font-black">
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black min-w-[18px] text-center">
               {newMessagesCount > 99 ? '99+' : newMessagesCount}
             </span>
           )}

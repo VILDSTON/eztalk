@@ -2,18 +2,13 @@ import React, { useState } from 'react';
 import {
   X,
   Phone,
-  MessageSquare,
   Bell,
   BellOff,
   FileText,
-  Globe,
   UserMinus,
   UserPlus,
-  ExternalLink,
   Download,
   Ban,
-  ShieldCheck,
-  Trash2,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 
@@ -50,12 +45,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Extract shared media & files from actual conversation messages
   const sharedAttachments: Attachment[] = messages
     .filter((m) => m.attachment)
     .map((m) => m.attachment as Attachment);
 
-  const bannerStyle = user.banner || 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)';
+  const bannerStyle = user.banner || 'linear-gradient(135deg, #0B0E14 0%, #1A1F2C 50%, #12161F 100%)';
   const isImageBanner = user.banner && (user.banner.startsWith('http') || user.banner.startsWith('data:image'));
 
   const handleExportChat = () => {
@@ -94,18 +88,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-4 font-sans">
-      <div className="bg-[#15161b] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Floating Close Button */}
+      <div className="bg-ez-elevated border border-ez-border rounded-3xl w-full max-w-md shadow-glass-lg relative overflow-hidden max-h-[90vh] flex flex-col">
+        {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-white/80 hover:text-white p-1.5 rounded-full bg-black/60 hover:bg-black/80 transition-colors z-30 cursor-pointer"
+          className="absolute top-4 right-4 text-white/80 hover:text-white p-1.5 rounded-full bg-black/50 hover:bg-black/70 transition-colors duration-150 z-30 cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Scrollable Container with Banner and Content */}
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
-          {/* Top Banner Header */}
+          {/* Banner */}
           <div
             className="h-28 w-full shrink-0 relative bg-cover bg-center"
             style={
@@ -114,85 +107,81 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 : { background: bannerStyle }
             }
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-[#15161b] to-transparent opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-t from-ez-elevated to-transparent opacity-80" />
           </div>
 
-          {/* Profile Card Body */}
+          {/* Profile Body */}
           <div className="px-6 pb-6 pt-0 flex-1 flex flex-col">
-            {/* Avatar & Identity Header */}
+            {/* Avatar */}
             <div className="flex flex-col items-center text-center -mt-12 mb-4 relative z-20">
               <div className="relative mb-2 shrink-0">
-                <div className="w-20 h-20 min-w-[80px] min-h-[80px] rounded-full overflow-hidden border-4 border-[#15161b] bg-[#1d1f27] shadow-xl shrink-0">
+                <div className="w-20 h-20 min-w-[80px] min-h-[80px] rounded-full overflow-hidden border-4 border-ez-elevated bg-ez-surface shadow-glass shrink-0">
                   <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
                 </div>
-
-                {/* Dynamic Status Dot Indicator on Avatar */}
                 <div
-                  className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-[#15161b] z-30 ${
+                  className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${
                     user.status === 'Online'
-                      ? 'bg-[#00ff73] shadow-[0_0_8px_#00ff73]'
-                      : 'bg-gray-400'
+                      ? 'bg-neon-green-glow shadow-neon-dot'
+                      : 'bg-ez-muted'
                   }`}
                   title={user.status}
                 />
               </div>
 
-              {/* Name & Status */}
               <h3 className="text-lg font-bold text-white tracking-tight leading-tight">{user.name || user.handle}</h3>
-              <p className="text-xs font-mono font-bold text-[#00ff73] mt-0.5">{user.handle}</p>
+              <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
 
-              {/* Bio */}
               {user.bio && (
-                <p className="text-xs text-gray-300 mt-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5 max-w-xs leading-relaxed">
+                <p className="text-xs text-gray-300 mt-2 px-3 py-1.5 bg-white/5 rounded-xl border border-ez-border/50 max-w-xs leading-relaxed">
                   {user.bio}
                 </p>
               )}
             </div>
 
-            {/* Quick Actions Row: Voice Call, Notifications, Export Chat */}
+            {/* Actions */}
             <div className="grid grid-cols-3 gap-2 mb-4">
               <button
                 type="button"
                 onClick={onStartCall}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#1b1e26] hover:bg-[#252934] border border-white/5 hover:border-[#00ff73]/40 transition-colors cursor-pointer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
               >
-                <Phone className="w-5 h-5 text-[#00ff73] mb-1" />
+                <Phone className="w-5 h-5 text-neon-green mb-1" />
                 <span className="text-[11px] font-semibold text-gray-200">Call</span>
               </button>
 
               <button
                 type="button"
                 onClick={onToggleNotifications}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors duration-150 cursor-pointer ${
                   isMuted
-                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                    : 'bg-[#1b1e26] hover:bg-[#252934] border-white/5 text-gray-200'
+                    ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                    : 'bg-ez-surface hover:bg-ez-hover border-ez-border/50 text-gray-200'
                 }`}
               >
-                {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-[#00ff73] mb-1" />}
+                {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-neon-green mb-1" />}
                 <span className="text-[11px] font-semibold">{isMuted ? 'Muted' : 'Mute'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportChat}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#1b1e26] hover:bg-[#252934] border border-white/5 hover:border-[#00ff73]/40 transition-colors cursor-pointer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
                 title="Export Chat History"
               >
-                <Download className="w-5 h-5 text-[#00ff73] mb-1" />
+                <Download className="w-5 h-5 text-neon-green mb-1" />
                 <span className="text-[11px] font-semibold text-gray-200">Export</span>
               </button>
             </div>
 
-            {/* Shared Media Section */}
+            {/* Shared Media */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Shared Media</span>
-                <span className="text-[10px] font-mono text-gray-500">{sharedAttachments.length} items</span>
+                <span className="text-xs font-bold text-ez-muted uppercase tracking-wider">Shared Media</span>
+                <span className="text-[10px] font-mono text-ez-muted">{sharedAttachments.length} items</span>
               </div>
 
               {sharedAttachments.length === 0 ? (
-                <div className="p-3 bg-[#1b1e26] rounded-xl text-center text-xs text-gray-500">
+                <div className="p-3 bg-ez-surface rounded-xl text-center text-xs text-ez-muted border border-ez-border/30">
                   No photos or files shared yet.
                 </div>
               ) : (
@@ -201,12 +190,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <div
                       key={idx}
                       onClick={() => att.type === 'image' && setPreviewAttachment(att)}
-                      className="h-16 rounded-xl overflow-hidden bg-black/40 border border-white/5 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                      className="h-16 rounded-xl overflow-hidden bg-black/30 border border-ez-border/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-150"
                     >
                       {att.type === 'image' ? (
                         <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
                       ) : (
-                        <FileText className="w-6 h-6 text-[#00ff73]" />
+                        <FileText className="w-6 h-6 text-neon-green" />
                       )}
                     </div>
                   ))}
@@ -214,16 +203,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               )}
             </div>
 
-            {/* Danger / Manage Section: Block & Remove Friend */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
+            {/* Danger Actions */}
+            <div className="space-y-2 pt-2 border-t border-ez-border/50">
               {onToggleBlock && (
                 <button
                   type="button"
                   onClick={onToggleBlock}
-                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${
                     isBlocked
-                      ? 'bg-[#00ff73]/15 text-[#00ff73] border border-[#00ff73]/30'
-                      : 'bg-white/5 hover:bg-rose-500/15 text-rose-400 border border-transparent hover:border-rose-500/30'
+                      ? 'bg-neon-green/10 text-neon-green border border-neon-green/25'
+                      : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-transparent hover:border-rose-500/25'
                   }`}
                 >
                   <Ban className="w-4 h-4" />
@@ -236,7 +225,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={onRemoveFriend}
-                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/15 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/25 transition-colors duration-150 cursor-pointer"
                   >
                     <UserMinus className="w-4 h-4" />
                     <span>Remove from Friends</span>
@@ -247,7 +236,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={onAddFriend}
-                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-[#00ff73] hover:bg-[#1aff85] text-black text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-bold shadow-neon-sm transition-colors duration-150 cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>Add to Friends</span>

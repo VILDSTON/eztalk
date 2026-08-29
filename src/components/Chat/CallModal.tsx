@@ -151,227 +151,186 @@ export const CallModal: React.FC<CallModalProps> = ({
 
       updateWaveform();
     } catch {
-      // Audio visualizer fallback
+      // AudioContext policy
     }
   };
 
-  const flushPendingCandidates = (pc: RTCPeerConnection) => {
-    while (pendingCandidatesRef.current.length > 0) {
-      const candidate = pendingCandidatesRef.current.shift();
-      if (candidate) {
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+  const createPeerConnection = (localStream: MediaStream) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peerConnectionRef.current = pc;
+
+    localStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localStream);
+    });
+
+    pc.ontrack = (event) => {
+      if (remoteAudioRef.current && event.streams[0]) {
+        remoteAudioRef.current.srcObject = event.streams[0];
+        remoteAudioRef.current.play().catch(() => {});
       }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+          candidate: event.candidate.toJSON(),
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        callSoundService.stopAll();
+        setCallState('connected');
+      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        handleEndCall();
+      }
+    };
+
+    return pc;
+  };
+
+  const startCall = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      localStreamRef.current = stream;
+      initAudioVisualizer(stream);
+
+      const pc = createPeerConnection(stream);
+
+      if (isInitiator) {
+        callSoundService.playOutgoing();
+        socketService.sendCall(currentUser, user.handle);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        hasOfferedRef.current = true;
+
+        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+          offer: pc.localDescription,
+        });
+      }
+    } catch {
+      alert('Could not access microphone for voice call. Please check browser permissions.');
+      handleEndCall();
     }
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      callSoundService.stopAll();
-      return;
-    }
+    if (!isOpen) return;
 
-    let pc: RTCPeerConnection;
-    let isCleanedUp = false;
+    startCall();
 
-    const createAndSendOffer = async (targetPc: RTCPeerConnection) => {
-      if (hasOfferedRef.current) return;
-      hasOfferedRef.current = true;
-      try {
-        const offer = await targetPc.createOffer({
-          offerToReceiveAudio: true,
-          voiceActivityDetection: true,
-        });
-        await targetPc.setLocalDescription(offer);
-        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-          type: 'offer',
-          sdp: offer,
-        });
-      } catch (e) {
-        console.warn('Error creating WebRTC offer:', e);
-      }
-    };
+    const cleanupWebRTC = socketService.onWebRTCSignal(async ({ fromHandle, signal }) => {
+      if (normalizeHandle(fromHandle) !== normalizeHandle(user.handle)) return;
 
-    const setupWebRTC = async () => {
-      try {
-        pc = new RTCPeerConnection(ICE_SERVERS);
-        peerConnectionRef.current = pc;
-
-        // Capture user microphone with echo cancellation
-        const localStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-          video: false,
-        });
-
-        if (isCleanedUp) {
-          localStream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        localStreamRef.current = localStream;
-        localStream.getTracks().forEach((track) => {
-          pc.addTrack(track, localStream);
-        });
-
-        initAudioVisualizer(localStream);
-
-        // Handle remote incoming audio stream
-        pc.ontrack = (event) => {
-          if (remoteAudioRef.current && event.streams[0]) {
-            remoteAudioRef.current.srcObject = event.streams[0];
-            remoteAudioRef.current.play().catch(() => {});
-          }
-          callSoundService.stopAll();
-          setCallState('connected');
-        };
-
-        // ICE Candidate handler
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-              type: 'candidate',
-              candidate: event.candidate,
-            });
-          }
-        };
-
-        pc.onconnectionstatechange = () => {
-          if (pc.connectionState === 'connected') {
-            callSoundService.stopAll();
-            setCallState('connected');
-          } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-            setCallState('ended');
-            const info: CallInfo = {
-              type: isInitiator ? 'outgoing' : 'incoming',
-              duration: durationRef.current,
-            };
-            setTimeout(() => onClose(info), 500);
-          }
-        };
-
-        if (isInitiator) {
-          setCallState('calling');
-          callSoundService.playOutgoing();
-          socketService.sendCall(currentUser, user.handle);
-          // If recipient was already accepted prior to PC creation
-          if (recipientAcceptedRef.current) {
-            createAndSendOffer(pc);
-          }
-        } else {
-          callSoundService.stopAll();
-          setCallState('connected');
-          socketService.answerCall(user.handle, currentUser);
-        }
-      } catch (err) {
-        console.warn('Microphone access or WebRTC error:', err);
-        callSoundService.stopAll();
-        setCallState('connected');
-      }
-    };
-
-    setupWebRTC();
-
-    // Listen for WebRTC signals (Offer, Answer, ICE Candidates)
-    const unsubSignal = socketService.onWebRTCSignal(async ({ toHandle, fromHandle, signal }) => {
-      const myHandle = normalizeHandle(currentUser.handle);
-      const targetHandle = normalizeHandle(user.handle);
-
-      if (normalizeHandle(toHandle) !== myHandle) return;
-      if (normalizeHandle(fromHandle) !== targetHandle) return;
-
-      const currentPc = peerConnectionRef.current;
-      if (!currentPc) return;
+      const pc = peerConnectionRef.current;
+      if (!pc) return;
 
       try {
-        if (signal.type === 'offer') {
-          await currentPc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          flushPendingCandidates(currentPc);
+        if (signal.offer) {
+          if (pc.signalingState !== 'stable') {
+            await Promise.all([
+              pc.setLocalDescription({ type: 'rollback' }),
+              pc.setRemoteDescription(new RTCSessionDescription(signal.offer)),
+            ]);
+          } else {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+          }
 
-          const answer = await currentPc.createAnswer();
-          await currentPc.setLocalDescription(answer);
+          while (pendingCandidatesRef.current.length > 0) {
+            const cand = pendingCandidatesRef.current.shift();
+            if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
           socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-            type: 'answer',
-            sdp: answer,
+            answer: pc.localDescription,
           });
-        } else if (signal.type === 'answer') {
-          callSoundService.stopAll();
-          setCallState('connected');
-          if (currentPc.signalingState !== 'stable') {
-            await currentPc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-            flushPendingCandidates(currentPc);
+        } else if (signal.answer) {
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+            while (pendingCandidatesRef.current.length > 0) {
+              const cand = pendingCandidatesRef.current.shift();
+              if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+            }
           }
-        } else if (signal.type === 'candidate') {
-          if (currentPc.remoteDescription && currentPc.remoteDescription.type) {
-            currentPc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+        } else if (signal.candidate) {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
           } else {
             pendingCandidatesRef.current.push(signal.candidate);
           }
         }
-      } catch (err) {
-        console.warn('WebRTC signal error:', err);
+      } catch {
+        // Signaling ignore
       }
     });
 
-    // Recipient accepted call -> caller generates offer
-    const unsubAccept = socketService.onCallAccepted(({ callerHandle }) => {
-      if (isInitiator && normalizeHandle(callerHandle) === normalizeHandle(currentUser.handle)) {
+    const cleanupCallAccepted = socketService.onCallAccepted(async ({ callerHandle }) => {
+      if (normalizeHandle(callerHandle) === normalizeHandle(currentUser.handle)) {
         recipientAcceptedRef.current = true;
-        const currentPc = peerConnectionRef.current;
-        if (currentPc) {
-          createAndSendOffer(currentPc);
+        callSoundService.stopAll();
+        setCallState('connected');
+
+        const pc = peerConnectionRef.current;
+        if (pc && !hasOfferedRef.current) {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          hasOfferedRef.current = true;
+          socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+            offer: pc.localDescription,
+          });
         }
       }
     });
 
-    // Call ended event
-    const unsubEnd = socketService.onCallEnded(({ callerHandle, recipientHandle }) => {
-      const myHandle = normalizeHandle(currentUser.handle);
-      const targetHandle = normalizeHandle(user.handle);
+    const cleanupCallEnded = socketService.onCallEnded(({ callerHandle, recipientHandle } = {}) => {
+      const isRel =
+        !callerHandle ||
+        normalizeHandle(callerHandle) === normalizeHandle(user.handle) ||
+        normalizeHandle(recipientHandle || '') === normalizeHandle(user.handle);
 
-      if (
-        (normalizeHandle(callerHandle || '') === targetHandle &&
-          normalizeHandle(recipientHandle || '') === myHandle) ||
-        (normalizeHandle(callerHandle || '') === myHandle &&
-          normalizeHandle(recipientHandle || '') === targetHandle)
-      ) {
+      if (isRel) {
         callSoundService.stopAll();
         setCallState('ended');
-        const info: CallInfo = {
-          type: isInitiator ? 'outgoing' : 'incoming',
-          duration: durationRef.current,
-        };
-        setTimeout(() => onClose(info), 400);
+        setTimeout(() => {
+          onClose({
+            type: isInitiator ? 'outgoing' : 'incoming',
+            duration: durationRef.current,
+          });
+        }, 1000);
       }
     });
 
     return () => {
-      isCleanedUp = true;
+      cleanupWebRTC();
+      cleanupCallAccepted();
+      cleanupCallEnded();
       callSoundService.stopAll();
-      unsubSignal();
-      unsubAccept();
-      unsubEnd();
 
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-        localStreamRef.current = null;
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => {});
       }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
     };
-  }, [isOpen, isInitiator, user.handle, currentUser]);
+  }, [isOpen]);
 
-  // Duration timer
   useEffect(() => {
     if (callState === 'connected') {
       durationTimerRef.current = setInterval(() => {
@@ -386,7 +345,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const toggleMute = () => {
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !track.enabled;
+        track.enabled = isMuted;
       });
       setIsMuted(!isMuted);
     }
@@ -420,16 +379,16 @@ export const CallModal: React.FC<CallModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in select-none font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay animate-fade-in select-none font-sans">
       {/* Hidden audio element with autoplay for remote audio stream */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
-      <div className="relative w-full max-w-sm bg-[#121318] border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.9)] p-7 flex flex-col items-center text-center overflow-hidden">
+      <div className="relative w-full max-w-sm bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg p-7 flex flex-col items-center text-center overflow-hidden">
         {/* Ambient Glow */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#00ff73]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Security / Encryption Badge */}
-        <div className="flex items-center space-x-1 text-[10px] font-mono font-bold text-[#00ff73] bg-[#00ff73]/10 border border-[#00ff73]/30 px-3 py-1 rounded-full mb-6 shadow-xs">
+        <div className="flex items-center space-x-1 text-[10px] font-mono font-bold text-neon-green bg-neon-green/10 border border-neon-green/30 px-3 py-1 rounded-full mb-6 shadow-xs">
           <Shield className="w-3 h-3" />
           <span>END-TO-END ENCRYPTED VOICE</span>
         </div>
@@ -438,30 +397,30 @@ export const CallModal: React.FC<CallModalProps> = ({
         <div className="relative mb-6">
           {callState === 'calling' && (
             <>
-              <div className="absolute inset-0 rounded-full bg-[#00ff73]/20 animate-ping" />
-              <div className="absolute -inset-3 rounded-full border border-[#00ff73]/30 animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-neon-green/20 animate-ping" />
+              <div className="absolute -inset-3 rounded-full border border-neon-green/30 animate-pulse" />
             </>
           )}
 
-          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#00ff73] shadow-[0_0_30px_rgba(0,255,115,0.4)] bg-gray-800 relative z-10">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neon-green shadow-neon-md bg-ez-surface relative z-10">
             <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
           </div>
         </div>
 
         {/* User Name & Handle */}
         <h3 className="text-xl font-bold text-white tracking-tight leading-tight">{user.name || user.handle}</h3>
-        <p className="text-xs text-[#00ff73] font-mono mt-1">{user.handle}</p>
+        <p className="text-xs text-neon-green font-mono mt-1">{user.handle}</p>
 
         {/* Call State / Duration */}
         <div className="my-5 flex flex-col items-center">
           {callState === 'calling' ? (
             <span className="text-xs font-bold text-gray-400 animate-pulse flex items-center space-x-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#00ff73] animate-spin" />
+              <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
               <span>Calling...</span>
             </span>
           ) : callState === 'connected' ? (
             <div className="flex flex-col items-center space-y-2">
-              <span className="text-sm font-bold text-[#00ff73] font-mono tracking-widest bg-[#00ff73]/10 px-3.5 py-1 rounded-full border border-[#00ff73]/20">
+              <span className="text-sm font-bold text-neon-green font-mono tracking-widest bg-neon-green/10 px-3.5 py-1 rounded-full border border-neon-green/20">
                 {formatDuration(callDuration)}
               </span>
 
@@ -470,7 +429,7 @@ export const CallModal: React.FC<CallModalProps> = ({
                 {audioLevels.map((lvl, idx) => (
                   <div
                     key={idx}
-                    className="w-1 bg-[#00ff73] rounded-full transition-all duration-75"
+                    className="w-1 bg-neon-green rounded-full transition-all duration-75"
                     style={{ height: `${lvl}px` }}
                   />
                 ))}

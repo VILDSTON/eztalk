@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { LeftSidebar } from './components/Sidebar/LeftSidebar';
 import { FriendsList } from './components/Friends/FriendsList';
 import { ChatWindow } from './components/Chat/ChatWindow';
 import { AuthScreen } from './components/Auth/AuthScreen';
@@ -13,7 +14,7 @@ import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
 import { ChatStorageService, getConversationKey, normalizeHandle } from './utils/chatStorage';
 import { ApiService } from './services/api';
 import { socketService } from './services/socket';
-import { X, MessageSquare, Send } from 'lucide-react';
+import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
 
 // Play audible notification chime on receiving a message
 function playReceiveChime() {
@@ -71,6 +72,7 @@ export default function App() {
 
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'chats' | 'contacts' | 'groups' | 'saved'>('chats');
 
   const [mutedUsers, setMutedUsers] = useState<Record<string, boolean>>({});
   const [onlineHandles, setOnlineHandles] = useState<string[]>([]);
@@ -88,7 +90,7 @@ export default function App() {
   const [activeLiveCall, setActiveLiveCall] = useState<{ user: User; isInitiator?: boolean } | null>(null);
   const [toast, setToast] = useState<ToastNotification | null>(null);
 
-  // Telegram Drawer & Modals State
+  // Drawer & Modals State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -126,9 +128,9 @@ export default function App() {
   useEffect(() => {
     const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
     if (totalUnread > 0) {
-      document.title = `(${totalUnread}) EzTalk - Telegram Web`;
+      document.title = `(${totalUnread}) EzTalk - Web Messenger`;
     } else {
-      document.title = 'EzTalk - Telegram Web';
+      document.title = 'EzTalk - Web Messenger';
     }
   }, [unreadCounts]);
 
@@ -631,15 +633,6 @@ export default function App() {
     refreshUsersAndGroups();
   };
 
-  const handleSelectUserByHandle = (handle: string) => {
-    const target = normalizeHandle(handle);
-    const matched = allUsers.find((u) => normalizeHandle(u.handle) === target);
-    if (matched && currentUser && normalizeHandle(matched.handle) !== normalizeHandle(currentUser.handle)) {
-      setSelectedUserId(matched.id);
-      setSelectedGroupId(null);
-    }
-  };
-
   const handleUpdateCurrentUser = async (updated: User) => {
     const oldHandle = currentUser?.handle;
     setCurrentUser(updated);
@@ -669,13 +662,13 @@ export default function App() {
     });
   };
 
-  // If not authenticated, render AuthScreen (Login / Register)
+  // If not authenticated, render AuthScreen
   if (!currentUser) {
     return <AuthScreen onLogin={handleLogin} />;
   }
 
   return (
-    <div className="w-screen h-screen bg-[#07080a] text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
+    <div className="w-screen h-screen bg-ez-base text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
       {/* Top Right In-App Notification Toast */}
       {toast && (
         <div
@@ -700,26 +693,26 @@ export default function App() {
             }
             setToast(null);
           }}
-          className="fixed top-4 right-4 z-50 flex items-center space-x-3 bg-[#15171e] border border-[#00ff73]/40 hover:border-[#00ff73] p-3.5 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] text-white cursor-pointer transition-all animate-fade-in max-w-sm backdrop-blur-md"
+          className="fixed top-4 right-4 z-50 flex items-center space-x-3 bg-ez-elevated/95 border border-neon-green/40 hover:border-neon-green p-3.5 rounded-2xl shadow-glass-lg text-white cursor-pointer transition-all animate-slide-up max-w-sm backdrop-blur-md"
         >
           <div className="relative shrink-0">
             <img
               src={toast.senderAvatar}
               alt={toast.senderHandle}
-              className="w-10 h-10 rounded-full object-cover border border-[#00ff73]/50"
+              className="w-10 h-10 rounded-full object-cover border border-neon-green/50"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#00ff73] border-2 border-[#15171e] shadow-[0_0_6px_#00ff73]" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green border-2 border-ez-elevated shadow-neon-dot" />
           </div>
           <div className="flex flex-col min-w-0 pr-1 flex-1">
             <div className="flex items-center space-x-1.5">
-              <span className="text-xs font-bold text-[#00ff73] truncate">{toast.senderName}</span>
-              <span className="text-[10px] text-gray-400 font-mono truncate">{toast.senderHandle}</span>
+              <span className="text-xs font-bold text-neon-green truncate">{toast.senderName}</span>
+              <span className="text-[10px] text-ez-muted font-mono truncate">{toast.senderHandle}</span>
             </div>
             <p className="text-xs text-gray-200 truncate mt-0.5">{toast.text}</p>
           </div>
           <div className="flex items-center space-x-1 shrink-0">
-            <span className="text-[10px] text-gray-400 flex items-center mr-1">
-              <MessageSquare className="w-3 h-3 text-[#00ff73]" />
+            <span className="text-[10px] text-ez-muted flex items-center mr-1">
+              <MessageSquare className="w-3 h-3 text-neon-green" />
             </span>
             <button
               type="button"
@@ -727,7 +720,7 @@ export default function App() {
                 e.stopPropagation();
                 setToast(null);
               }}
-              className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+              className="text-ez-muted hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -735,9 +728,36 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Telegram Web 2-Panel Application Body */}
-      <div className="flex-1 flex overflow-hidden bg-[#0e0f12]">
-        {/* Panel 1: Telegram Chats List Sidebar */}
+      {/* Main EzTalk 3-Panel Application Body */}
+      <div className="flex-1 flex overflow-hidden bg-ez-base w-full h-full">
+        {/* Panel 1: Left Mini-Bar Rail (64px) - Always visible on desktop */}
+        <div className="hidden md:flex h-full shrink-0">
+          <LeftSidebar
+            currentUser={currentUser}
+            myAccounts={myAccounts}
+            activeSection={activeSection}
+            onSelectSection={(sec) => {
+              setActiveSection(sec);
+              if (sec === 'saved') {
+                setSelectedUserId(currentUser.id);
+                setSelectedGroupId(null);
+              }
+            }}
+            onOpenAddFriend={() => setIsAddFriendOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
+            onSelectSavedMessages={() => {
+              setSelectedUserId(currentUser.id);
+              setSelectedGroupId(null);
+            }}
+            onSwitchUser={handleLogin}
+            onRemoveAccount={handleRemoveAccount}
+            onAddAccount={() => setCurrentUser(null)}
+            onLogout={handleLogout}
+          />
+        </div>
+
+        {/* Panel 2: Friends & Conversations Panel */}
         <div className={`h-full ${selectedUser || selectedGroup ? 'hidden md:flex' : 'flex'} w-full md:w-auto shrink-0`}>
           <FriendsList
             currentUser={currentUser}
@@ -765,8 +785,8 @@ export default function App() {
           />
         </div>
 
-        {/* Panel 2: Telegram Chat Window Area */}
-        <div className={`flex-1 flex overflow-hidden bg-[#0b0c0e] ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
+        {/* Panel 3: Main Chat View Area */}
+        <div className={`flex-1 flex overflow-hidden bg-ez-base ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
           {selectedUser || selectedGroup ? (
             <ChatWindow
               user={selectedUser}
@@ -803,21 +823,25 @@ export default function App() {
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none telegram-chat-bg relative overflow-hidden">
-              <div className="bg-[#17181c]/80 backdrop-blur-md border border-white/5 p-6 rounded-3xl max-w-sm flex flex-col items-center shadow-xl">
-                <div className="w-16 h-16 rounded-full bg-[#00ff73]/15 text-[#00ff73] flex items-center justify-center text-2xl mb-4 shadow-[0_0_20px_rgba(0,255,115,0.2)]">
-                  <Send className="w-7 h-7 ml-0.5" />
+              <div className="bg-ez-elevated/90 backdrop-blur-xl border border-ez-border p-8 rounded-3xl max-w-sm flex flex-col items-center shadow-glass-lg relative z-10 animate-scale-up">
+                <div className="w-16 h-16 rounded-2xl bg-neon-green/10 text-neon-green flex items-center justify-center mb-4 shadow-neon-sm border border-neon-green/25">
+                  <Send className="w-7 h-7 ml-0.5 text-neon-green" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1.5">Select a chat to start messaging</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Choose from your existing conversations or search for contacts to start chatting with instant sync.
+                <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">Select a conversation</h3>
+                <p className="text-xs text-ez-muted leading-relaxed mb-4">
+                  Choose a contact from the list or start a new conversation to begin real-time encrypted messaging.
                 </p>
+                <div className="inline-flex items-center space-x-1.5 text-[11px] font-mono text-neon-green bg-neon-green/10 px-3 py-1 rounded-full border border-neon-green/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Real-time P2P Ready</span>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Slide-out Telegram Navigation Drawer */}
+      {/* Slide-out Navigation Drawer */}
       <TelegramDrawer
         isOpen={isDrawerOpen}
         currentUser={currentUser}
@@ -840,7 +864,7 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* Telegram Full Settings Modal */}
+      {/* Settings Modal */}
       {isSettingsOpen && currentUser && (
         <TelegramSettingsModal
           isOpen={isSettingsOpen}

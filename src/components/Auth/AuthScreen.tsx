@@ -18,15 +18,15 @@ const PRESET_AVATARS = [
 
 // Helper to calculate password strength (1 to 3)
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  if (!password) return { score: 0, label: '', color: 'bg-gray-700' };
+  if (!password) return { score: 0, label: '', color: 'bg-ez-border' };
   let score = 0;
   if (password.length >= 6) score += 1;
   if (password.length >= 8 && /[0-9]/.test(password)) score += 1;
   if (/[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
 
-  if (score === 1) return { score: 1, label: 'Weak', color: 'bg-red-500' };
-  if (score === 2) return { score: 2, label: 'Medium', color: 'bg-yellow-400' };
-  return { score: 3, label: 'Strong', color: 'bg-[#00ff73]' };
+  if (score === 1) return { score: 1, label: 'Weak', color: 'bg-rose-500' };
+  if (score === 2) return { score: 2, label: 'Medium', color: 'bg-amber-400' };
+  return { score: 3, label: 'Strong', color: 'bg-neon-green' };
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
@@ -180,7 +180,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="w-screen h-screen bg-[#07080a] flex items-center justify-center p-4 relative overflow-y-auto select-none font-sans custom-scrollbar">
+    <div className="w-screen h-screen bg-ez-base flex items-center justify-center p-4 relative overflow-y-auto select-none font-sans custom-scrollbar">
       {/* Hidden file input for custom avatar */}
       <input
         type="file"
@@ -190,28 +190,28 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         className="hidden"
       />
 
-      {/* Subtle Background Glows */}
-      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-[#00ff73]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-[#00ff73]/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Ambient Neon Glows */}
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
+      <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-neon-green/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Auth Card */}
-      <div className="w-full max-w-md bg-[#121317] border border-[#262830] rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in backdrop-blur-md my-auto">
+      <div className="w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl p-8 shadow-glass-lg relative z-10 animate-fade-in backdrop-blur-md my-auto">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#00ff73]/10 border border-[#00ff73]/30 text-[#00ff73] mb-2.5 shadow-[0_0_20px_rgba(0,255,115,0.2)]">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-neon-green/10 border border-neon-green/30 text-neon-green mb-2.5 shadow-neon-sm">
             <span className="text-2xl font-black">Ez</span>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-[#00ff73] neon-text-glow">
-            EzTalk
+          <h1 className="text-3xl font-black tracking-tight text-white">
+            Ez<span className="text-neon-green">Talk</span>
           </h1>
-          <div className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#00ff73]/10 border border-[#00ff73]/30 text-[11px] font-semibold text-[#00ff73] shadow-[0_0_15px_rgba(0,255,115,0.2)]">
-            <Sparkles className="w-3.5 h-3.5 text-[#00ff73] animate-pulse shrink-0" />
-            <span className="tracking-tight font-mono">Powered by Gemini 3.7 Flash</span>
+          <div className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-neon-green/10 border border-neon-green/25 text-[11px] font-semibold text-neon-green shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-neon-green animate-glow-pulse shrink-0" />
+            <span className="tracking-tight font-mono">Ultra Fast • End-to-End Real-Time</span>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-[#191a20] p-1 rounded-xl mb-5 border border-[#2a2c35]">
+        <div className="flex bg-ez-surface p-1 rounded-xl mb-5 border border-ez-border/60">
           <button
             type="button"
             onClick={() => {
@@ -220,8 +220,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             }}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               mode === 'login'
-                ? 'bg-[#00ff73] text-black shadow-neon-sm'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-neon-green text-black shadow-neon-sm'
+                : 'text-ez-muted hover:text-white'
             }`}
           >
             Sign In
@@ -234,8 +234,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             }}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               mode === 'register'
-                ? 'bg-[#00ff73] text-black shadow-neon-sm'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-neon-green text-black shadow-neon-sm'
+                : 'text-ez-muted hover:text-white'
             }`}
           >
             Create Account
@@ -244,7 +244,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
         {/* Error Alert Banner */}
         {errorMessage && (
-          <div className="mb-4 flex items-center space-x-2 bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-red-400 text-xs animate-fade-in">
+          <div className="mb-4 flex items-center space-x-2 bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl text-rose-400 text-xs animate-fade-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
@@ -258,7 +258,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 Email or Username (@handle)
               </label>
               <div className="relative flex items-center">
-                <Mail className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <Mail className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type="text"
                   required
@@ -268,7 +268,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="name@example.com or @username"
-                  className="w-full bg-[#18191f] border border-[#2a2c35] focus:border-[#00ff73] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition-colors"
+                  className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors"
                 />
               </div>
             </div>
@@ -280,7 +280,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 </label>
               </div>
               <div className="relative flex items-center">
-                <Lock className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <Lock className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type={showLoginPassword ? 'text' : 'password'}
                   required
@@ -290,12 +290,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="••••••••"
-                  className="w-full bg-[#18191f] border border-[#2a2c35] focus:border-[#00ff73] rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition-colors"
+                  className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 text-gray-400 hover:text-white cursor-pointer"
+                  className="absolute right-3 text-ez-muted hover:text-white cursor-pointer"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -309,16 +309,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-[#2a2c35] text-[#00ff73] focus:ring-0 focus:outline-none accent-[#00ff73]"
+                  className="rounded border-ez-border text-neon-green focus:ring-0 focus:outline-none accent-neon-green"
                 />
-                <span className="text-xs text-gray-400 hover:text-gray-200">Remember on this device</span>
+                <span className="text-xs text-ez-muted hover:text-gray-200">Remember on this device</span>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-[#00ff73] hover:bg-[#1aff85] text-black font-bold text-sm rounded-xl shadow-neon-md hover:shadow-neon-lg transition-all flex items-center justify-center space-x-2 mt-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-md hover:shadow-neon-lg transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center space-x-2 mt-2 cursor-pointer disabled:opacity-50"
             >
               <span>{loading ? 'Signing in...' : 'Sign In to EzTalk'}</span>
               <ArrowRight className="w-4 h-4" />
@@ -329,9 +329,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               <button
                 type="button"
                 onClick={handleQuickDemo}
-                className="w-full py-2.5 bg-[#21232b] hover:bg-[#2a2d37] border border-[#323542] text-gray-200 hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center space-x-2 cursor-pointer"
+                className="w-full py-2.5 bg-ez-hover hover:bg-ez-border border border-ez-border text-gray-200 hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center space-x-2 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#00ff73]" />
+                <Sparkles className="w-3.5 h-3.5 text-neon-green" />
                 <span>Instant Demo Login (1-Click)</span>
               </button>
             </div>
@@ -345,7 +345,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 Full Name (No Emojis)
               </label>
               <div className="relative flex items-center">
-                <UserIcon className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <UserIcon className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type="text"
                   required
@@ -356,7 +356,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="e.g. Sarah Connor"
-                  className="w-full bg-[#18191f] border border-[#2a2c35] focus:border-[#00ff73] rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 outline-none transition-colors"
+                  className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors"
                 />
               </div>
             </div>
@@ -368,23 +368,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                   Username (@handle)
                 </label>
                 {handleStatus === 'available' && (
-                  <span className="text-[11px] font-bold text-[#00ff73] flex items-center space-x-1 animate-fade-in">
+                  <span className="text-[11px] font-bold text-neon-green flex items-center space-x-1 animate-fade-in">
                     <Check className="w-3 h-3" />
                     <span>Available</span>
                   </span>
                 )}
                 {handleStatus === 'taken' && (
-                  <span className="text-[11px] font-bold text-red-400 flex items-center space-x-1 animate-fade-in">
+                  <span className="text-[11px] font-bold text-rose-400 flex items-center space-x-1 animate-fade-in">
                     <X className="w-3 h-3" />
                     <span>Username taken</span>
                   </span>
                 )}
                 {handleStatus === 'checking' && (
-                  <span className="text-[10px] text-gray-400 italic">Checking...</span>
+                  <span className="text-[10px] text-ez-muted italic">Checking...</span>
                 )}
               </div>
               <div className="relative flex items-center">
-                <span className="text-gray-500 absolute left-3.5 text-sm font-semibold">@</span>
+                <span className="text-ez-muted absolute left-3.5 text-sm font-semibold">@</span>
                 <input
                   type="text"
                   required
@@ -394,12 +394,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="username (e.g. SarahC)"
-                  className={`w-full bg-[#18191f] border rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 outline-none transition-colors ${
+                  className={`w-full bg-ez-input border rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors ${
                     handleStatus === 'taken'
-                      ? 'border-red-500/60 focus:border-red-500'
+                      ? 'border-rose-500/60 focus:border-rose-500'
                       : handleStatus === 'available'
-                      ? 'border-[#00ff73]/60 focus:border-[#00ff73]'
-                      : 'border-[#2a2c35] focus:border-[#00ff73]'
+                      ? 'border-neon-green/60 focus:border-neon-green'
+                      : 'border-ez-border focus:border-neon-green'
                   }`}
                 />
               </div>
@@ -411,7 +411,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 Email
               </label>
               <div className="relative flex items-center">
-                <Mail className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <Mail className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type="email"
                   required
@@ -421,7 +421,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="sarah@example.com"
-                  className="w-full bg-[#18191f] border border-[#2a2c35] focus:border-[#00ff73] rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 outline-none transition-colors"
+                  className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors"
                 />
               </div>
             </div>
@@ -433,13 +433,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                   Password
                 </label>
                 {passwordStrength.label && (
-                  <span className={`text-[10px] font-bold ${passwordStrength.score === 3 ? 'text-[#00ff73]' : passwordStrength.score === 2 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  <span className={`text-[10px] font-bold ${passwordStrength.score === 3 ? 'text-neon-green' : passwordStrength.score === 2 ? 'text-amber-400' : 'text-rose-400'}`}>
                     {passwordStrength.label}
                   </span>
                 )}
               </div>
               <div className="relative flex items-center">
-                <Lock className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <Lock className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type={showRegPassword ? 'text' : 'password'}
                   required
@@ -449,12 +449,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="••••••••"
-                  className="w-full bg-[#18191f] border border-[#2a2c35] focus:border-[#00ff73] rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder-gray-500 outline-none transition-colors"
+                  className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowRegPassword(!showRegPassword)}
-                  className="absolute right-3 text-gray-400 hover:text-white cursor-pointer"
+                  className="absolute right-3 text-ez-muted hover:text-white cursor-pointer"
                 >
                   {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -463,9 +463,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               {/* Password Strength Visual Meter */}
               {regPassword && (
                 <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                  <div className={`h-1 rounded-full ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-gray-800'}`} />
-                  <div className={`h-1 rounded-full ${passwordStrength.score >= 2 ? passwordStrength.color : 'bg-gray-800'}`} />
-                  <div className={`h-1 rounded-full ${passwordStrength.score >= 3 ? passwordStrength.color : 'bg-gray-800'}`} />
+                  <div className={`h-1 rounded-full ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-ez-border'}`} />
+                  <div className={`h-1 rounded-full ${passwordStrength.score >= 2 ? passwordStrength.color : 'bg-ez-border'}`} />
+                  <div className={`h-1 rounded-full ${passwordStrength.score >= 3 ? passwordStrength.color : 'bg-ez-border'}`} />
                 </div>
               )}
             </div>
@@ -478,17 +478,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 </label>
                 {regConfirmPassword && (
                   regPassword === regConfirmPassword ? (
-                    <span className="text-[10px] font-bold text-[#00ff73] flex items-center space-x-0.5">
+                    <span className="text-[10px] font-bold text-neon-green flex items-center space-x-0.5">
                       <Check className="w-3 h-3" />
                       <span>Matches</span>
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold text-red-400">Doesn't match</span>
+                    <span className="text-[10px] font-bold text-rose-400">Doesn't match</span>
                   )
                 )}
               </div>
               <div className="relative flex items-center">
-                <ShieldCheck className="w-4 h-4 text-gray-500 absolute left-3.5" />
+                <ShieldCheck className="w-4 h-4 text-ez-muted absolute left-3.5" />
                 <input
                   type={showRegConfirmPassword ? 'text' : 'password'}
                   required
@@ -498,16 +498,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     setErrorMessage('');
                   }}
                   placeholder="••••••••"
-                  className={`w-full bg-[#18191f] border rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder-gray-500 outline-none transition-colors ${
+                  className={`w-full bg-ez-input border rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors ${
                     regConfirmPassword && regPassword !== regConfirmPassword
-                      ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[#2a2c35] focus:border-[#00ff73]'
+                      ? 'border-rose-500/60 focus:border-rose-500'
+                      : 'border-ez-border focus:border-neon-green'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
-                  className="absolute right-3 text-gray-400 hover:text-white cursor-pointer"
+                  className="absolute right-3 text-ez-muted hover:text-white cursor-pointer"
                 >
                   {showRegConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -523,7 +523,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-[11px] font-semibold text-[#00ff73] hover:underline flex items-center space-x-1 cursor-pointer"
+                  className="text-[11px] font-semibold text-neon-green hover:underline flex items-center space-x-1 cursor-pointer"
                 >
                   <Upload className="w-3 h-3" />
                   <span>Upload Photo</span>
@@ -537,14 +537,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     onClick={() => setSelectedAvatar(customAvatar)}
                     className={`relative w-9 h-9 rounded-full overflow-hidden cursor-pointer border-2 transition-all ${
                       selectedAvatar === customAvatar
-                        ? 'border-[#00ff73] scale-110 shadow-neon-sm'
+                        ? 'border-neon-green scale-110 shadow-neon-sm'
                         : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
                     <img src={customAvatar} alt="Custom" className="w-full h-full object-cover" />
                     {selectedAvatar === customAvatar && (
-                      <div className="absolute inset-0 bg-[#00ff73]/20 flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff73]" />
+                      <div className="absolute inset-0 bg-neon-green/20 flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-neon-green" />
                       </div>
                     )}
                   </div>
@@ -557,14 +557,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     onClick={() => setSelectedAvatar(url)}
                     className={`relative w-9 h-9 rounded-full overflow-hidden cursor-pointer border-2 transition-all ${
                       selectedAvatar === url
-                        ? 'border-[#00ff73] scale-110 shadow-neon-sm'
+                        ? 'border-neon-green scale-110 shadow-neon-sm'
                         : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
                     <img src={url} alt="Avatar" className="w-full h-full object-cover" />
                     {selectedAvatar === url && (
-                      <div className="absolute inset-0 bg-[#00ff73]/20 flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff73]" />
+                      <div className="absolute inset-0 bg-neon-green/20 flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-neon-green" />
                       </div>
                     )}
                   </div>
@@ -579,16 +579,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-[#2a2c35] text-[#00ff73] focus:ring-0 focus:outline-none accent-[#00ff73]"
+                  className="rounded border-ez-border text-neon-green focus:ring-0 focus:outline-none accent-neon-green"
                 />
-                <span className="text-xs text-gray-400 hover:text-gray-200">Remember on this device</span>
+                <span className="text-xs text-ez-muted hover:text-gray-200">Remember on this device</span>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading || handleStatus === 'taken'}
-              className="w-full py-3 bg-[#00ff73] hover:bg-[#1aff85] text-black font-bold text-sm rounded-xl shadow-neon-md hover:shadow-neon-lg transition-all flex items-center justify-center space-x-2 mt-3 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-md hover:shadow-neon-lg transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center space-x-2 mt-3 cursor-pointer disabled:opacity-50"
             >
               <span>{loading ? 'Creating Account...' : 'Create Free Account'}</span>
               <ArrowRight className="w-4 h-4" />
