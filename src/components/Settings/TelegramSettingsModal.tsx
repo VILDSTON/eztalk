@@ -195,21 +195,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       >
         {/* ─── Window Header (Titlebar) ─── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 mr-1">
-              <div className="w-3 h-3 rounded-full bg-rose-500/80 border border-rose-400/40" />
-              <div className="w-3 h-3 rounded-full bg-amber-500/80 border border-amber-400/40" />
-              <div className="w-3 h-3 rounded-full bg-neon-green/80 border border-neon-green/40 shadow-neon-dot" />
+          <div className="flex items-center space-x-2.5">
+            <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
+              <Sliders className="w-4 h-4" />
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-extrabold text-white tracking-tight leading-none">Settings & Preferences</h2>
-                <p className="text-[11px] text-ez-muted font-mono mt-0.5">{currentUser.handle}</p>
-              </div>
-            </div>
+            <h2 className="text-sm font-extrabold text-white tracking-tight">Settings & Preferences</h2>
           </div>
 
           <button
@@ -401,19 +391,19 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               {/* Status Emoji Picker */}
               <div>
-                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1">
                   Status Emoji Icon
                 </label>
-                <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar">
+                <div className="flex items-center space-x-2.5 overflow-x-auto py-2.5 px-1.5 custom-scrollbar">
                   {STATUS_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => setStatusEmoji(emoji)}
-                      className={`w-10 h-10 rounded-xl text-lg flex items-center justify-center transition-transform duration-150 cursor-pointer ${
+                      className={`w-10 h-10 rounded-xl text-lg shrink-0 flex items-center justify-center transition-all duration-150 cursor-pointer ${
                         statusEmoji === emoji
-                          ? 'bg-neon-green/20 border-2 border-neon-green scale-110 shadow-neon-sm'
-                          : 'bg-white/5 border border-ez-border/60 hover:bg-white/10'
+                          ? 'bg-neon-green/20 border-2 border-neon-green scale-105 shadow-neon-sm'
+                          : 'bg-white/5 border border-ez-border/60 hover:bg-white/10 hover:border-white/20'
                       }`}
                     >
                       {emoji}

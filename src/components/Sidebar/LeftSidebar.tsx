@@ -140,46 +140,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           {/* User menu popup */}
           {showUserMenu && (
             <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-52 bg-ez-elevated border border-ez-border rounded-2xl p-2 shadow-glass-lg z-50 animate-scale-up text-xs space-y-1">
-              {/* Customize profile */}
+              {/* Customize profile -> Open Settings directly */}
               <button
                 type="button"
                 onClick={() => {
                   setShowUserMenu(false);
-                  onOpenEditProfile?.();
+                  onOpenSettings ? onOpenSettings() : onOpenEditProfile?.();
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-neon-green bg-neon-green/10 hover:bg-neon-green/20 text-left transition-colors font-semibold cursor-pointer border border-neon-green/20"
               >
                 <UserCog className="w-4 h-4" />
                 <span>Customize Profile</span>
               </button>
-
-              <div className="h-px bg-ez-border/50 my-1" />
-
-              {/* Set Status */}
-              <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-ez-muted tracking-wider">Set Status</div>
-              {(['Online', 'Away', 'Busy', 'Offline'] as const).map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setShowUserMenu(false)}
-                  className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                    currentUser.status === st ? 'bg-white/10 text-white font-semibold' : 'text-gray-300 hover:bg-white/5'
-                  }`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      st === 'Online'
-                        ? 'bg-neon-green'
-                        : st === 'Away'
-                        ? 'bg-amber-400'
-                        : st === 'Busy'
-                        ? 'bg-rose-500'
-                        : 'bg-slate-400'
-                    }`}
-                  />
-                  <span>{st}</span>
-                </button>
-              ))}
 
               {/* Switch Accounts */}
               {otherAccounts.length > 0 && (
