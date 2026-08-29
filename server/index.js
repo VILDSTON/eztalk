@@ -830,40 +830,54 @@ io.on('connection', (socket) => {
   });
 
   socket.on('typing', ({ senderHandle, recipientHandle, isTyping }) => {
-    io.emit('user_typing', {
-      senderHandle: normalizeHandle(senderHandle),
-      recipientHandle: normalizeHandle(recipientHandle),
-      isTyping,
-    });
+    const rHandle = normalizeHandle(recipientHandle);
+    const sHandle = normalizeHandle(senderHandle);
+    if (rHandle) {
+      io.to(rHandle).emit('user_typing', {
+        senderHandle: sHandle,
+        recipientHandle: rHandle,
+        isTyping,
+      });
+    }
   });
 
   socket.on('call_user', ({ caller, recipientHandle }) => {
-    io.emit('incoming_call', {
-      caller,
-      recipientHandle: normalizeHandle(recipientHandle),
-    });
+    const rHandle = normalizeHandle(recipientHandle);
+    if (rHandle) {
+      io.to(rHandle).emit('incoming_call', {
+        caller,
+        recipientHandle: rHandle,
+      });
+    }
   });
 
   socket.on('answer_call', ({ callerHandle, recipient }) => {
-    io.emit('call_accepted', {
-      callerHandle: normalizeHandle(callerHandle),
-      recipient,
-    });
+    const cHandle = normalizeHandle(callerHandle);
+    if (cHandle) {
+      io.to(cHandle).emit('call_accepted', {
+        callerHandle: cHandle,
+        recipient,
+      });
+    }
   });
 
   socket.on('end_call', ({ callerHandle, recipientHandle }) => {
-    io.emit('call_ended', {
-      callerHandle: normalizeHandle(callerHandle),
-      recipientHandle: normalizeHandle(recipientHandle),
-    });
+    const cHandle = normalizeHandle(callerHandle);
+    const rHandle = normalizeHandle(recipientHandle);
+    if (cHandle) io.to(cHandle).emit('call_ended', { callerHandle: cHandle, recipientHandle: rHandle });
+    if (rHandle) io.to(rHandle).emit('call_ended', { callerHandle: cHandle, recipientHandle: rHandle });
   });
 
   socket.on('webrtc_signal', ({ toHandle, fromHandle, signal }) => {
-    io.emit('webrtc_signal', {
-      toHandle: normalizeHandle(toHandle),
-      fromHandle: normalizeHandle(fromHandle),
-      signal,
-    });
+    const target = normalizeHandle(toHandle);
+    const source = normalizeHandle(fromHandle);
+    if (target) {
+      io.to(target).emit('webrtc_signal', {
+        toHandle: target,
+        fromHandle: source,
+        signal,
+      });
+    }
   });
 });
 

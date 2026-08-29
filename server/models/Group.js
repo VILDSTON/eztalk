@@ -34,4 +34,7 @@ const groupSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+groupSchema.index({ memberHandles: 1 });
+groupSchema.index({ creatorHandle: 1 });
+
 export const GroupModel = mongoose.models.Group || mongoose.model('Group', groupSchema);

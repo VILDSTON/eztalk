@@ -68,4 +68,9 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+messageSchema.index({ conversationKey: 1, createdAt: 1 });
+messageSchema.index({ groupId: 1, createdAt: 1 });
+messageSchema.index({ senderHandle: 1, createdAt: -1 });
+messageSchema.index({ recipientHandle: 1, createdAt: -1 });
+
 export const MessageModel = mongoose.models.Message || mongoose.model('Message', messageSchema);

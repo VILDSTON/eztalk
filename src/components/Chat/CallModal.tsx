@@ -197,6 +197,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1,
         },
       });
       localStreamRef.current = stream;
@@ -207,14 +208,6 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (isInitiator) {
         callSoundService.playOutgoing();
         socketService.sendCall(currentUser, user.handle);
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        hasOfferedRef.current = true;
-
-        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-          offer: pc.localDescription,
-        });
       }
     } catch {
       alert('Could not access microphone for voice call. Please check browser permissions.');
@@ -254,6 +247,8 @@ export const CallModal: React.FC<CallModalProps> = ({
           socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
             answer: pc.localDescription,
           });
+          setCallState('connected');
+          callSoundService.stopAll();
         } else if (signal.answer) {
           if (pc.signalingState === 'have-local-offer') {
             await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
@@ -261,6 +256,8 @@ export const CallModal: React.FC<CallModalProps> = ({
               const cand = pendingCandidatesRef.current.shift();
               if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
             }
+            setCallState('connected');
+            callSoundService.stopAll();
           }
         } else if (signal.candidate) {
           if (pc.remoteDescription && pc.remoteDescription.type) {
@@ -281,13 +278,17 @@ export const CallModal: React.FC<CallModalProps> = ({
         setCallState('connected');
 
         const pc = peerConnectionRef.current;
-        if (pc && !hasOfferedRef.current) {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          hasOfferedRef.current = true;
-          socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-            offer: pc.localDescription,
-          });
+        if (pc) {
+          try {
+            const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            await pc.setLocalDescription(offer);
+            hasOfferedRef.current = true;
+            socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+              offer: pc.localDescription,
+            });
+          } catch {
+            // offer error
+          }
         }
       }
     });
