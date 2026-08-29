@@ -162,12 +162,12 @@ export default function App() {
       (currentUser.handle && normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle)))
   );
 
-  const selectedUser = !selectedGroupId
+  const selectedUser = !selectedGroupId && selectedUserId
     ? (isSavedMessages
         ? currentUser
         : (chatUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
-           (selectedUserId ? allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) : null) ||
-           (selectedUserId ? null : chatUsers[0] || null)))
+           allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
+           null))
     : null;
   selectedUserRef.current = selectedUser;
 
