@@ -199,6 +199,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Helper to format user objects with guaranteed id
+function formatUser(u) {
+  if (!u) return null;
+  const obj = typeof u.toObject === 'function' ? u.toObject() : { ...u };
+  const uid = obj.id || (obj._id ? obj._id.toString() : '') || `user_${(obj.handle || '').replace('@', '')}`;
+  return {
+    ...obj,
+    id: uid,
+  };
+}
+
 // Auth Login
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -223,7 +234,7 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ error: 'Incorrect password. Please try again.' });
       }
 
-      return res.json({ user });
+      return res.json({ user: formatUser(user) });
     } else {
       const db = readLocalDB();
       const user = db.users.find(
@@ -238,7 +249,7 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ error: 'Incorrect password. Please try again.' });
       }
 
-      return res.json({ user });
+      return res.json({ user: formatUser(user) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -270,8 +281,9 @@ app.post('/api/auth/register', async (req, res) => {
         bio: bio || 'Hey there! I am using EzTalk.',
         status: 'Online',
       });
-      io.emit('user_registered', user);
-      return res.json({ user });
+      const formatted = formatUser(user);
+      io.emit('user_registered', formatted);
+      return res.json({ user: formatted });
     } else {
       const db = readLocalDB();
       const existing = db.users.find((u) => u.handle.toLowerCase() === cleanHandle);
@@ -291,8 +303,9 @@ app.post('/api/auth/register', async (req, res) => {
       };
       db.users.push(user);
       writeLocalDB(db);
-      io.emit('user_registered', user);
-      return res.json({ user });
+      const formatted = formatUser(user);
+      io.emit('user_registered', formatted);
+      return res.json({ user: formatted });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -304,10 +317,10 @@ app.get('/api/users', async (req, res) => {
   try {
     if (isMongoConnected) {
       const users = await UserModel.find().lean();
-      res.json({ users });
+      res.json({ users: users.map(formatUser) });
     } else {
       const db = readLocalDB();
-      res.json({ users: db.users });
+      res.json({ users: db.users.map(formatUser) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -320,11 +333,11 @@ app.get('/api/users/by-handle/:handle', async (req, res) => {
     const cleanHandle = normalizeHandle(req.params.handle);
     if (isMongoConnected) {
       const user = await UserModel.findOne({ handle: cleanHandle }).lean();
-      res.json({ user });
+      res.json({ user: formatUser(user) });
     } else {
       const db = readLocalDB();
       const user = db.users.find((u) => u.handle.toLowerCase() === cleanHandle);
-      res.json({ user: user || null });
+      res.json({ user: formatUser(user) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -366,8 +379,9 @@ app.put('/api/users/profile', async (req, res) => {
         { new: true, upsert: true }
       ).lean();
 
-      io.emit('user_updated', updated);
-      res.json({ user: updated });
+      const formatted = formatUser(updated);
+      io.emit('user_updated', formatted);
+      res.json({ user: formatted });
     } else {
       const db = readLocalDB();
       const idx = db.users.findIndex(

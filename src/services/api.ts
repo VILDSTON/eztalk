@@ -14,6 +14,15 @@ export const CURATED_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
 ];
 
+export function normalizeUser(user: any): User {
+  if (!user) return user;
+  const uid = user.id || (user._id ? String(user._id) : '') || `user_${(user.handle || '').replace('@', '')}`;
+  return {
+    ...user,
+    id: uid,
+  };
+}
+
 export class ApiService {
   // Login with identifier and password
   static async login(identifier: string, password?: string): Promise<User> {
@@ -24,7 +33,7 @@ export class ApiService {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Login failed');
-    return data.user;
+    return normalizeUser(data.user);
   }
 
   // Register new user with password
@@ -36,7 +45,7 @@ export class ApiService {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registration failed');
-    return data.user;
+    return normalizeUser(data.user);
   }
 
   // Fetch all registered users
@@ -44,7 +53,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/users`);
       const data = await res.json();
-      return data.users || [];
+      return (data.users || []).map(normalizeUser);
     } catch {
       return [];
     }
@@ -56,7 +65,7 @@ export class ApiService {
       const clean = encodeURIComponent(handle.trim().toLowerCase());
       const res = await fetch(`${API_BASE_URL}/users/by-handle/${clean}`);
       const data = await res.json();
-      return data.user || null;
+      return data.user ? normalizeUser(data.user) : null;
     } catch {
       return null;
     }
@@ -71,7 +80,7 @@ export class ApiService {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to update profile');
-    return data.user || user;
+    return normalizeUser(data.user || user);
   }
 
   // Fetch conversation messages between two handles

@@ -154,15 +154,20 @@ export default function App() {
     g.memberHandles.some((h) => normalizeHandle(h) === normalizeHandle(currentUser?.handle || ''))
   );
 
-  const isSavedMessages = Boolean(currentUser && selectedUserId === currentUser.id);
+  const isSavedMessages = Boolean(
+    currentUser &&
+    currentUser.id &&
+    selectedUserId &&
+    (selectedUserId === currentUser.id ||
+      (currentUser.handle && normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle)))
+  );
 
   const selectedUser = !selectedGroupId
     ? (isSavedMessages
         ? currentUser
-        : (chatUsers.find((u) => u.id === selectedUserId) ||
-           (selectedUserId ? allUsers.find((u) => u.id === selectedUserId) : null) ||
-           chatUsers[0] ||
-           null))
+        : (chatUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
+           (selectedUserId ? allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) : null) ||
+           (selectedUserId ? null : chatUsers[0] || null)))
     : null;
   selectedUserRef.current = selectedUser;
 
@@ -770,9 +775,10 @@ export default function App() {
             selectedGroupId={selectedGroupId}
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
-              setSelectedUserId(u.id);
+              const uid = u.id || (u as any)._id || u.handle;
+              setSelectedUserId(uid);
               setSelectedGroupId(null);
-              setUnreadCounts((prev) => ({ ...prev, [normalizeHandle(u.handle)]: 0, [u.id]: 0 }));
+              setUnreadCounts((prev) => ({ ...prev, [normalizeHandle(u.handle)]: 0, [uid]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
             }}
             onSelectGroup={(g) => {

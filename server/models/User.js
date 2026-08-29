@@ -61,7 +61,23 @@ const userSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret.id || ret._id?.toString();
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret.id || ret._id?.toString();
+        return ret;
+      },
+    },
+  }
 );
 
 export const UserModel = mongoose.models.User || mongoose.model('User', userSchema);

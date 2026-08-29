@@ -168,7 +168,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             <div
               onClick={() => onSelectUser(currentUser)}
               className={`contain-content flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
-                selectedUserId === currentUser.id && !selectedGroupId
+                Boolean(currentUser?.id && selectedUserId && (selectedUserId === currentUser.id || normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle))) && !selectedGroupId
                   ? 'bg-neon-green/10 border border-neon-green/30'
                   : 'hover:bg-white/[0.03] border border-transparent'
               }`}
@@ -244,13 +244,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           {/* User Chats */}
           {(activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
             filteredUsers.map((user) => {
-              const isSelected = selectedUserId === user.id && !selectedGroupId;
+              const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
               const online = isUserOnline(user.handle);
               const unread = unreadCounts[normalizeHandle(user.handle)] || unreadCounts[user.id] || 0;
 
               return (
                 <div
-                  key={user.id}
+                  key={user.id || user.handle}
                   onClick={() => onSelectUser(user)}
                   className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
                     isSelected

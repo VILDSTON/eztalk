@@ -132,24 +132,37 @@ const STORAGE_MY_ACCOUNTS = 'eztalk_my_accounts_v3';
 const STORAGE_CONVERSATIONS = 'eztalk_conversations_v3';
 const STORAGE_AUTH_USER = 'eztalk_auth_user_v3';
 
+function normalizeStorageUser(u: any): User {
+  if (!u) return u;
+  const uid = u.id || (u._id ? String(u._id) : '') || `user_${(u.handle || '').replace('@', '')}`;
+  return {
+    ...u,
+    id: uid,
+    handle: normalizeHandle(u.handle || ''),
+  };
+}
+
 export class ChatStorageService {
   // Get all registered users and contacts
   static getAllUsers(): User[] {
     try {
       const data = localStorage.getItem(STORAGE_ALL_USERS);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          return parsed.map(normalizeStorageUser);
+        }
       }
     } catch {
       // fallback
     }
-    const initial = [...INITIAL_USERS, DEFAULT_CURRENT_USER];
+    const initial = [...INITIAL_USERS, DEFAULT_CURRENT_USER].map(normalizeStorageUser);
     this.saveAllUsers(initial);
     return initial;
   }
 
   static saveAllUsers(users: User[]) {
-    localStorage.setItem(STORAGE_ALL_USERS, JSON.stringify(users));
+    localStorage.setItem(STORAGE_ALL_USERS, JSON.stringify(users.map(normalizeStorageUser)));
   }
 
   // Get user by handle
@@ -162,14 +175,15 @@ export class ChatStorageService {
   // Save or update user
   static upsertUser(user: User): User[] {
     const all = this.getAllUsers();
-    const targetHandle = normalizeHandle(user.handle);
-    const existingIndex = all.findIndex((u) => normalizeHandle(u.handle) === targetHandle || u.id === user.id);
+    const formatted = normalizeStorageUser(user);
+    const targetHandle = formatted.handle;
+    const existingIndex = all.findIndex((u) => normalizeHandle(u.handle) === targetHandle || u.id === formatted.id);
     let updated: User[];
     if (existingIndex >= 0) {
       updated = [...all];
-      updated[existingIndex] = { ...all[existingIndex], ...user, handle: targetHandle };
+      updated[existingIndex] = { ...all[existingIndex], ...formatted };
     } else {
-      updated = [...all, { ...user, handle: targetHandle }];
+      updated = [...all, formatted];
     }
     this.saveAllUsers(updated);
     return updated;
@@ -222,7 +236,7 @@ export class ChatStorageService {
     try {
       const data = localStorage.getItem(STORAGE_AUTH_USER);
       if (data) {
-        return JSON.parse(data);
+        return normalizeStorageUser(JSON.parse(data));
       }
     } catch {
       // fallback
@@ -232,7 +246,7 @@ export class ChatStorageService {
 
   static saveAuthUser(user: User | null) {
     if (user) {
-      const formatted = { ...user, handle: normalizeHandle(user.handle) };
+      const formatted = normalizeStorageUser(user);
       localStorage.setItem(STORAGE_AUTH_USER, JSON.stringify(formatted));
       this.addMyAccount(formatted);
       this.upsertUser(formatted);
