@@ -28,6 +28,8 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
+  pingTimeout: 10000,
+  pingInterval: 5000,
 });
 
 app.use(cors());

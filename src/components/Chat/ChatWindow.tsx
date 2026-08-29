@@ -15,6 +15,7 @@ interface ChatWindowProps {
   isTyping?: boolean;
   isFriend?: boolean;
   isBlocked?: boolean;
+  isOnline?: boolean;
   isSavedMessages?: boolean;
   onBack?: () => void;
   onToggleMute?: () => void;
@@ -40,6 +41,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isTyping = false,
   isFriend = true,
   isBlocked = false,
+  isOnline = false,
   isSavedMessages = false,
   onBack,
   onToggleMute,
@@ -82,6 +84,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isMuted={isMuted}
         isFriend={isFriend}
         isBlocked={isBlocked}
+        isOnline={isOnline}
         isSavedMessages={isSavedMessages}
         onBack={onBack}
         onSearchChange={(q) => setInChatSearchQuery(q)}

@@ -11,6 +11,7 @@ interface ChatHeaderProps {
   isMuted?: boolean;
   isFriend?: boolean;
   isBlocked?: boolean;
+  isOnline?: boolean;
   isSavedMessages?: boolean;
   onBack?: () => void;
   onSearchChange?: (query: string) => void;
@@ -30,6 +31,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isMuted = false,
   isFriend = true,
   isBlocked = false,
+  isOnline = false,
   isSavedMessages = false,
   onBack,
   onSearchChange,
@@ -183,7 +185,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-elevated z-10 ${
                   isBlocked
                     ? 'bg-rose-500'
-                    : user.status === 'Online'
+                    : isOnline
                     ? 'bg-neon-green-glow shadow-neon-dot'
                     : 'bg-ez-muted'
                 }`}
@@ -204,12 +206,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className={`text-[11px] font-mono leading-tight ${
                   isBlocked
                     ? 'text-rose-400 font-semibold'
-                    : user.status === 'Online'
+                    : isOnline
                     ? 'text-neon-green font-medium'
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? 'blocked' : user.status === 'Online' ? 'online' : 'offline'}
+                {isBlocked ? 'blocked' : isOnline ? 'online' : 'offline'}
               </span>
             </div>
           </div>
@@ -252,8 +254,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             isOpen={isMenuOpen}
             isMuted={isMuted}
             isFriend={isFriend}
+            isBlocked={isBlocked}
             onToggleMute={() => {
               if (onToggleMute) onToggleMute();
+              setIsMenuOpen(false);
+            }}
+            onToggleBlock={() => {
+              if (onToggleBlock) onToggleBlock();
               setIsMenuOpen(false);
             }}
             onClearChat={() => {

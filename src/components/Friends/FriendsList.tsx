@@ -202,12 +202,19 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       : 'hover:bg-white/[0.03] border border-transparent'
                   }`}
                 >
-                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
                     <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
                       <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+                      {/* Group icon — bottom-right */}
                       <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-surface shadow-sm">
                         <Users className="w-2 h-2" />
                       </div>
+                      {/* Unread badge — top-right on avatar */}
+                      {unread > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-neon-green text-black text-[10px] font-black flex items-center justify-center shadow-neon-sm border border-ez-surface animate-scale-up z-10">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
@@ -217,28 +224,21 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 shrink-0">
-                    {unread > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-extrabold shadow-neon-sm min-w-[20px] text-center">
-                        {unread}
-                      </span>
-                    )}
-                    {onDeleteGroup && group.creatorHandle === normalizeHandle(currentUser?.handle || '') && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm(`Delete group "${group.name}"?`)) {
-                            onDeleteGroup(group.id);
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-opacity duration-150 cursor-pointer"
-                        title="Delete Group"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  {onDeleteGroup && group.creatorHandle === normalizeHandle(currentUser?.handle || '') && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete group "${group.name}"?`)) {
+                          onDeleteGroup(group.id);
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-opacity duration-150 cursor-pointer shrink-0"
+                      title="Delete Group"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -261,42 +261,32 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       : 'hover:bg-white/[0.03] border border-transparent'
                   }`}
                 >
-                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
                     <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
                       <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+                      {/* Online/Blocked dot — bottom-right */}
                       <div
                         className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-surface ${
                           isUserBlocked ? 'bg-rose-500' : online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
                         }`}
                       />
+                      {/* Unread badge — top-right on avatar */}
+                      {unread > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-neon-green text-black text-[10px] font-black flex items-center justify-center shadow-neon-sm border border-ez-surface animate-scale-up z-10">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[13px] font-bold text-white truncate tracking-tight">
                         {user.name || user.handle}
                       </span>
-                      <span className="text-[11px] text-ez-muted truncate">
+                      <span className={`text-[11px] truncate ${
+                        isUserBlocked ? 'text-rose-400 font-semibold' : online ? 'text-neon-green' : 'text-ez-muted'
+                      }`}>
                         {isUserBlocked ? 'User is blocked' : user.bio || (online ? 'online' : 'offline')}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col items-end shrink-0 space-y-1">
-                    <span
-                      className={`text-[10px] font-mono ${
-                        isUserBlocked
-                          ? 'text-rose-400 font-semibold'
-                          : online
-                          ? 'text-neon-green font-medium'
-                          : 'text-ez-muted'
-                      }`}
-                    >
-                      {isUserBlocked ? 'blocked' : online ? 'online' : 'offline'}
-                    </span>
-                    {unread > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black shadow-neon-sm min-w-[20px] h-5 flex items-center justify-center animate-scale-up">
-                        {unread > 99 ? '99+' : unread}
-                      </span>
-                    )}
                   </div>
                 </div>
               );

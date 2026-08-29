@@ -5,9 +5,11 @@ interface ChatMenuDropdownProps {
   isOpen: boolean;
   isMuted?: boolean;
   isFriend?: boolean;
+  isBlocked?: boolean;
   onClose: () => void;
   onViewProfile: () => void;
   onToggleMute?: () => void;
+  onToggleBlock?: () => void;
   onClearChat: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
@@ -17,9 +19,11 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   isOpen,
   isMuted = false,
   isFriend = true,
+  isBlocked = false,
   onClose,
   onViewProfile,
   onToggleMute,
+  onToggleBlock,
   onClearChat,
   onRemoveFriend,
   onAddFriend,
@@ -133,14 +137,21 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
         )
       )}
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
-      >
-        <ShieldAlert className="w-4 h-4" />
-        <span>Block User</span>
-      </button>
+      {onToggleBlock && (
+        <button
+          type="button"
+          onClick={() => {
+            onToggleBlock();
+            onClose();
+          }}
+          className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl transition-colors duration-150 text-left cursor-pointer ${
+            isBlocked ? 'text-neon-green hover:bg-neon-green/10' : 'text-red-400 hover:bg-red-500/10'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
+        </button>
+      )}
     </div>
   );
 };

@@ -804,6 +804,7 @@ export default function App() {
               isTyping={isCurrentContactTyping}
               isFriend={isSelectedUserInFriends}
               isBlocked={Boolean(selectedUser && blockedUsers.includes(normalizeHandle(selectedUser.handle)))}
+              isOnline={Boolean(selectedUser && onlineHandles.some(h => normalizeHandle(h).toLowerCase() === normalizeHandle(selectedUser.handle).toLowerCase()))}
               isSavedMessages={isSavedMessages}
               onBack={() => {
                 setSelectedUserId('');

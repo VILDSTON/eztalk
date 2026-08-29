@@ -79,7 +79,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
     const el = containerRef.current;
     if (!el) return;
     const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const isUp = distanceToBottom > 130;
+    const isUp = distanceToBottom > 80;
     setIsScrolledUp(isUp);
     if (!isUp) {
       setNewMessagesCount(0);
@@ -192,12 +192,12 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-5 right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated hover:bg-ez-hover text-neon-green border border-ez-border shadow-glass transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-fade-in"
-          title="Scroll to bottom"
+          className="absolute bottom-5 right-4 sm:right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated/95 hover:bg-ez-hover text-neon-green border border-neon-green/30 shadow-glass backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-scale-up"
+          title="Scroll to latest message"
         >
           <ChevronDown className="w-5 h-5" />
           {newMessagesCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black min-w-[18px] text-center">
+            <span className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black min-w-[20px] h-5 flex items-center justify-center shadow-neon-sm animate-scale-up">
               {newMessagesCount > 99 ? '99+' : newMessagesCount}
             </span>
           )}
