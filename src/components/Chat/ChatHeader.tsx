@@ -77,7 +77,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               alt={group.name}
               className="w-9 h-9 rounded-full object-cover border border-ez-border bg-ez-elevated"
             />
-            <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-elevated">
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-elevated z-10">
               <Users className="w-2 h-2" />
             </div>
           </div>
@@ -180,7 +180,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
               </div>
               <div
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-ez-elevated ${
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-elevated z-10 ${
                   user.status === 'Online'
                     ? 'bg-neon-green-glow shadow-neon-dot'
                     : 'bg-ez-muted'

@@ -78,7 +78,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
               <img src={currentUser.avatar} alt={currentUser.handle} className="w-full h-full object-cover" />
             </div>
             <div
-              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-ez-surface ${
+              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-ez-surface z-10 ${
                 currentUser.status === 'Online'
                   ? 'bg-neon-green-glow shadow-neon-dot'
                   : currentUser.status === 'Away'

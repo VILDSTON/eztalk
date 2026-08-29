@@ -201,9 +201,9 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   }`}
                 >
                   <div className="flex items-center space-x-3 min-w-0 pr-2">
-                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-ez-border shrink-0 bg-ez-elevated">
-                      <img src={group.avatar} alt={group.name} className="w-full h-full object-cover" />
-                      <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-surface">
+                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
+                      <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-surface shadow-sm">
                         <Users className="w-2 h-2" />
                       </div>
                     </div>
@@ -259,10 +259,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   }`}
                 >
                   <div className="flex items-center space-x-3 min-w-0 pr-2">
-                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-ez-border shrink-0 bg-ez-elevated">
-                      <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
+                      <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
                       <div
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-ez-surface ${
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-surface ${
                           online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
                         }`}
                       />
@@ -310,8 +310,8 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/[0.03] cursor-pointer transition-colors duration-150"
                 >
                   <div className="flex items-center space-x-3 min-w-0 pr-2">
-                    <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-ez-border shrink-0">
-                      <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                    <div className="w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
+                      <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[13px] font-bold text-white truncate">{user.name || user.handle}</span>

@@ -107,12 +107,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/[0.04] cursor-pointer transition-colors duration-150 group"
             >
               <div className="flex items-center space-x-3 min-w-0 pr-2">
-                <div className="relative w-11 h-11 min-w-[44px] min-h-[44px] max-w-[44px] max-h-[44px] rounded-full overflow-hidden border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 shrink-0">
-                  <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                <div className="relative w-11 h-11 min-w-[44px] min-h-[44px] shrink-0">
+                  <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 bg-ez-elevated" />
                   <div
-                    className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-ez-elevated ${
+                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-ez-elevated ${
                       user.status === 'Online'
-                        ? 'bg-neon-green-glow'
+                        ? 'bg-neon-green-glow shadow-neon-dot'
                         : user.status === 'Away'
                         ? 'bg-amber-400'
                         : user.status === 'Busy'

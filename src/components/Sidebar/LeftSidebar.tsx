@@ -269,12 +269,12 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           <button
             type="button"
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-ez-border hover:border-neon-green/60 transition-colors cursor-pointer group"
+            className="relative w-9 h-9 cursor-pointer group"
             title={currentUser.name || currentUser.handle}
           >
-            <img src={currentUser.avatar} alt={currentUser.handle} className="w-full h-full object-cover" />
+            <img src={currentUser.avatar} alt={currentUser.handle} className="w-full h-full rounded-full object-cover border-2 border-ez-border group-hover:border-neon-green/60 transition-colors" />
             <div
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-ez-base ${getStatusDotColor(
+              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-base ${getStatusDotColor(
                 currentUser.status
               )}`}
             />
