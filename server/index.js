@@ -414,6 +414,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
       soundNotifications,
       bio,
       blockedUsers,
+      friends,
     } = req.body;
 
     const targetHandle = normalizeHandle(handle || oldHandle);
@@ -494,6 +495,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
           soundNotifications: soundNotifications !== undefined ? Boolean(soundNotifications) : db.users[idx].soundNotifications !== false,
           bio: bio !== undefined ? bio : db.users[idx].bio,
           blockedUsers: Array.isArray(blockedUsers) ? blockedUsers.map(normalizeHandle) : (db.users[idx].blockedUsers || []),
+          friends: Array.isArray(friends) ? friends.map(normalizeHandle) : (db.users[idx].friends || []),
         };
         user = db.users[idx];
 
@@ -526,6 +528,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
           soundNotifications: soundNotifications !== undefined ? Boolean(soundNotifications) : true,
           bio: bio || 'Hey there! I am using EzTalk.',
           blockedUsers: Array.isArray(blockedUsers) ? blockedUsers.map(normalizeHandle) : [],
+          friends: Array.isArray(friends) ? friends.map(normalizeHandle) : [],
         };
         db.users.push(user);
       }

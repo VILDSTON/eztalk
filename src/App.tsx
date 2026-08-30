@@ -808,13 +808,27 @@ export default function App() {
   const handleUpdateCurrentUser = async (updated: User) => {
     const oldHandle = currentUser?.handle;
     setCurrentUser(updated);
+    currentUserRef.current = updated;
     ChatStorageService.saveAuthUser(updated);
     setMyAccounts(ChatStorageService.getMyAccounts());
+    setAllUsers((prev) =>
+      prev.map((u) =>
+        normalizeHandle(u.handle) === normalizeHandle(updated.handle) || u.id === updated.id
+          ? { ...u, ...updated }
+          : u
+      )
+    );
     try {
-      await ApiService.updateProfile(updated, oldHandle);
+      const serverUser = await ApiService.updateProfile(updated, oldHandle);
+      if (serverUser) {
+        setCurrentUser(serverUser);
+        currentUserRef.current = serverUser;
+        ChatStorageService.saveAuthUser(serverUser);
+        setMyAccounts(ChatStorageService.getMyAccounts());
+      }
       socketService.updateStatus(updated);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to update profile on server:', err);
     }
     refreshUsersAndGroups();
     refreshMessages();
