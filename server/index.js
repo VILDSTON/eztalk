@@ -12,6 +12,7 @@ import dns from 'dns';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
+import { encryptMessage, decryptMessage } from './utils/crypto.js';
 
 // Force Google Public DNS for reliable MongoDB Atlas SRV resolution
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -213,6 +214,16 @@ function formatUser(u) {
     id: uid,
     blockedUsers: Array.isArray(obj.blockedUsers) ? obj.blockedUsers : [],
     friends: Array.isArray(obj.friends) ? obj.friends : [],
+  };
+}
+
+// Helper to format message objects and decrypt message text
+function formatMessage(m) {
+  if (!m) return null;
+  const obj = typeof m.toObject === 'function' ? m.toObject() : { ...m };
+  return {
+    ...obj,
+    text: decryptMessage(obj.text || ''),
   };
 }
 
@@ -678,7 +689,7 @@ app.post('/api/users/:handle/friends', async (req, res) => {
   }
 });
 
-// Get Messages for a Group
+// Get Messages for a Group (Decrypted on retrieval)
 app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -688,18 +699,18 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
       const messages = await MessageModel.find({
         $or: [{ conversationKey: key }, { groupId }],
       }).sort({ createdAt: 1 }).lean();
-      res.json({ messages });
+      res.json({ messages: messages.map(formatMessage) });
     } else {
       const db = readLocalDB();
       const messages = db.messages.filter((m) => m.conversationKey === key || m.groupId === groupId);
-      res.json({ messages });
+      res.json({ messages: messages.map(formatMessage) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get Messages between two users
+// Get Messages between two users (Decrypted on retrieval)
 app.get('/api/messages/:handle1/:handle2', async (req, res) => {
   try {
     const { handle1, handle2 } = req.params;
@@ -707,18 +718,18 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 
     if (isMongoConnected) {
       const messages = await MessageModel.find({ conversationKey: key }).sort({ createdAt: 1 }).lean();
-      res.json({ messages });
+      res.json({ messages: messages.map(formatMessage) });
     } else {
       const db = readLocalDB();
       const messages = db.messages.filter((m) => m.conversationKey === key);
-      res.json({ messages });
+      res.json({ messages: messages.map(formatMessage) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Post New Message
+// Post New Message (Encrypted at rest with AES-256-GCM)
 app.post('/api/messages', async (req, res) => {
   try {
     const { id, senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, isForwarded, forwardedFrom, timestamp } = req.body;
@@ -733,13 +744,16 @@ app.post('/api/messages', async (req, res) => {
       key = getConversationKey(sHandle, rHandle);
     }
 
+    const plainText = text || '';
+    const encryptedText = encryptMessage(plainText);
+
     const messageData = {
       id: id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       conversationKey: key,
       groupId: groupId || null,
       senderHandle: sHandle,
       recipientHandle: rHandle,
-      text: text || '',
+      text: encryptedText, // AES-256-GCM ciphertext in database
       attachment: attachment || null,
       replyTo: replyTo || null,
       callInfo: callInfo || null,
@@ -753,43 +767,46 @@ app.post('/api/messages', async (req, res) => {
 
     if (isMongoConnected) {
       const saved = await MessageModel.create(messageData);
-      io.emit('new_message', saved);
-      return res.json({ message: saved });
+      const formatted = formatMessage(saved);
+      io.emit('new_message', formatted);
+      return res.json({ message: formatted });
     } else {
       const db = readLocalDB();
       db.messages.push(messageData);
       writeLocalDB(db);
-      io.emit('new_message', messageData);
-      return res.json({ message: messageData });
+      const formatted = formatMessage(messageData);
+      io.emit('new_message', formatted);
+      return res.json({ message: formatted });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Edit Message
+// Edit Message (Encrypted at rest with AES-256-GCM)
 app.put('/api/messages/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { text } = req.body;
+    const encryptedText = encryptMessage(text || '');
 
     if (isMongoConnected) {
       const updated = await MessageModel.findOneAndUpdate(
         { id },
-        { $set: { text, isEdited: true } },
+        { $set: { text: encryptedText, isEdited: true } },
         { new: true }
       ).lean();
       io.emit('message_edited', { id, text, isEdited: true });
-      res.json({ message: updated });
+      res.json({ message: formatMessage(updated) });
     } else {
       const db = readLocalDB();
       const msg = db.messages.find((m) => m.id === id);
       if (msg) {
-        msg.text = text;
+        msg.text = encryptedText;
         msg.isEdited = true;
         writeLocalDB(db);
         io.emit('message_edited', { id, text, isEdited: true });
-        res.json({ message: msg });
+        res.json({ message: formatMessage(msg) });
       } else {
         res.status(404).json({ error: 'Message not found' });
       }
@@ -799,20 +816,20 @@ app.put('/api/messages/:id', async (req, res) => {
   }
 });
 
-// Delete Message
+// Hard Delete Message (Permanently removed from MongoDB and Local DB)
 app.delete('/api/messages/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     if (isMongoConnected) {
-      await MessageModel.findOneAndDelete({ id });
+      await MessageModel.deleteOne({ id });
       io.emit('message_deleted', { id });
       res.json({ success: true, id });
     } else {
       const db = readLocalDB();
-      const idx = db.messages.findIndex((m) => m.id === id);
-      if (idx >= 0) {
-        db.messages.splice(idx, 1);
+      const initialCount = db.messages.length;
+      db.messages = db.messages.filter((m) => m.id !== id);
+      if (db.messages.length < initialCount) {
         writeLocalDB(db);
         io.emit('message_deleted', { id });
         res.json({ success: true, id });
