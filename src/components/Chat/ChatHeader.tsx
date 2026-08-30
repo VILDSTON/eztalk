@@ -62,7 +62,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   // ─── Group Header ───
   if (group) {
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
         <div className="flex items-center space-x-3 cursor-pointer min-w-0">
           {onBack && (
             <button
@@ -110,7 +110,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   // ─── Saved Messages Header ───
   if (isSavedMessages) {
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
         <div className="flex items-center space-x-3 min-w-0">
           {onBack && (
             <button
@@ -138,7 +138,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   // ─── User Chat Header ───
   return (
     <>
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
         {showSearch ? (
           <div className="flex-1 flex items-center space-x-2 mr-2 animate-fade-in">
             <Search className="w-4 h-4 text-ez-muted shrink-0" />

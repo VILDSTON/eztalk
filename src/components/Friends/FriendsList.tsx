@@ -347,7 +347,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         </div>
 
         {/* ─── FAB Button ─── */}
-        <div className="absolute bottom-5 right-5 z-20">
+        <div className="absolute bottom-6 right-5 sm:bottom-5 sm:right-5 z-30">
           {showFabMenu && (
             <div className="absolute bottom-16 right-0 bg-ez-elevated border border-ez-border p-2 rounded-2xl shadow-glass-lg space-y-1 w-44 animate-scale-up">
               <button
