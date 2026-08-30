@@ -140,6 +140,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const endCallTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   durationRef.current = callDuration;
 
@@ -153,6 +154,9 @@ export const CallModal: React.FC<CallModalProps> = ({
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
       audioContextRef.current = audioCtx;
 
       const source = audioCtx.createMediaStreamSource(stream);
@@ -191,10 +195,12 @@ export const CallModal: React.FC<CallModalProps> = ({
     try {
       if (signal.offer) {
         if (pc.signalingState !== 'stable') {
-          await Promise.all([
-            pc.setLocalDescription({ type: 'rollback' }),
-            pc.setRemoteDescription(new RTCSessionDescription(signal.offer)),
-          ]);
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch {
+            // ignore rollback failure in browsers with strict signaling
+          }
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
         } else {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
         }
@@ -353,7 +359,10 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (isRel) {
         callSoundService.stopAll();
         setCallState('ended');
-        setTimeout(() => {
+        if (endCallTimerRef.current) {
+          clearTimeout(endCallTimerRef.current);
+        }
+        endCallTimerRef.current = setTimeout(() => {
           onClose({
             type: isInitiator ? 'outgoing' : 'incoming',
             duration: durationRef.current,
@@ -368,6 +377,10 @@ export const CallModal: React.FC<CallModalProps> = ({
       cleanupCallEnded();
       callSoundService.stopAll();
 
+      if (endCallTimerRef.current) {
+        clearTimeout(endCallTimerRef.current);
+        endCallTimerRef.current = null;
+      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -378,7 +391,11 @@ export const CallModal: React.FC<CallModalProps> = ({
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (peerConnectionRef.current) {
+        peerConnectionRef.current.onconnectionstatechange = null;
+        peerConnectionRef.current.onicecandidate = null;
+        peerConnectionRef.current.ontrack = null;
         peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
       }
     };
   }, [isOpen]);

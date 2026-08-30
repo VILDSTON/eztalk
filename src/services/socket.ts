@@ -144,6 +144,20 @@ class SocketService {
     };
   }
 
+  public onProfileUpdated(callback: (user: User) => void) {
+    this.socket?.on('profile_updated', callback);
+    return () => {
+      this.socket?.off('profile_updated', callback);
+    };
+  }
+
+  public onUserUpdated(callback: (user: User) => void) {
+    this.socket?.on('user_updated', callback);
+    return () => {
+      this.socket?.off('user_updated', callback);
+    };
+  }
+
   public onOnlineUsers(callback: (onlineHandles: string[]) => void) {
     this.socket?.on('online_users', callback);
     return () => {

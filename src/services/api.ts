@@ -71,10 +71,22 @@ export class ApiService {
     }
   }
 
+  // Get current user profile from server
+  static async getProfile(handleOrId: string): Promise<User | null> {
+    try {
+      const clean = encodeURIComponent(handleOrId.trim());
+      const res = await fetch(`${API_BASE_URL}/users/profile?handle=${clean}`);
+      const data = await res.json();
+      return data.user ? normalizeUser(data.user) : null;
+    } catch {
+      return null;
+    }
+  }
+
   // Update user profile
   static async updateProfile(user: User, oldHandle?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/users/profile`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...user, oldHandle: oldHandle || user.handle }),
     });

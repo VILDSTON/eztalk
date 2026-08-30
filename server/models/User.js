@@ -52,6 +52,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '#00ff73',
     },
+    theme: {
+      type: String,
+      default: 'dark',
+    },
+    soundNotifications: {
+      type: Boolean,
+      default: true,
+    },
     bio: {
       type: String,
       default: 'Hey there! I am using EzTalk.',

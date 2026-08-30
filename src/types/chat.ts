@@ -13,6 +13,8 @@ export interface User {
   accentColor?: string;
   email?: string;
   bio?: string;
+  theme?: string;
+  soundNotifications?: boolean;
   lastSeen?: string;
   friends?: string[];
   blockedUsers?: string[];

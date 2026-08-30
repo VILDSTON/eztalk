@@ -122,6 +122,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   };
 
   const handleSave = () => {
+    const selectedColor = THEME_ACCENTS.find((a) => a.id === selectedAccent)?.color || '#00ff73';
     const updated: User = {
       ...currentUser,
       name: name.trim() || currentUser.handle,
@@ -131,6 +132,9 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       status,
       statusEmoji,
       customStatusText: customStatusText.trim(),
+      accentColor: selectedColor,
+      soundNotifications: soundEnabled,
+      theme: selectedAccent,
     };
     onSaveProfile(updated);
     setSavedSuccess(true);

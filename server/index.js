@@ -365,12 +365,62 @@ app.get('/api/users/by-handle/:handle', async (req, res) => {
   }
 });
 
-// Update Profile
-app.put('/api/users/profile', async (req, res) => {
+// Get User Profile for Authenticated Session
+app.get('/api/users/profile', async (req, res) => {
   try {
-    const { id, oldHandle, handle, name, avatar, status, statusEmoji, customStatusText, banner, website, accentColor, bio } = req.body;
+    const rawHandle = req.query.handle || req.headers['x-user-handle'] || req.query.id;
+    if (!rawHandle) {
+      return res.status(400).json({ error: 'User handle or id is required to fetch profile.' });
+    }
+    const cleanHandle = normalizeHandle(rawHandle);
+
+    if (isMongoConnected) {
+      const user = await UserModel.findOne({
+        $or: [{ handle: cleanHandle }, { _id: req.query.id || null }],
+      }).lean();
+      if (!user) return res.status(404).json({ error: 'User profile not found.' });
+      return res.json({ user: formatUser(user) });
+    } else {
+      const db = readLocalDB();
+      const user = db.users.find(
+        (u) => u.handle.toLowerCase() === cleanHandle.toLowerCase() || (req.query.id && u.id === req.query.id)
+      );
+      if (!user) return res.status(404).json({ error: 'User profile not found.' });
+      return res.json({ user: formatUser(user) });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Profile (Supports both PUT and PATCH for Cross-Device Persistence)
+app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) => {
+  if (req.method !== 'PUT' && req.method !== 'PATCH') return next();
+  try {
+    const {
+      id,
+      oldHandle,
+      handle,
+      name,
+      avatar,
+      status,
+      statusEmoji,
+      customStatusText,
+      banner,
+      website,
+      accentColor,
+      theme,
+      soundNotifications,
+      bio,
+      blockedUsers,
+    } = req.body;
+
     const targetHandle = normalizeHandle(handle || oldHandle);
     const prevHandle = oldHandle ? normalizeHandle(oldHandle) : targetHandle;
+
+    if (!targetHandle) {
+      return res.status(400).json({ error: 'Handle is required.' });
+    }
 
     if (isMongoConnected) {
       if (targetHandle !== prevHandle) {
@@ -390,7 +440,10 @@ app.put('/api/users/profile', async (req, res) => {
         ...(banner !== undefined && { banner }),
         ...(website !== undefined && { website }),
         ...(accentColor !== undefined && { accentColor }),
+        ...(theme !== undefined && { theme }),
+        ...(soundNotifications !== undefined && { soundNotifications: Boolean(soundNotifications) }),
         ...(bio !== undefined && { bio }),
+        ...(Array.isArray(blockedUsers) && { blockedUsers: blockedUsers.map(normalizeHandle) }),
       };
 
       const query = id ? { _id: id } : { handle: prevHandle };
@@ -402,7 +455,11 @@ app.put('/api/users/profile', async (req, res) => {
 
       const formatted = formatUser(updated);
       io.emit('user_updated', formatted);
-      res.json({ user: formatted });
+      io.to(targetHandle).emit('profile_updated', formatted);
+      if (prevHandle && prevHandle !== targetHandle) {
+        io.to(prevHandle).emit('profile_updated', formatted);
+      }
+      return res.json({ user: formatted });
     } else {
       const db = readLocalDB();
       const idx = db.users.findIndex(
@@ -431,7 +488,10 @@ app.put('/api/users/profile', async (req, res) => {
           banner: banner !== undefined ? banner : db.users[idx].banner || '',
           website: website !== undefined ? website : db.users[idx].website || '',
           accentColor: accentColor !== undefined ? accentColor : db.users[idx].accentColor || '#00ff73',
+          theme: theme !== undefined ? theme : db.users[idx].theme || 'dark',
+          soundNotifications: soundNotifications !== undefined ? Boolean(soundNotifications) : db.users[idx].soundNotifications !== false,
           bio: bio !== undefined ? bio : db.users[idx].bio,
+          blockedUsers: Array.isArray(blockedUsers) ? blockedUsers.map(normalizeHandle) : (db.users[idx].blockedUsers || []),
         };
         user = db.users[idx];
 
@@ -451,7 +511,7 @@ app.put('/api/users/profile', async (req, res) => {
       } else {
         user = {
           id: id || `user_${Date.now()}`,
-          name,
+          name: name || targetHandle.replace('@', ''),
           handle: targetHandle,
           avatar: avatar || CURATED_AVATARS[0],
           status: status || 'Online',
@@ -460,13 +520,21 @@ app.put('/api/users/profile', async (req, res) => {
           banner: banner || '',
           website: website || '',
           accentColor: accentColor || '#00ff73',
-          bio: bio || '',
+          theme: theme || 'dark',
+          soundNotifications: soundNotifications !== undefined ? Boolean(soundNotifications) : true,
+          bio: bio || 'Hey there! I am using EzTalk.',
+          blockedUsers: Array.isArray(blockedUsers) ? blockedUsers.map(normalizeHandle) : [],
         };
         db.users.push(user);
       }
       writeLocalDB(db);
-      io.emit('user_updated', user);
-      res.json({ user });
+      const formatted = formatUser(user);
+      io.emit('user_updated', formatted);
+      io.to(targetHandle).emit('profile_updated', formatted);
+      if (prevHandle && prevHandle !== targetHandle) {
+        io.to(prevHandle).emit('profile_updated', formatted);
+      }
+      return res.json({ user: formatted });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

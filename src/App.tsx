@@ -190,9 +190,26 @@ export default function App() {
     ? addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(selectedUser.handle))
     : true;
 
-  // Fetch all users and groups from Backend API
+  // Fetch all users, groups, and current user profile from Backend API
   const refreshUsersAndGroups = useCallback(async () => {
     try {
+      const cUser = currentUserRef.current;
+      if (cUser && cUser.handle) {
+        try {
+          const freshProfile = await ApiService.getProfile(cUser.handle);
+          if (freshProfile) {
+            setCurrentUser(freshProfile);
+            currentUserRef.current = freshProfile;
+            ChatStorageService.saveAuthUser(freshProfile);
+            if (freshProfile.blockedUsers) {
+              setBlockedUsers(freshProfile.blockedUsers.map(normalizeHandle));
+            }
+          }
+        } catch {
+          // ignore profile fetch error
+        }
+      }
+
       const remoteUsers = await ApiService.getUsers();
       if (remoteUsers && remoteUsers.length > 0) {
         setAllUsers(remoteUsers);
@@ -284,8 +301,11 @@ export default function App() {
       if (!isForGroup && !isForMe) return;
 
       // Add to active chats (WITHOUT auto-adding to friends list)
-      if (!isForGroup && sHandle !== myHandle) {
-        setActiveChatHandles((prev) => [...new Set([...prev, sHandle])]);
+      if (!isForGroup) {
+        const otherHandle = sHandle === myHandle ? rHandle : sHandle;
+        if (otherHandle) {
+          setActiveChatHandles((prev) => [...new Set([...prev, otherHandle])]);
+        }
       }
 
       // Check if this incoming message is for the currently open chat
@@ -431,6 +451,49 @@ export default function App() {
       setMessages([]);
     });
 
+    // Profile updated event (Multi-device profile and preferences sync)
+    const unsubProfile = socketService.onProfileUpdated((updatedUser: User) => {
+      const cUser = currentUserRef.current;
+      if (!cUser) return;
+      if (normalizeHandle(cUser.handle) === normalizeHandle(updatedUser.handle) || cUser.id === updatedUser.id) {
+        setCurrentUser(updatedUser);
+        currentUserRef.current = updatedUser;
+        ChatStorageService.saveAuthUser(updatedUser);
+        if (updatedUser.blockedUsers) {
+          setBlockedUsers(updatedUser.blockedUsers.map(normalizeHandle));
+        }
+      }
+      setAllUsers((prev) =>
+        prev.map((u) =>
+          normalizeHandle(u.handle) === normalizeHandle(updatedUser.handle) || u.id === updatedUser.id ? updatedUser : u
+        )
+      );
+    });
+
+    // User updated event (broadcast when any user updates their avatar, bio, status, etc.)
+    const unsubUserUpdated = socketService.onUserUpdated((updatedUser: User) => {
+      const cUser = currentUserRef.current;
+      if (cUser && (normalizeHandle(cUser.handle) === normalizeHandle(updatedUser.handle) || cUser.id === updatedUser.id)) {
+        setCurrentUser(updatedUser);
+        currentUserRef.current = updatedUser;
+        ChatStorageService.saveAuthUser(updatedUser);
+        if (updatedUser.blockedUsers) {
+          setBlockedUsers(updatedUser.blockedUsers.map(normalizeHandle));
+        }
+      }
+      setAllUsers((prev) => {
+        const exists = prev.some(
+          (u) => normalizeHandle(u.handle) === normalizeHandle(updatedUser.handle) || u.id === updatedUser.id
+        );
+        if (exists) {
+          return prev.map((u) =>
+            normalizeHandle(u.handle) === normalizeHandle(updatedUser.handle) || u.id === updatedUser.id ? updatedUser : u
+          );
+        }
+        return [...prev, updatedUser];
+      });
+    });
+
     return () => {
       unsubMsg();
       unsubEdit();
@@ -443,6 +506,8 @@ export default function App() {
       unsubCall();
       unsubCallEnded();
       unsubClear();
+      unsubProfile();
+      unsubUserUpdated();
     };
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
