@@ -91,6 +91,7 @@ export default function App() {
   const [toast, setToast] = useState<ToastNotification | null>(null);
 
   // Drawer & Modals State
+  const [selectedUserObj, setSelectedUserObj] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -167,7 +168,17 @@ export default function App() {
         ? currentUser
         : (chatUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
            allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
-           null))
+           (selectedUserObj && (selectedUserObj.id === selectedUserId || normalizeHandle(selectedUserObj.handle) === normalizeHandle(selectedUserId)) ? selectedUserObj : null) ||
+           (selectedUserId
+             ? {
+                 id: selectedUserId,
+                 handle: normalizeHandle(selectedUserId),
+                 name: selectedUserId.replace('@', ''),
+                 avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                 status: 'Offline',
+                 bio: 'Hey there! I am using EzTalk.',
+               }
+             : null)))
     : null;
   selectedUserRef.current = selectedUser;
 
@@ -786,6 +797,7 @@ export default function App() {
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               const uid = u.id || (u as any)._id || u.handle;
+              setSelectedUserObj(u);
               setSelectedUserId(uid);
               setSelectedGroupId(null);
               setActiveSection(currentUser && (uid === currentUser.id || normalizeHandle(u.handle) === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
@@ -793,6 +805,7 @@ export default function App() {
               setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
             }}
             onSelectGroup={(g) => {
+              setSelectedUserObj(null);
               setSelectedGroupId(g.id);
               setSelectedUserId('');
               setActiveSection('chats');
@@ -819,6 +832,7 @@ export default function App() {
               isOnline={Boolean(selectedUser && onlineHandles.some(h => normalizeHandle(h).toLowerCase() === normalizeHandle(selectedUser.handle).toLowerCase()))}
               isSavedMessages={isSavedMessages}
               onBack={() => {
+                setSelectedUserObj(null);
                 setSelectedUserId('');
                 setSelectedGroupId(null);
                 setActiveSection('chats');

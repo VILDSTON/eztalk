@@ -133,9 +133,31 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
+        <div className="flex items-center space-x-3 cursor-pointer min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-1.5 -ml-1 text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 md:hidden"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div className="w-9 h-9 rounded-full bg-ez-elevated border border-ez-border flex items-center justify-center text-xs font-bold text-white shrink-0">
+            ?
+          </div>
+          <span className="text-sm font-bold text-white">Chat</span>
+        </div>
+      </div>
+    );
+  }
 
   // ─── User Chat Header ───
+  const fallbackAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+
   return (
     <>
       <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
@@ -179,7 +201,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
             <div className="relative shrink-0">
               <div className="w-9 h-9 rounded-full overflow-hidden border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 bg-ez-elevated">
-                <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                <img
+                  src={user.avatar || fallbackAvatar}
+                  alt={user.handle || 'avatar'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = fallbackAvatar;
+                  }}
+                />
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-elevated z-10 ${
@@ -194,7 +223,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <div className="flex flex-col min-w-0">
               <div className="flex items-center space-x-1.5">
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
-                  {user.name || user.handle}
+                  {user.name || user.handle || 'User'}
                 </span>
                 {isMuted && (
                   <span title="Notifications muted">
