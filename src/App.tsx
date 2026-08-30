@@ -231,12 +231,13 @@ export default function App() {
 
   // Periodic background refresh for 100% synchronized state
   useEffect(() => {
+    if (!currentUser) return;
     const interval = setInterval(() => {
       refreshUsersAndGroups();
       refreshMessages();
     }, 15000);
     return () => clearInterval(interval);
-  }, [refreshUsersAndGroups, refreshMessages]);
+  }, [currentUser, refreshUsersAndGroups, refreshMessages]);
 
   // Auto-dismiss in-app notification toast after 4.5 seconds
   useEffect(() => {
@@ -350,8 +351,6 @@ export default function App() {
           });
         }
       }
-
-      refreshUsersAndGroups();
     });
 
     // Message edited event
@@ -410,16 +409,6 @@ export default function App() {
       }
     });
 
-    // Call accepted event
-    const unsubCallAccepted = socketService.onCallAccepted(({ callerHandle, recipient }) => {
-      const cUser = currentUserRef.current;
-      if (!cUser) return;
-      if (normalizeHandle(callerHandle) === normalizeHandle(cUser.handle)) {
-        setActiveLiveCall({ user: recipient, isInitiator: true });
-        setIncomingCall(null);
-      }
-    });
-
     // Call ended event
     const unsubCallEnded = socketService.onCallEnded(() => {
       setIncomingCall(null);
@@ -441,7 +430,6 @@ export default function App() {
       unsubOnline();
       unsubTyping();
       unsubCall();
-      unsubCallAccepted();
       unsubCallEnded();
       unsubClear();
     };
@@ -452,6 +440,11 @@ export default function App() {
     ChatStorageService.saveAuthUser(user);
     setMyAccounts(ChatStorageService.getMyAccounts());
     setAddedFriends(ChatStorageService.getAddedFriends(user.handle));
+    if (Array.isArray(user.blockedUsers) && user.blockedUsers.length > 0) {
+      const normalized = user.blockedUsers.map(normalizeHandle);
+      setBlockedUsers(normalized);
+      localStorage.setItem('eztalk_blocked_users', JSON.stringify(normalized));
+    }
     socketService.setHandle(user.handle);
     refreshUsersAndGroups();
   };
@@ -465,7 +458,7 @@ export default function App() {
   };
 
   const isSelectedUserMuted = selectedUser
-    ? Boolean(mutedUsers[selectedUser.id])
+    ? Boolean(mutedUsers[selectedUser.id] || mutedUsers[normalizeHandle(selectedUser.handle)])
     : selectedGroupId
     ? Boolean(mutedUsers[selectedGroupId])
     : false;
@@ -473,10 +466,10 @@ export default function App() {
     ? Boolean(typingUsers[normalizeHandle(selectedUser.handle)])
     : false;
 
-  const handleToggleMute = (userId: string) => {
+  const handleToggleMute = (userIdOrHandle: string) => {
     setMutedUsers((prev) => ({
       ...prev,
-      [userId]: !prev[userId],
+      [userIdOrHandle]: !prev[userIdOrHandle],
     }));
   };
 
@@ -658,13 +651,26 @@ export default function App() {
     setMyAccounts(updated);
   };
 
-  const handleToggleBlock = (handle: string) => {
+  const handleToggleBlock = async (handle: string) => {
     const clean = normalizeHandle(handle);
     setBlockedUsers((prev) => {
       const next = prev.includes(clean) ? prev.filter((h) => h !== clean) : [...prev, clean];
       localStorage.setItem('eztalk_blocked_users', JSON.stringify(next));
       return next;
     });
+
+    if (currentUser) {
+      try {
+        const serverBlocked = await ApiService.toggleBlockUser(currentUser.handle, clean, 'toggle');
+        if (serverBlocked && Array.isArray(serverBlocked)) {
+          const normalized = serverBlocked.map(normalizeHandle);
+          setBlockedUsers(normalized);
+          localStorage.setItem('eztalk_blocked_users', JSON.stringify(normalized));
+        }
+      } catch {
+        // Fallback to local state
+      }
+    }
   };
 
   // If not authenticated, render AuthScreen
@@ -740,10 +746,10 @@ export default function App() {
           <LeftSidebar
             currentUser={currentUser}
             myAccounts={myAccounts}
-            activeSection={activeSection}
+            activeSection={isSavedMessages ? 'saved' : 'chats'}
             onSelectSection={(sec) => {
               setActiveSection(sec);
-              if (sec === 'saved') {
+              if (sec === 'saved' && currentUser) {
                 setSelectedUserId(currentUser.id);
                 setSelectedGroupId(null);
               }
@@ -752,8 +758,11 @@ export default function App() {
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenEditProfile={() => setIsEditProfileOpen(true)}
             onSelectSavedMessages={() => {
-              setSelectedUserId(currentUser.id);
-              setSelectedGroupId(null);
+              if (currentUser) {
+                setSelectedUserId(currentUser.id);
+                setSelectedGroupId(null);
+                setActiveSection('saved');
+              }
             }}
             onSwitchUser={handleLogin}
             onRemoveAccount={handleRemoveAccount}
@@ -771,6 +780,7 @@ export default function App() {
             groups={userGroups}
             unreadCounts={unreadCounts}
             onlineHandles={onlineHandles}
+            blockedUsers={blockedUsers}
             selectedUserId={selectedUserId}
             selectedGroupId={selectedGroupId}
             onOpenMenu={() => setIsDrawerOpen(true)}
@@ -778,12 +788,14 @@ export default function App() {
               const uid = u.id || (u as any)._id || u.handle;
               setSelectedUserId(uid);
               setSelectedGroupId(null);
+              setActiveSection(currentUser && (uid === currentUser.id || normalizeHandle(u.handle) === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
               setUnreadCounts((prev) => ({ ...prev, [normalizeHandle(u.handle)]: 0, [uid]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
             }}
             onSelectGroup={(g) => {
               setSelectedGroupId(g.id);
               setSelectedUserId('');
+              setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
             onCreateGroup={handleCreateGroup}
@@ -792,7 +804,7 @@ export default function App() {
         </div>
 
         {/* Panel 3: Main Chat View Area */}
-        <div className={`flex-1 flex overflow-hidden bg-ez-base ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex-1 flex flex-col min-w-0 w-full overflow-hidden bg-ez-base ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
           {selectedUser || selectedGroup ? (
             <ChatWindow
               user={selectedUser}
@@ -809,12 +821,16 @@ export default function App() {
               onBack={() => {
                 setSelectedUserId('');
                 setSelectedGroupId(null);
+                setActiveSection('chats');
               }}
               onToggleMute={() => {
                 if (selectedGroupId) {
                   handleToggleMute(selectedGroupId);
                 } else if (selectedUser) {
                   handleToggleMute(selectedUser.id);
+                  if (selectedUser.handle) {
+                    handleToggleMute(normalizeHandle(selectedUser.handle));
+                  }
                 }
               }}
               onToggleBlock={() => selectedUser && handleToggleBlock(selectedUser.handle)}
@@ -825,7 +841,7 @@ export default function App() {
               onClearChat={handleClearChat}
               onAddFriend={() => selectedUser && handleAddExistingFriend(selectedUser.handle)}
               onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
-              onDeleteGroup={handleDeleteGroup}
+              onDeleteGroup={() => handleDeleteGroup()}
               onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
             />
           ) : (
@@ -859,8 +875,11 @@ export default function App() {
         onOpenCreateGroup={() => setIsGroupModalOpen(true)}
         onOpenAddFriend={() => setIsAddFriendOpen(true)}
         onSelectSavedMessages={() => {
-          setSelectedUserId(currentUser.id);
-          setSelectedGroupId(null);
+          if (currentUser) {
+            setSelectedUserId(currentUser.id);
+            setSelectedGroupId(null);
+            setActiveSection('saved');
+          }
         }}
         onUpdateStatus={(st) => {
           handleUpdateCurrentUser({ ...currentUser, status: st });
@@ -943,8 +962,8 @@ export default function App() {
               socketService.endCall(currentUser.handle, incomingCall.caller.handle);
               // Send missed/declined call message
               ApiService.sendMessage(
-                incomingCall.caller.handle,
                 currentUser.handle,
+                incomingCall.caller.handle,
                 '📵 Missed Voice Call',
                 undefined,
                 undefined,
@@ -952,7 +971,7 @@ export default function App() {
                 { type: 'missed', duration: 0 }
               ).then((msg) => {
                 setMessages((prev) => [...prev, msg]);
-                ChatStorageService.addMessage(incomingCall.caller.handle, currentUser.handle, msg);
+                ChatStorageService.addMessage(currentUser.handle, incomingCall.caller.handle, msg);
               });
             }
             setIncomingCall(null);

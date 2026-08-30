@@ -12,16 +12,40 @@ interface CallModalProps {
   onClose: (info?: CallInfo) => void;
 }
 
-// High Quality Public STUN / TURN servers for peer-to-peer audio
+// High Quality Public STUN / TURN servers for peer-to-peer audio with Symmetric NAT traversal
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
+    // Google Public STUN
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
+    // Cloudflare STUN
     { urls: 'stun:stun.cloudflare.com:3478' },
+    // OpenRelay Public STUN
     { urls: 'stun:openrelay.metered.ca:80' },
+    // OpenRelay Public TURN (UDP + TCP + TLS for mobile LTE/5G and Symmetric NAT)
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -105,9 +129,11 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const pendingSignalsRef = useRef<any[]>([]);
   const hasOfferedRef = useRef(false);
   const recipientAcceptedRef = useRef(!isInitiator);
   const durationRef = useRef(0);
@@ -120,6 +146,9 @@ export const CallModal: React.FC<CallModalProps> = ({
   // Real-time audio waveform visualizer
   const initAudioVisualizer = (stream: MediaStream) => {
     try {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        return;
+      }
       const AudioCtx =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -155,6 +184,55 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   };
 
+  const processSignal = async (signal: any) => {
+    const pc = peerConnectionRef.current;
+    if (!pc) return;
+
+    try {
+      if (signal.offer) {
+        if (pc.signalingState !== 'stable') {
+          await Promise.all([
+            pc.setLocalDescription({ type: 'rollback' }),
+            pc.setRemoteDescription(new RTCSessionDescription(signal.offer)),
+          ]);
+        } else {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+        }
+
+        while (pendingCandidatesRef.current.length > 0) {
+          const cand = pendingCandidatesRef.current.shift();
+          if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+          answer: pc.localDescription,
+        });
+        setCallState('connected');
+        callSoundService.stopAll();
+      } else if (signal.answer) {
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+          while (pendingCandidatesRef.current.length > 0) {
+            const cand = pendingCandidatesRef.current.shift();
+            if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
+          setCallState('connected');
+          callSoundService.stopAll();
+        }
+      } else if (signal.candidate) {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else {
+          pendingCandidatesRef.current.push(signal.candidate);
+        }
+      }
+    } catch (err) {
+      console.error('Signal handling error:', err);
+    }
+  };
+
   const createPeerConnection = (localStream: MediaStream) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
@@ -164,9 +242,15 @@ export const CallModal: React.FC<CallModalProps> = ({
     });
 
     pc.ontrack = (event) => {
-      if (remoteAudioRef.current && event.streams[0]) {
-        remoteAudioRef.current.srcObject = event.streams[0];
-        remoteAudioRef.current.play().catch(() => {});
+      const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+      remoteStreamRef.current = stream;
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = stream;
+        remoteAudioRef.current.volume = 1.0;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.play().catch((err) => {
+          console.warn('Remote audio play failed:', err);
+        });
       }
     };
 
@@ -205,12 +289,18 @@ export const CallModal: React.FC<CallModalProps> = ({
 
       const pc = createPeerConnection(stream);
 
+      // Process any queued incoming WebRTC signals
+      while (pendingSignalsRef.current.length > 0) {
+        const queuedSignal = pendingSignalsRef.current.shift();
+        if (queuedSignal) await processSignal(queuedSignal);
+      }
+
       if (isInitiator) {
         callSoundService.playOutgoing();
         socketService.sendCall(currentUser, user.handle);
       }
     } catch {
-      alert('Could not access microphone for voice call. Please check browser permissions.');
+      alert('Could not access microphone for voice call. Note: Microphones require HTTPS or localhost in modern browsers.');
       handleEndCall();
     }
   };
@@ -224,51 +314,12 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (normalizeHandle(fromHandle) !== normalizeHandle(user.handle)) return;
 
       const pc = peerConnectionRef.current;
-      if (!pc) return;
-
-      try {
-        if (signal.offer) {
-          if (pc.signalingState !== 'stable') {
-            await Promise.all([
-              pc.setLocalDescription({ type: 'rollback' }),
-              pc.setRemoteDescription(new RTCSessionDescription(signal.offer)),
-            ]);
-          } else {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
-          }
-
-          while (pendingCandidatesRef.current.length > 0) {
-            const cand = pendingCandidatesRef.current.shift();
-            if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
-          }
-
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-            answer: pc.localDescription,
-          });
-          setCallState('connected');
-          callSoundService.stopAll();
-        } else if (signal.answer) {
-          if (pc.signalingState === 'have-local-offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
-            while (pendingCandidatesRef.current.length > 0) {
-              const cand = pendingCandidatesRef.current.shift();
-              if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
-            }
-            setCallState('connected');
-            callSoundService.stopAll();
-          }
-        } else if (signal.candidate) {
-          if (pc.remoteDescription && pc.remoteDescription.type) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-          } else {
-            pendingCandidatesRef.current.push(signal.candidate);
-          }
-        }
-      } catch {
-        // Signaling ignore
+      if (!pc) {
+        pendingSignalsRef.current.push(signal);
+        return;
       }
+
+      await processSignal(signal);
     });
 
     const cleanupCallAccepted = socketService.onCallAccepted(async ({ callerHandle }) => {
@@ -334,12 +385,23 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   useEffect(() => {
     if (callState === 'connected') {
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+      }
       durationTimerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
+    } else {
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
     }
     return () => {
-      if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
     };
   }, [callState]);
 
@@ -353,11 +415,14 @@ export const CallModal: React.FC<CallModalProps> = ({
   };
 
   const toggleSpeaker = () => {
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.muted = isSpeakerOn;
-      setIsSpeakerOn(!isSpeakerOn);
-    }
+    setIsSpeakerOn((prev) => !prev);
   };
+
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = !isSpeakerOn;
+    }
+  }, [isSpeakerOn]);
 
   const handleEndCall = () => {
     callSoundService.stopAll();
@@ -366,7 +431,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     const info: CallInfo = {
       type: isInitiator ? 'outgoing' : 'incoming',
-      duration: callDuration,
+      duration: durationRef.current,
     };
     onClose(info);
   };
@@ -380,11 +445,11 @@ export const CallModal: React.FC<CallModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay animate-fade-in select-none font-sans">
-      {/* Hidden audio element with autoplay for remote audio stream */}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 glass-overlay animate-fade-in select-none font-sans">
+      {/* Hidden audio element with autoplay for remote audio stream with reactive muted prop */}
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={!isSpeakerOn} />
 
-      <div className="relative w-full max-w-sm bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg p-7 flex flex-col items-center text-center overflow-hidden">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden">
         {/* Ambient Glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none" />
 

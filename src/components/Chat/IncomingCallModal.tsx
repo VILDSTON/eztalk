@@ -42,8 +42,8 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-xl animate-fade-in select-none p-4 font-sans">
-      <div className="bg-ez-base/95 border border-neon-green/30 rounded-3xl w-full max-w-sm p-7 shadow-[0_0_60px_rgba(16,185,129,0.2)] flex flex-col items-center text-center relative overflow-hidden backdrop-blur-2xl">
+    <div className="fixed inset-0 z-60 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-xl animate-fade-in select-none p-0 sm:p-4 font-sans">
+      <div className="bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm p-6 sm:p-7 shadow-[0_0_60px_rgba(16,185,129,0.2)] flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-2xl">
         {/* Ambient Glow */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-60 h-60 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
 

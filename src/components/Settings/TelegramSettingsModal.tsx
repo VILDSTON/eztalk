@@ -181,7 +181,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 select-none font-sans">
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 md:p-6 select-none font-sans">
       {/* Backdrop */}
       <div
         onClick={onClose}
@@ -191,10 +191,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       {/* Settings Window Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-3xl bg-ez-surface/95 border border-ez-border/80 rounded-3xl shadow-glass-lg overflow-hidden z-10 flex flex-col max-h-[92vh] animate-scale-up backdrop-blur-2xl"
+        className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-3xl bg-ez-surface/95 border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col animate-scale-up backdrop-blur-2xl"
       >
         {/* ─── Window Header (Titlebar) ─── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
               <Sliders className="w-4 h-4" />
@@ -213,7 +213,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-6 py-2.5 shrink-0">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-4 sm:px-6 py-2 sm:py-2.5 shrink-0">
           <div className="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-0.5">
             {TABS.map((tab) => {
               const Icon = tab.icon;
@@ -238,34 +238,34 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Content Body ─── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* TAB 1: Profile Settings */}
           {activeTab === 'profile' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-5 sm:space-y-6 animate-fade-in">
               {/* Profile Card Preview */}
               <div className="relative rounded-2xl overflow-hidden border border-ez-border shadow-glass bg-ez-elevated">
                 {/* Banner Preview */}
                 <div
-                  className="h-24 w-full transition-all duration-200 relative"
+                  className="h-20 sm:h-24 w-full transition-all duration-200 relative"
                   style={{ background: banner }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-ez-elevated via-transparent to-transparent opacity-80" />
                 </div>
 
-                <div className="px-5 pb-4 pt-0 relative flex items-end justify-between -mt-10">
-                  <div className="flex items-end space-x-3.5">
+                <div className="px-4 sm:px-5 pb-4 pt-0 relative flex flex-col sm:flex-row sm:items-end justify-between gap-3 -mt-8 sm:-mt-10">
+                  <div className="flex items-end space-x-3 min-w-0">
                     <div
                       className="relative group cursor-pointer shrink-0"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-ez-elevated shadow-glass bg-ez-surface">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-4 border-ez-elevated shadow-glass bg-ez-surface">
                         <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
                       </div>
                       <div className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-neon-green transition-opacity duration-150">
                         <Camera className="w-5 h-5" />
                       </div>
                       <div
-                        className={`absolute bottom-0.5 right-0.5 w-4.5 h-4.5 rounded-full border-2 border-ez-elevated z-10 ${
+                        className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-ez-elevated z-10 ${
                           status === 'Online'
                             ? 'bg-neon-green shadow-neon-dot'
                             : status === 'Away'
@@ -277,19 +277,19 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       />
                     </div>
 
-                    <div className="mb-1">
-                      <div className="flex items-center space-x-1.5">
-                        <h3 className="text-base font-bold text-white tracking-tight">{name || currentUser.handle}</h3>
-                        <span className="text-sm">{statusEmoji}</span>
+                    <div className="mb-0.5 min-w-0 flex-1">
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">{name || currentUser.handle}</h3>
+                        <span className="text-sm shrink-0">{statusEmoji}</span>
                       </div>
-                      <p className="text-xs text-neon-green font-mono">{currentUser.handle}</p>
+                      <p className="text-xs text-neon-green font-mono truncate">{currentUser.handle}</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-white font-semibold transition-colors duration-150 cursor-pointer mb-1 flex items-center space-x-1.5"
+                    className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-white font-semibold transition-colors duration-150 cursor-pointer flex items-center space-x-1.5 shrink-0 border border-white/10"
                   >
                     <Camera className="w-3.5 h-3.5 text-neon-green" />
                     <span>Upload Photo</span>
@@ -706,7 +706,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Footer Actions ─── */}
-        <div className="p-4 px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
+        <div className="p-3.5 sm:p-4 px-4 sm:px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
           <div className="text-xs text-ez-muted flex items-center space-x-1.5">
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
@@ -716,18 +716,18 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 transition-colors duration-150 cursor-pointer"
+              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 transition-colors duration-150 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5"
+              className="px-4 sm:px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Save Changes</span>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck } from 'lucide-react';
 import { User } from '../../types/chat';
-import { ChatStorageService, DEFAULT_CURRENT_USER } from '../../utils/chatStorage';
+import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
 
 interface AuthScreenProps {
@@ -164,21 +164,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     }
   };
 
-  const handleQuickDemo = async () => {
-    setErrorMessage('');
-    setLoading(true);
-    try {
-      const user = await ApiService.login('@alexr', 'password123');
-      ChatStorageService.saveAuthUser(user);
-      onLogin(user);
-    } catch {
-      ChatStorageService.saveAuthUser(DEFAULT_CURRENT_USER);
-      onLogin(DEFAULT_CURRENT_USER);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-screen h-screen bg-ez-base flex items-center justify-center p-4 relative overflow-y-auto select-none font-sans custom-scrollbar">
       {/* Hidden file input for custom avatar */}
@@ -323,18 +308,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               <span>{loading ? 'Signing in...' : 'Sign In to EzTalk'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-
-            {/* Quick Demo Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleQuickDemo}
-                className="w-full py-2.5 bg-ez-hover hover:bg-ez-border border border-ez-border text-gray-200 hover:text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-neon-green" />
-                <span>Instant Demo Login (1-Click)</span>
-              </button>
-            </div>
           </form>
         ) : (
           /* Register Form */

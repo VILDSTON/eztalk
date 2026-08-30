@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -201,11 +202,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Helper to format user objects with guaranteed id
+// Helper to format user objects with guaranteed id and sensitive fields omitted
 function formatUser(u) {
   if (!u) return null;
   const obj = typeof u.toObject === 'function' ? u.toObject() : { ...u };
   const uid = obj.id || (obj._id ? obj._id.toString() : '') || `user_${(obj.handle || '').replace('@', '')}`;
+  delete obj.password;
   return {
     ...obj,
     id: uid,
@@ -224,36 +226,51 @@ app.post('/api/auth/login', async (req, res) => {
     const clean = identifier.trim().toLowerCase();
     const handleClean = clean.startsWith('@') ? clean : `@${clean}`;
 
+    let user = null;
+    let localDB = null;
+
     if (isMongoConnected) {
-      const user = await UserModel.findOne({
+      user = await UserModel.findOne({
         $or: [{ handle: handleClean }, { email: clean }],
       });
-
-      if (!user) {
-        return res.status(404).json({ error: 'User not found. Please register an account.' });
-      }
-
-      if (password && user.password && user.password !== password) {
-        return res.status(401).json({ error: 'Incorrect password. Please try again.' });
-      }
-
-      return res.json({ user: formatUser(user) });
     } else {
-      const db = readLocalDB();
-      const user = db.users.find(
+      localDB = readLocalDB();
+      user = localDB.users.find(
         (u) => u.handle.toLowerCase() === handleClean || (u.email && u.email.toLowerCase() === clean)
       );
+    }
 
-      if (!user) {
-        return res.status(404).json({ error: 'User not found. Please register an account.' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Please register an account.' });
+    }
+
+    if (password) {
+      const storedPass = user.password || '';
+      let isValid = false;
+
+      if (storedPass.startsWith('$2a$') || storedPass.startsWith('$2b$')) {
+        isValid = await bcrypt.compare(password, storedPass);
+      } else {
+        // Fallback for legacy plaintext passwords in DB
+        isValid = storedPass === password;
+        if (isValid) {
+          // Automatically upgrade legacy plaintext password to secure bcrypt hash
+          const upgradedHash = await bcrypt.hash(password, 10);
+          if (isMongoConnected) {
+            await UserModel.updateOne({ _id: user._id }, { $set: { password: upgradedHash } });
+          } else if (localDB) {
+            user.password = upgradedHash;
+            writeLocalDB(localDB);
+          }
+        }
       }
 
-      if (password && user.password && user.password !== password) {
+      if (!isValid) {
         return res.status(401).json({ error: 'Incorrect password. Please try again.' });
       }
-
-      return res.json({ user: formatUser(user) });
     }
+
+    return res.json({ user: formatUser(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -268,6 +285,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const cleanHandle = normalizeHandle(handle);
+    const hashedPassword = await bcrypt.hash(password || 'password123', 10);
 
     if (isMongoConnected) {
       const existing = await UserModel.findOne({ handle: cleanHandle });
@@ -279,7 +297,7 @@ app.post('/api/auth/register', async (req, res) => {
         name: name || cleanHandle.replace('@', ''),
         handle: cleanHandle,
         email: email || `${cleanHandle.replace('@', '')}@eztalk.app`,
-        password: password || 'password123',
+        password: hashedPassword,
         avatar: avatar || CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)],
         bio: bio || 'Hey there! I am using EzTalk.',
         status: 'Online',
@@ -299,7 +317,7 @@ app.post('/api/auth/register', async (req, res) => {
         name: name || cleanHandle.replace('@', ''),
         handle: cleanHandle,
         email: email || `${cleanHandle.replace('@', '')}@eztalk.app`,
-        password: password || 'password123',
+        password: hashedPassword,
         avatar: avatar || CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)],
         status: 'Online',
         bio: bio || 'Hey there! I am using EzTalk.',
@@ -747,18 +765,36 @@ app.post('/api/groups', async (req, res) => {
 app.delete('/api/groups/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    let memberHandles = [];
+
     if (isMongoConnected) {
+      const group = await GroupModel.findOne({ id }).lean();
+      if (group && Array.isArray(group.memberHandles)) {
+        memberHandles = group.memberHandles;
+      }
       await GroupModel.findOneAndDelete({ id });
       await MessageModel.deleteMany({ groupId: id });
     } else {
       const db = readLocalDB();
       if (db.groups) {
+        const group = db.groups.find((g) => g.id === id);
+        if (group && Array.isArray(group.memberHandles)) {
+          memberHandles = group.memberHandles;
+        }
         db.groups = db.groups.filter((g) => g.id !== id);
         db.messages = db.messages.filter((m) => m.groupId !== id && m.conversationKey !== `group__${id}`);
         writeLocalDB(db);
       }
     }
-    io.emit('group_deleted', { groupId: id });
+
+    if (memberHandles.length > 0) {
+      memberHandles.forEach((handle) => {
+        io.to(normalizeHandle(handle)).emit('group_deleted', { groupId: id });
+      });
+    } else {
+      io.emit('group_deleted', { groupId: id });
+    }
+
     res.json({ success: true, groupId: id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -783,7 +819,35 @@ app.post('/api/messages/clear', async (req, res) => {
       db.messages = db.messages.filter((m) => m.conversationKey !== key);
       writeLocalDB(db);
     }
-    io.emit('chat_cleared', { key });
+
+    if (groupId) {
+      let memberHandles = [];
+      if (isMongoConnected) {
+        const group = await GroupModel.findOne({ id: groupId }).lean();
+        if (group && Array.isArray(group.memberHandles)) {
+          memberHandles = group.memberHandles;
+        }
+      } else {
+        const db = readLocalDB();
+        const group = (db.groups || []).find((g) => g.id === groupId);
+        if (group && Array.isArray(group.memberHandles)) {
+          memberHandles = group.memberHandles;
+        }
+      }
+      if (memberHandles.length > 0) {
+        memberHandles.forEach((handle) => {
+          io.to(normalizeHandle(handle)).emit('chat_cleared', { key });
+        });
+      } else {
+        io.emit('chat_cleared', { key });
+      }
+    } else if (handle1 && handle2) {
+      io.to(normalizeHandle(handle1)).emit('chat_cleared', { key });
+      io.to(normalizeHandle(handle2)).emit('chat_cleared', { key });
+    } else {
+      io.emit('chat_cleared', { key });
+    }
+
     res.json({ success: true, key });
   } catch (err) {
     res.status(500).json({ error: err.message });

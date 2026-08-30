@@ -120,8 +120,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center glass-overlay animate-fade-in select-none p-4">
-      <div className="bg-ez-elevated border border-ez-border rounded-3xl w-full max-w-lg shadow-glass-lg relative overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center glass-overlay animate-fade-in select-none p-0 sm:p-4">
+      <div className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-lg shadow-none sm:shadow-glass-lg relative overflow-hidden flex flex-col sm:max-h-[90vh]">
         {/* Hidden File Input for Avatar */}
         <input
           type="file"
@@ -132,7 +132,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         />
 
         {/* Modal Top Bar */}
-        <div className="px-6 py-4 border-b border-ez-border/50 flex items-center justify-between shrink-0 bg-ez-surface">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 flex items-center justify-between shrink-0 bg-ez-surface">
           <div>
             <h3 className="text-base font-bold text-white tracking-tight">Customize Profile</h3>
             <p className="text-[11px] text-ez-muted">Personalize your avatar, banner, and presence</p>
@@ -147,7 +147,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         </div>
 
         {/* Form Body with Scroll */}
-        <form onSubmit={handleSave} className="overflow-y-auto custom-scrollbar p-6 space-y-4 pr-3">
+        <form onSubmit={handleSave} className="overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
           {/* Banner & Avatar Preview Card */}
           <div className="rounded-2xl border border-ez-border overflow-hidden bg-ez-base">
             {/* Banner Header */}
@@ -171,8 +171,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
 
             {/* Avatar & Upload Row */}
-            <div className="p-4 flex items-center justify-between bg-ez-base">
-              <div className="flex items-center space-x-3.5">
+            <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-ez-base">
+              <div className="flex items-center space-x-3.5 min-w-0">
                 <div className="relative group shrink-0">
                   <div
                     className="w-14 h-14 rounded-full overflow-hidden border-2 border-neon-green bg-ez-surface shadow-neon-sm shrink-0"
@@ -189,16 +189,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{name || 'Your Name'}</h4>
-                  <p className="text-xs font-mono text-neon-green">{formattedHandle}</p>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-bold text-white truncate">{name || 'Your Name'}</h4>
+                  <p className="text-xs font-mono text-neon-green truncate">{formattedHandle}</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-ez-hover hover:bg-ez-border text-gray-200 hover:text-white text-xs font-semibold rounded-xl border border-ez-border transition-colors duration-150 flex items-center space-x-1.5 cursor-pointer"
+                className="self-start sm:self-auto px-3.5 py-1.5 bg-ez-hover hover:bg-ez-border text-gray-200 hover:text-white text-xs font-semibold rounded-xl border border-ez-border transition-colors duration-150 flex items-center space-x-1.5 cursor-pointer shrink-0"
               >
                 <Upload className="w-3.5 h-3.5 text-neon-green" />
                 <span>Upload Photo</span>

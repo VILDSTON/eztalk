@@ -42,17 +42,17 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
     : availableUsers;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none font-sans">
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 select-none font-sans">
       {/* Backdrop */}
       <div onClick={onClose} className="fixed inset-0 glass-overlay animate-fade-in" />
 
       {/* Modal Card */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg overflow-hidden z-10 flex flex-col max-h-[85vh] animate-scale-up"
+        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-md bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col animate-scale-up"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ez-border/50 bg-ez-surface">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-surface shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-xl bg-neon-green/10 text-neon-green">
               <MessageSquare className="w-5 h-5" />

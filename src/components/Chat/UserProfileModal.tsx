@@ -87,20 +87,39 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-4 font-sans">
-      <div className="bg-ez-elevated border border-ez-border rounded-3xl w-full max-w-md shadow-glass-lg relative overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-white/80 hover:text-white p-1.5 rounded-full bg-black/50 hover:bg-black/70 transition-colors duration-150 z-30 cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-0 sm:p-4 font-sans">
+      <div className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-md shadow-none sm:shadow-glass-lg relative overflow-hidden sm:max-h-[85vh] flex flex-col">
+        {/* Sticky Top Bar for Responsive Design */}
+        <div className="sticky top-0 z-40 px-4 sm:px-6 py-3 bg-ez-elevated/95 backdrop-blur-md border-b border-ez-border/40 flex items-center justify-between shrink-0 shadow-xs">
+          <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neon-green/40 bg-ez-surface shrink-0">
+              <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+              <div
+                className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-ez-elevated ${
+                  user.status === 'Online' ? 'bg-neon-green' : 'bg-ez-muted'
+                }`}
+              />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <h3 className="text-sm font-bold text-white truncate leading-tight">{user.name || user.handle}</h3>
+              <p className="text-[11px] font-mono text-neon-green truncate">{user.handle}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close user profile"
+            className="text-white/80 hover:text-white p-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors duration-150 shrink-0 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
           {/* Banner */}
           <div
-            className="h-28 w-full shrink-0 relative bg-cover bg-center"
+            className="h-24 sm:h-28 w-full shrink-0 relative bg-cover bg-center"
             style={
               isImageBanner
                 ? { backgroundImage: `url(${user.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -246,6 +265,42 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Image Preview Lightbox Overlay */}
+        {previewAttachment && (
+          <div
+            className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 animate-fade-in"
+            onClick={() => setPreviewAttachment(null)}
+          >
+            <div className="relative max-w-2xl max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setPreviewAttachment(null)}
+                className="absolute -top-10 right-0 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors duration-150 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <img
+                src={previewAttachment.url}
+                alt={previewAttachment.name}
+                className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-ez-border"
+              />
+              <div className="mt-3 flex items-center space-x-3 bg-ez-surface/90 px-4 py-2 rounded-xl border border-ez-border/50">
+                <span className="text-xs font-medium text-white truncate max-w-xs">{previewAttachment.name}</span>
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center space-x-1 text-xs text-neon-green font-bold hover:underline"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
