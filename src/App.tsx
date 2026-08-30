@@ -438,14 +438,22 @@ export default function App() {
     });
 
     // Incoming Call event (Filtered to target recipient only & non-blocked)
-    const unsubCall = socketService.onIncomingCall(({ caller, recipientHandle }) => {
+    const unsubCall = socketService.onIncomingCall((data: any) => {
+      const caller = data.caller || data.from;
+      const recipientHandle = data.recipientHandle || data.to;
       const cUser = currentUserRef.current;
-      if (!cUser) return;
-      if (normalizeHandle(recipientHandle) === normalizeHandle(cUser.handle)) {
+      if (!cUser || !caller) return;
+      if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
         if (!blockedUsersRef.current.includes(normalizeHandle(caller.handle))) {
           setIncomingCall({ caller });
         }
       }
+    });
+
+    // Call declined event
+    const unsubCallDeclined = socketService.onCallDeclined(() => {
+      setIncomingCall(null);
+      setActiveLiveCall(null);
     });
 
     // Call ended event
@@ -519,6 +527,7 @@ export default function App() {
       unsubOnline();
       unsubTyping();
       unsubCall();
+      unsubCallDeclined();
       unsubCallEnded();
       unsubClear();
       unsubProfile();
@@ -723,6 +732,8 @@ export default function App() {
     );
 
     setToast({
+      id: Date.now().toString(),
+      senderName: targetGroup ? targetGroup.name : (targetUser?.name || targetUser?.handle || 'Recipient'),
       senderHandle: targetGroup ? targetGroup.name : (targetUser?.handle || 'Recipient'),
       senderAvatar: targetGroup ? targetGroup.avatar : (targetUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'),
       text: `↪ Forwarded message from ${originalSender}`,
@@ -1206,14 +1217,14 @@ export default function App() {
           isOpen={Boolean(incomingCall)}
           onAccept={() => {
             if (currentUser) {
-              socketService.answerCall(incomingCall.caller.handle, currentUser);
+              socketService.acceptCall(incomingCall.caller.handle, currentUser.handle, currentUser);
             }
             setActiveLiveCall({ user: incomingCall.caller, isInitiator: false });
             setIncomingCall(null);
           }}
           onDecline={() => {
             if (currentUser) {
-              socketService.endCall(currentUser.handle, incomingCall.caller.handle);
+              socketService.declineCall(incomingCall.caller.handle, currentUser.handle);
               // Send missed/declined call message
               ApiService.sendMessage(
                 currentUser.handle,
@@ -1222,7 +1233,7 @@ export default function App() {
                 undefined,
                 undefined,
                 undefined,
-                { type: 'missed', duration: 0 }
+                { type: 'declined', duration: 0 }
               ).then((msg) => {
                 setMessages((prev) => [...prev, msg]);
                 ChatStorageService.addMessage(currentUser.handle, incomingCall.caller.handle, msg);

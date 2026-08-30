@@ -96,7 +96,7 @@ function configureHighQualitySender(pc: RTCPeerConnection) {
 // Web Audio synthesizer for calling ringtones and chimes
 class CallSoundService {
   private audioCtx: AudioContext | null = null;
-  private intervalId: NodeJS.Timeout | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
 
   private getContext() {
     if (!this.audioCtx || this.audioCtx.state === 'closed') {
@@ -170,7 +170,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [callState, setCallState] = useState<'calling' | 'connected' | 'ended'>('calling');
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 25, 45, 60, 35, 20]);
 
-  const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -183,7 +183,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const endCallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const endCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   durationRef.current = callDuration;
 
@@ -231,6 +231,23 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   };
 
+  const createAndSendOffer = async (pc: RTCPeerConnection) => {
+    if (hasOfferedRef.current) return;
+    try {
+      hasOfferedRef.current = true;
+      const offer = await pc.createOffer({ offerToReceiveAudio: true });
+      const optimizedSDP = optimizeAudioSDP(offer.sdp || '');
+      await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: optimizedSDP }));
+      configureHighQualitySender(pc);
+      socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
+        offer: pc.localDescription,
+      });
+    } catch (err) {
+      console.error('Failed to create/send WebRTC offer:', err);
+      hasOfferedRef.current = false;
+    }
+  };
+
   const processSignal = async (signal: any) => {
     const pc = peerConnectionRef.current;
     if (!pc) return;
@@ -250,7 +267,13 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         while (pendingCandidatesRef.current.length > 0) {
           const cand = pendingCandidatesRef.current.shift();
-          if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+          if (cand) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (iceErr) {
+              console.warn('Buffered ICE candidate error:', iceErr);
+            }
+          }
         }
 
         const answer = await pc.createAnswer();
@@ -268,14 +291,24 @@ export const CallModal: React.FC<CallModalProps> = ({
           configureHighQualitySender(pc);
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();
-            if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+            if (cand) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (iceErr) {
+                console.warn('Buffered ICE candidate error:', iceErr);
+              }
+            }
           }
           setCallState('connected');
           callSoundService.stopAll();
         }
       } else if (signal.candidate) {
         if (pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } catch (iceErr) {
+            console.warn('ICE candidate error:', iceErr);
+          }
         } else {
           pendingCandidatesRef.current.push(signal.candidate);
         }
@@ -344,6 +377,11 @@ export const CallModal: React.FC<CallModalProps> = ({
 
       const pc = createPeerConnection(stream);
 
+      // If initiator and recipient already accepted while getUserMedia was acquiring mic, send offer now
+      if (isInitiator && recipientAcceptedRef.current && !hasOfferedRef.current) {
+        await createAndSendOffer(pc);
+      }
+
       // Process any queued incoming WebRTC signals
       while (pendingSignalsRef.current.length > 0) {
         const queuedSignal = pendingSignalsRef.current.shift();
@@ -365,9 +403,13 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     startCall();
 
-    const cleanupWebRTC = socketService.onWebRTCSignal(async ({ fromHandle, signal }) => {
-      if (normalizeHandle(fromHandle) !== normalizeHandle(user.handle)) return;
+    const cleanupWebRTC = socketService.onWebRTCSignal(async (data) => {
+      const from = data.fromHandle || data.from;
+      const to = data.toHandle || data.to;
+      if (to && normalizeHandle(to) !== normalizeHandle(currentUser.handle)) return;
+      if (normalizeHandle(from) !== normalizeHandle(user.handle)) return;
 
+      const signal = data.signal || data;
       const pc = peerConnectionRef.current;
       if (!pc) {
         pendingSignalsRef.current.push(signal);
@@ -377,27 +419,38 @@ export const CallModal: React.FC<CallModalProps> = ({
       await processSignal(signal);
     });
 
-    const cleanupCallAccepted = socketService.onCallAccepted(async ({ callerHandle }) => {
-      if (normalizeHandle(callerHandle) === normalizeHandle(currentUser.handle)) {
+    const cleanupCallAccepted = socketService.onCallAccepted(async (data) => {
+      const callerH = data.callerHandle || data.to;
+      if (callerH && normalizeHandle(callerH) === normalizeHandle(currentUser.handle)) {
         recipientAcceptedRef.current = true;
         callSoundService.stopAll();
         setCallState('connected');
 
         const pc = peerConnectionRef.current;
         if (pc) {
-          try {
-            const offer = await pc.createOffer({ offerToReceiveAudio: true });
-            const optimizedSDP = optimizeAudioSDP(offer.sdp || '');
-            await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: optimizedSDP }));
-            configureHighQualitySender(pc);
-            hasOfferedRef.current = true;
-            socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-              offer: pc.localDescription,
-            });
-          } catch {
-            // offer error
-          }
+          await createAndSendOffer(pc);
         }
+      }
+    });
+
+    const cleanupCallDeclined = socketService.onCallDeclined(({ callerHandle, recipientHandle }) => {
+      const isRel =
+        normalizeHandle(callerHandle) === normalizeHandle(currentUser.handle) ||
+        normalizeHandle(recipientHandle || '') === normalizeHandle(user.handle) ||
+        normalizeHandle(callerHandle) === normalizeHandle(user.handle);
+
+      if (isRel) {
+        callSoundService.stopAll();
+        setCallState('ended');
+        if (endCallTimerRef.current) {
+          clearTimeout(endCallTimerRef.current);
+        }
+        endCallTimerRef.current = setTimeout(() => {
+          onClose({
+            type: isInitiator ? 'outgoing' : 'incoming',
+            duration: 0,
+          });
+        }, 800);
       }
     });
 
@@ -405,7 +458,9 @@ export const CallModal: React.FC<CallModalProps> = ({
       const isRel =
         !callerHandle ||
         normalizeHandle(callerHandle) === normalizeHandle(user.handle) ||
-        normalizeHandle(recipientHandle || '') === normalizeHandle(user.handle);
+        normalizeHandle(recipientHandle || '') === normalizeHandle(user.handle) ||
+        normalizeHandle(callerHandle) === normalizeHandle(currentUser.handle) ||
+        normalizeHandle(recipientHandle || '') === normalizeHandle(currentUser.handle);
 
       if (isRel) {
         callSoundService.stopAll();
@@ -418,13 +473,14 @@ export const CallModal: React.FC<CallModalProps> = ({
             type: isInitiator ? 'outgoing' : 'incoming',
             duration: durationRef.current,
           });
-        }, 1000);
+        }, 800);
       }
     });
 
     return () => {
       cleanupWebRTC();
       cleanupCallAccepted();
+      cleanupCallDeclined();
       cleanupCallEnded();
       callSoundService.stopAll();
 

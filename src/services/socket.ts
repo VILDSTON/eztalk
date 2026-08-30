@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { User, Message, Group } from '../types/chat';
+import { normalizeHandle } from '../utils/chatStorage';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '') : window.location.origin;
 
@@ -18,15 +19,16 @@ class SocketService {
 
       this.socket.on('connect', () => {
         if (this.currentHandle) {
-          this.socket?.emit('join', this.currentHandle);
+          this.socket?.emit('join', normalizeHandle(this.currentHandle));
         }
       });
     }
 
     if (userHandle) {
-      this.currentHandle = userHandle;
+      const cleanHandle = normalizeHandle(userHandle);
+      this.currentHandle = cleanHandle;
       if (this.socket.connected) {
-        this.socket.emit('join', userHandle);
+        this.socket.emit('join', cleanHandle);
       }
     }
 
@@ -34,9 +36,10 @@ class SocketService {
   }
 
   public setHandle(userHandle: string) {
-    this.currentHandle = userHandle;
+    const cleanHandle = normalizeHandle(userHandle);
+    this.currentHandle = cleanHandle;
     if (this.socket?.connected) {
-      this.socket.emit('join', userHandle);
+      this.socket.emit('join', cleanHandle);
     }
   }
 
@@ -97,10 +100,14 @@ class SocketService {
   }
 
   public sendTyping(senderHandle: string, recipientHandle: string, isTyping: boolean) {
-    this.socket?.emit('typing', { senderHandle, recipientHandle, isTyping });
+    this.socket?.emit('typing', {
+      senderHandle: normalizeHandle(senderHandle),
+      recipientHandle: normalizeHandle(recipientHandle),
+      isTyping,
+    });
   }
 
-  public onIncomingCall(callback: (data: { caller: User; recipientHandle: string }) => void) {
+  public onIncomingCall(callback: (data: { caller: User; recipientHandle: string; from?: User; to?: string }) => void) {
     this.socket?.on('incoming_call', callback);
     return () => {
       this.socket?.off('incoming_call', callback);
@@ -108,18 +115,54 @@ class SocketService {
   }
 
   public sendCall(caller: User, recipientHandle: string) {
-    this.socket?.emit('call_user', { caller, recipientHandle });
+    const rHandle = normalizeHandle(recipientHandle);
+    this.socket?.emit('call_user', {
+      caller,
+      from: caller,
+      recipientHandle: rHandle,
+      to: rHandle,
+    });
   }
 
-  public onCallAccepted(callback: (data: { callerHandle: string; recipient: User }) => void) {
+  public onCallAccepted(callback: (data: { callerHandle: string; recipient?: User; recipientHandle?: string; to?: string; from?: string }) => void) {
     this.socket?.on('call_accepted', callback);
     return () => {
       this.socket?.off('call_accepted', callback);
     };
   }
 
+  public acceptCall(callerHandle: string, recipientHandle: string, recipient?: User) {
+    const cHandle = normalizeHandle(callerHandle);
+    const rHandle = normalizeHandle(recipientHandle);
+    this.socket?.emit('accept_call', {
+      callerHandle: cHandle,
+      recipientHandle: rHandle,
+      to: cHandle,
+      from: rHandle,
+      recipient,
+    });
+  }
+
   public answerCall(callerHandle: string, recipient: User) {
-    this.socket?.emit('answer_call', { callerHandle, recipient });
+    this.acceptCall(callerHandle, recipient.handle, recipient);
+  }
+
+  public declineCall(callerHandle: string, recipientHandle: string) {
+    const cHandle = normalizeHandle(callerHandle);
+    const rHandle = normalizeHandle(recipientHandle);
+    this.socket?.emit('decline_call', {
+      callerHandle: cHandle,
+      recipientHandle: rHandle,
+      to: cHandle,
+      from: rHandle,
+    });
+  }
+
+  public onCallDeclined(callback: (data: { callerHandle: string; recipientHandle?: string }) => void) {
+    this.socket?.on('call_declined', callback);
+    return () => {
+      this.socket?.off('call_declined', callback);
+    };
   }
 
   public onCallEnded(callback: (data?: { callerHandle?: string; recipientHandle?: string }) => void) {
@@ -130,14 +173,29 @@ class SocketService {
   }
 
   public endCall(callerHandle: string, recipientHandle: string) {
-    this.socket?.emit('end_call', { callerHandle, recipientHandle });
+    const cHandle = normalizeHandle(callerHandle);
+    const rHandle = normalizeHandle(recipientHandle);
+    this.socket?.emit('end_call', {
+      callerHandle: cHandle,
+      recipientHandle: rHandle,
+      to: cHandle,
+      from: rHandle,
+    });
   }
 
   public sendWebRTCSignal(toHandle: string, fromHandle: string, signal: any) {
-    this.socket?.emit('webrtc_signal', { toHandle, fromHandle, signal });
+    const target = normalizeHandle(toHandle);
+    const source = normalizeHandle(fromHandle);
+    this.socket?.emit('webrtc_signal', {
+      toHandle: target,
+      fromHandle: source,
+      to: target,
+      from: source,
+      signal,
+    });
   }
 
-  public onWebRTCSignal(callback: (data: { toHandle: string; fromHandle: string; signal: any }) => void) {
+  public onWebRTCSignal(callback: (data: { toHandle?: string; fromHandle: string; to?: string; from?: string; signal: any }) => void) {
     this.socket?.on('webrtc_signal', callback);
     return () => {
       this.socket?.off('webrtc_signal', callback);

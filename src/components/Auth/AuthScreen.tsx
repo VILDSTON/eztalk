@@ -53,7 +53,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
   // Live handle validation state
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
-  const handleCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const passwordStrength = getPasswordStrength(regPassword);

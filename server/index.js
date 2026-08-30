@@ -1088,41 +1088,67 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('call_user', ({ caller, recipientHandle }) => {
-    const rHandle = normalizeHandle(recipientHandle);
-    if (rHandle) {
-      io.to(rHandle).emit('incoming_call', {
+  socket.on('call_user', (data) => {
+    const caller = data.caller || data.from;
+    const recipientHandle = normalizeHandle(data.recipientHandle || data.to);
+    if (recipientHandle) {
+      io.to(recipientHandle).emit('incoming_call', {
         caller,
-        recipientHandle: rHandle,
+        from: caller,
+        recipientHandle,
+        to: recipientHandle,
       });
     }
   });
 
-  socket.on('answer_call', ({ callerHandle, recipient }) => {
-    const cHandle = normalizeHandle(callerHandle);
-    if (cHandle) {
-      io.to(cHandle).emit('call_accepted', {
-        callerHandle: cHandle,
+  const handleAcceptCall = (data) => {
+    const callerHandle = normalizeHandle(data.callerHandle || data.to);
+    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    const recipient = data.recipient || (callerHandle ? { handle: recipientHandle } : null);
+    if (callerHandle) {
+      io.to(callerHandle).emit('call_accepted', {
+        callerHandle,
+        recipientHandle,
         recipient,
+        to: callerHandle,
+        from: recipientHandle,
       });
+    }
+  };
+
+  socket.on('accept_call', handleAcceptCall);
+  socket.on('answer_call', handleAcceptCall);
+
+  socket.on('decline_call', (data) => {
+    const callerHandle = normalizeHandle(data.callerHandle || data.to);
+    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    if (callerHandle) {
+      io.to(callerHandle).emit('call_declined', { callerHandle, recipientHandle });
+      io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
+    }
+    if (recipientHandle && recipientHandle !== callerHandle) {
+      io.to(recipientHandle).emit('call_declined', { callerHandle, recipientHandle });
+      io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
     }
   });
 
-  socket.on('end_call', ({ callerHandle, recipientHandle }) => {
-    const cHandle = normalizeHandle(callerHandle);
-    const rHandle = normalizeHandle(recipientHandle);
-    if (cHandle) io.to(cHandle).emit('call_ended', { callerHandle: cHandle, recipientHandle: rHandle });
-    if (rHandle) io.to(rHandle).emit('call_ended', { callerHandle: cHandle, recipientHandle: rHandle });
+  socket.on('end_call', (data) => {
+    const callerHandle = normalizeHandle(data.callerHandle || data.to);
+    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    if (callerHandle) io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
+    if (recipientHandle && recipientHandle !== callerHandle) io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
   });
 
-  socket.on('webrtc_signal', ({ toHandle, fromHandle, signal }) => {
-    const target = normalizeHandle(toHandle);
-    const source = normalizeHandle(fromHandle);
+  socket.on('webrtc_signal', (data) => {
+    const target = normalizeHandle(data.toHandle || data.to);
+    const source = normalizeHandle(data.fromHandle || data.from);
     if (target) {
       io.to(target).emit('webrtc_signal', {
         toHandle: target,
         fromHandle: source,
-        signal,
+        to: target,
+        from: source,
+        signal: data.signal,
       });
     }
   });
