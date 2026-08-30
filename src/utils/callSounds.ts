@@ -1,124 +1,168 @@
-// EzTalk Web Audio Call Sound Manager with Immediate Stop Control
+// EzTalk Web Audio Call Sound Manager with Absolute Immediate Stop Control
 
 class CallSoundService {
-  private incomingCtx: AudioContext | null = null;
-  private incomingGain: GainNode | null = null;
-  private outgoingCtx: AudioContext | null = null;
-  private outgoingGain: GainNode | null = null;
+  private activeCtx: AudioContext | null = null;
+  private activeGain: GainNode | null = null;
+  private activeOscillators: OscillatorNode[] = [];
+  private ringInterval: ReturnType<typeof setInterval> | null = null;
+  private ringTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  private getContext(): AudioContext {
+    if (!this.activeCtx || this.activeCtx.state === 'closed') {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.activeCtx = new AudioCtx();
+    }
+    if (this.activeCtx.state === 'suspended') {
+      this.activeCtx.resume().catch(() => {});
+    }
+    return this.activeCtx;
+  }
 
   // Play incoming phone ringing tone (440Hz + 480Hz dual cadence)
   public playIncoming() {
-    this.stopIncoming();
+    this.stopAll();
     try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      this.incomingCtx = ctx;
+      const playBeep = () => {
+        try {
+          const ctx = this.getContext();
+          const now = ctx.currentTime;
 
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
-      this.incomingGain = gain;
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
 
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(440, ctx.currentTime);
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(480, ctx.currentTime);
+          this.activeGain = gain;
+          this.activeOscillators = [osc1, osc2];
 
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, now);
+          osc2.frequency.setValueAtTime(480, now);
 
-      const now = ctx.currentTime;
-      gain.gain.setValueAtTime(0, now);
-      for (let i = 0; i < 30; i++) {
-        const t = now + i * 3.0;
-        gain.gain.setValueAtTime(0.08, t);
-        gain.gain.setValueAtTime(0, t + 1.2);
-      }
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
-      osc1.start();
-      osc2.start();
-    } catch {
-      // Audio autoplay policy fallback
-    }
-  }
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
 
-  // Instantly cancel all incoming ringtone oscillators and close audio context
-  public stopIncoming() {
-    try {
-      if (this.incomingGain) {
-        this.incomingGain.gain.cancelScheduledValues(0);
-        this.incomingGain.gain.value = 0;
-        this.incomingGain.disconnect();
-        this.incomingGain = null;
-      }
-      if (this.incomingCtx && this.incomingCtx.state !== 'closed') {
-        this.incomingCtx.close();
-        this.incomingCtx = null;
-      }
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.2);
+          osc2.stop(now + 1.2);
+        } catch {
+          // ignore autoplay restrictions
+        }
+      };
+
+      playBeep();
+      this.ringInterval = setInterval(playBeep, 3000);
     } catch {
       // ignore
     }
   }
 
-  // Play outgoing dialing tone (Tuuuut... Tuuuut...)
+  // Play outgoing dialing tone (440Hz + 480Hz US tone or 425Hz European tone)
   public playOutgoing() {
-    this.stopOutgoing();
+    this.stopAll();
     try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      this.outgoingCtx = ctx;
+      const playRing = () => {
+        try {
+          const ctx = this.getContext();
+          const now = ctx.currentTime;
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      this.outgoingGain = gain;
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(425, ctx.currentTime);
+          this.activeGain = gain;
+          this.activeOscillators = [osc1, osc2];
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, now);
+          osc2.frequency.setValueAtTime(480, now);
 
-      const now = ctx.currentTime;
-      gain.gain.setValueAtTime(0, now);
-      for (let i = 0; i < 30; i++) {
-        const t = now + i * 3.5;
-        gain.gain.setValueAtTime(0.06, t);
-        gain.gain.setValueAtTime(0, t + 1.2);
-      }
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
-      osc.start();
-    } catch {
-      // fallback
-    }
-  }
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
 
-  // Instantly cancel all outgoing dial tone oscillators and close audio context
-  public stopOutgoing() {
-    try {
-      if (this.outgoingGain) {
-        this.outgoingGain.gain.cancelScheduledValues(0);
-        this.outgoingGain.gain.value = 0;
-        this.outgoingGain.disconnect();
-        this.outgoingGain = null;
-      }
-      if (this.outgoingCtx && this.outgoingCtx.state !== 'closed') {
-        this.outgoingCtx.close();
-        this.outgoingCtx = null;
-      }
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.2);
+          osc2.stop(now + 1.2);
+        } catch {
+          // ignore
+        }
+      };
+
+      playRing();
+      this.ringInterval = setInterval(playRing, 3500);
     } catch {
       // ignore
     }
   }
 
-  // Stop everything immediately
+  public stopIncoming() {
+    this.stopAll();
+  }
+
+  public stopOutgoing() {
+    this.stopAll();
+  }
+
+  // Instantly cut all sound, stop all oscillators, mute gain to 0, clear timers, and close context
   public stopAll() {
-    this.stopIncoming();
-    this.stopOutgoing();
+    if (this.ringInterval) {
+      clearInterval(this.ringInterval);
+      this.ringInterval = null;
+    }
+    if (this.ringTimeout) {
+      clearTimeout(this.ringTimeout);
+      this.ringTimeout = null;
+    }
+
+    // Stop active oscillators immediately
+    if (this.activeOscillators.length > 0) {
+      this.activeOscillators.forEach((osc) => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch {
+          // already stopped
+        }
+      });
+      this.activeOscillators = [];
+    }
+
+    // Cut gain instantly to 0 and disconnect
+    if (this.activeGain) {
+      try {
+        this.activeGain.gain.cancelScheduledValues(0);
+        this.activeGain.gain.setValueAtTime(0, 0);
+        this.activeGain.disconnect();
+      } catch {
+        // ignore
+      }
+      this.activeGain = null;
+    }
+
+    // Close AudioContext completely to ensure zero audio leaks
+    if (this.activeCtx) {
+      try {
+        if (this.activeCtx.state !== 'closed') {
+          this.activeCtx.close().catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+      this.activeCtx = null;
+    }
   }
 }
 

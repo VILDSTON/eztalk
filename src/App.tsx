@@ -14,6 +14,7 @@ import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
 import { ChatStorageService, getConversationKey, normalizeHandle } from './utils/chatStorage';
 import { ApiService } from './services/api';
 import { socketService } from './services/socket';
+import { callSoundService } from './utils/callSounds';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
 
 // Play audible notification chime on receiving a message
@@ -1216,6 +1217,7 @@ export default function App() {
           caller={incomingCall.caller}
           isOpen={Boolean(incomingCall)}
           onAccept={() => {
+            callSoundService.stopAll();
             if (currentUser) {
               socketService.acceptCall(incomingCall.caller.handle, currentUser.handle, currentUser);
             }
@@ -1223,6 +1225,7 @@ export default function App() {
             setIncomingCall(null);
           }}
           onDecline={() => {
+            callSoundService.stopAll();
             if (currentUser) {
               socketService.declineCall(incomingCall.caller.handle, currentUser.handle);
               // Send missed/declined call message
@@ -1252,6 +1255,7 @@ export default function App() {
           isOpen={Boolean(activeLiveCall)}
           isInitiator={activeLiveCall.isInitiator}
           onClose={(callInfo) => {
+            callSoundService.stopAll();
             if (currentUser) {
               socketService.endCall(currentUser.handle, activeLiveCall.user.handle);
               // If caller, send the call event message so it appears in the chat on both sides

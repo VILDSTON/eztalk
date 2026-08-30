@@ -3,6 +3,7 @@ import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity } from 'lucid
 import { User, CallInfo } from '../../types/chat';
 import { socketService } from '../../services/socket';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { callSoundService } from '../../utils/callSounds';
 
 interface CallModalProps {
   user: User;
@@ -92,70 +93,6 @@ function configureHighQualitySender(pc: RTCPeerConnection) {
     // ignore
   }
 }
-
-// Web Audio synthesizer for calling ringtones and chimes
-class CallSoundService {
-  private audioCtx: AudioContext | null = null;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
-
-  private getContext() {
-    if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.audioCtx = new AudioCtx();
-    }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
-    }
-    return this.audioCtx;
-  }
-
-  public playOutgoing() {
-    this.stopAll();
-    const playRing = () => {
-      try {
-        const ctx = this.getContext();
-        const now = ctx.currentTime;
-
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc1.type = 'sine';
-        osc2.type = 'sine';
-        osc1.frequency.setValueAtTime(440, now);
-        osc2.frequency.setValueAtTime(480, now);
-
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc1.start(now);
-        osc1.stop(now + 1.2);
-        osc2.start(now);
-        osc2.stop(now + 1.2);
-      } catch {
-        // Audio policy ignore
-      }
-    };
-
-    playRing();
-    this.intervalId = setInterval(playRing, 3500);
-  }
-
-  public stopAll() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-  }
-}
-
-const callSoundService = new CallSoundService();
 
 export const CallModal: React.FC<CallModalProps> = ({
   user,

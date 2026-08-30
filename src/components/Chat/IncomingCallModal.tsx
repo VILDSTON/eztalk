@@ -18,26 +18,26 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 }) => {
   useEffect(() => {
     if (!isOpen) {
-      callSoundService.stopIncoming();
+      callSoundService.stopAll();
       return;
     }
 
     callSoundService.playIncoming();
 
     return () => {
-      callSoundService.stopIncoming();
+      callSoundService.stopAll();
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleAccept = () => {
-    callSoundService.stopIncoming();
+    callSoundService.stopAll();
     onAccept();
   };
 
   const handleDecline = () => {
-    callSoundService.stopIncoming();
+    callSoundService.stopAll();
     onDecline();
   };
 
