@@ -50,7 +50,7 @@ const ICE_SERVERS: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
-// Modifies SDP to set Opus to 128kbps HD voice, enable forward error correction (FEC) and optimal packetization
+// Modifies SDP to set Opus to 64kbps high-fidelity voice, enable DTX, in-band FEC, and stable 20ms packetization
 function optimizeAudioSDP(sdp: string): string {
   if (!sdp) return sdp;
 
@@ -59,22 +59,20 @@ function optimizeAudioSDP(sdp: string): string {
   if (!opusMatch) return sdp;
   const pt = opusMatch[1];
 
-  const hdParams = 'minptime=10;useinbandfec=1;maxaveragebitrate=128000;stereo=1;sprop-stereo=1;maxplaybackrate=48000;cbr=0';
+  const opusParams = 'maxaveragebitrate=64000;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0;maxplaybackrate=48000;minptime=20;ptime=20';
 
-  const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.*)`, 'i');
+  const fmtpRegex = new RegExp(`a=fmtp:${pt}[^\r\n]*`, 'i');
   if (fmtpRegex.test(sdp)) {
-    return sdp.replace(fmtpRegex, (_match, existing) => {
-      return `a=fmtp:${pt} ${existing};${hdParams}`;
-    });
+    return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${opusParams}`);
   } else {
     return sdp.replace(
       new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000[^\r\n]*)`, 'i'),
-      `$1\r\na=fmtp:${pt} ${hdParams}`
+      `$1\r\na=fmtp:${pt} ${opusParams}`
     );
   }
 }
 
-// Configures RTCRtpSender encoding bitrate and priority for HD audio
+// Configures RTCRtpSender encoding bitrate and priority for crystal clear voice
 function configureHighQualitySender(pc: RTCPeerConnection) {
   try {
     pc.getSenders().forEach((sender) => {
@@ -82,7 +80,7 @@ function configureHighQualitySender(pc: RTCPeerConnection) {
         const params = sender.getParameters();
         if (params && params.encodings && params.encodings.length > 0) {
           params.encodings.forEach((enc) => {
-            enc.maxBitrate = 128000;
+            enc.maxBitrate = 64000;
             enc.priority = 'high';
             enc.networkPriority = 'high';
           });
@@ -333,12 +331,12 @@ export const CallModal: React.FC<CallModalProps> = ({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: { ideal: true },
-          noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: true },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
           sampleRate: { ideal: 48000 },
           sampleSize: { ideal: 16 },
-          channelCount: { ideal: 2 },
+          channelCount: 1,
         },
       });
       localStreamRef.current = stream;
