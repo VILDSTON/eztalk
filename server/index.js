@@ -212,6 +212,7 @@ function formatUser(u) {
     ...obj,
     id: uid,
     blockedUsers: Array.isArray(obj.blockedUsers) ? obj.blockedUsers : [],
+    friends: Array.isArray(obj.friends) ? obj.friends : [],
   };
 }
 
@@ -444,6 +445,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
         ...(soundNotifications !== undefined && { soundNotifications: Boolean(soundNotifications) }),
         ...(bio !== undefined && { bio }),
         ...(Array.isArray(blockedUsers) && { blockedUsers: blockedUsers.map(normalizeHandle) }),
+        ...(Array.isArray(friends) && { friends: friends.map(normalizeHandle) }),
       };
 
       const query = id ? { _id: id } : { handle: prevHandle };
@@ -578,6 +580,58 @@ app.post('/api/users/:handle/block', async (req, res) => {
       writeLocalDB(db);
       io.emit('user_updated', db.users[idx]);
       res.json({ success: true, blockedUsers: db.users[idx].blockedUsers });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Toggle / Add / Remove Friend (Persisted across devices)
+app.post('/api/users/:handle/friends', async (req, res) => {
+  try {
+    const userHandle = normalizeHandle(req.params.handle);
+    const { targetHandle, action } = req.body;
+    const cleanTarget = normalizeHandle(targetHandle);
+
+    if (!cleanTarget) {
+      return res.status(400).json({ error: 'Target handle is required.' });
+    }
+
+    if (isMongoConnected) {
+      const user = await UserModel.findOne({ handle: userHandle });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user.friends) user.friends = [];
+
+      const isFriend = user.friends.includes(cleanTarget);
+      if (action === 'remove' || (action === 'toggle' && isFriend)) {
+        user.friends = user.friends.filter((h) => h !== cleanTarget);
+      } else {
+        if (!isFriend) user.friends.push(cleanTarget);
+      }
+      await user.save();
+      const formatted = formatUser(user);
+      io.emit('user_updated', formatted);
+      io.to(userHandle).emit('friends_updated', { friends: user.friends });
+      io.to(userHandle).emit('profile_updated', formatted);
+      res.json({ success: true, friends: user.friends });
+    } else {
+      const db = readLocalDB();
+      const idx = db.users.findIndex((u) => u.handle.toLowerCase() === userHandle);
+      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+      if (!db.users[idx].friends) db.users[idx].friends = [];
+
+      const isFriend = db.users[idx].friends.includes(cleanTarget);
+      if (action === 'remove' || (action === 'toggle' && isFriend)) {
+        db.users[idx].friends = db.users[idx].friends.filter((h) => h !== cleanTarget);
+      } else {
+        if (!isFriend) db.users[idx].friends.push(cleanTarget);
+      }
+      writeLocalDB(db);
+      const formatted = formatUser(db.users[idx]);
+      io.emit('user_updated', formatted);
+      io.to(userHandle).emit('friends_updated', { friends: db.users[idx].friends });
+      io.to(userHandle).emit('profile_updated', formatted);
+      res.json({ success: true, friends: db.users[idx].friends });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

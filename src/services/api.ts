@@ -111,6 +111,22 @@ export class ApiService {
     }
   }
 
+  // Add / Remove / Toggle Friend (Persisted across devices)
+  static async toggleFriend(userHandle: string, targetHandle: string, action: 'add' | 'remove' | 'toggle' = 'toggle'): Promise<string[]> {
+    try {
+      const cleanU = encodeURIComponent(userHandle.trim().toLowerCase());
+      const res = await fetch(`${API_BASE_URL}/users/${cleanU}/friends`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetHandle, action }),
+      });
+      const data = await res.json();
+      return data.friends || [];
+    } catch {
+      return [];
+    }
+  }
+
   // Fetch conversation messages between two handles
   static async getMessages(handle1: string, handle2: string): Promise<Message[]> {
     try {

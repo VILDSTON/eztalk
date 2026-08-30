@@ -158,6 +158,13 @@ class SocketService {
     };
   }
 
+  public onFriendsUpdated(callback: (data: { friends: string[] }) => void) {
+    this.socket?.on('friends_updated', callback);
+    return () => {
+      this.socket?.off('friends_updated', callback);
+    };
+  }
+
   public onOnlineUsers(callback: (onlineHandles: string[]) => void) {
     this.socket?.on('online_users', callback);
     return () => {

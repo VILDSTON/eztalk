@@ -65,7 +65,9 @@ export default function App() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [myAccounts, setMyAccounts] = useState<User[]>(() => ChatStorageService.getMyAccounts());
   const [addedFriends, setAddedFriends] = useState<string[]>(() =>
-    currentUser ? ChatStorageService.getAddedFriends(currentUser.handle) : []
+    currentUser?.friends && currentUser.friends.length > 0
+      ? currentUser.friends.map(normalizeHandle)
+      : (currentUser ? ChatStorageService.getAddedFriends(currentUser.handle) : [])
   );
   const [activeChatHandles, setActiveChatHandles] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -78,14 +80,17 @@ export default function App() {
   const [onlineHandles, setOnlineHandles] = useState<string[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('eztalk_blocked_users') || '[]');
-    } catch {
-      return [];
+    if (currentUser?.blockedUsers && currentUser.blockedUsers.length > 0) {
+      return currentUser.blockedUsers.map(normalizeHandle);
     }
+    const saved = localStorage.getItem('eztalk_blocked_users');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+
+  // Voice Call State
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
   const [activeLiveCall, setActiveLiveCall] = useState<{ user: User; isInitiator?: boolean } | null>(null);
   const [toast, setToast] = useState<ToastNotification | null>(null);
@@ -168,7 +173,7 @@ export default function App() {
         ? currentUser
         : (chatUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
            allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
-           (selectedUserObj && (selectedUserObj.id === selectedUserId || normalizeHandle(selectedUserObj.handle) === normalizeHandle(selectedUserId)) ? selectedUserObj : null) ||
+           (selectedUserObj && (selectedUserObj.id === selectedUserId || normalizeHandle(selectedUserObj.handle) === normalizeHandle(selectedUserObj.handle)) ? selectedUserObj : null) ||
            (selectedUserId
              ? {
                  id: selectedUserId,
@@ -203,6 +208,9 @@ export default function App() {
             ChatStorageService.saveAuthUser(freshProfile);
             if (freshProfile.blockedUsers) {
               setBlockedUsers(freshProfile.blockedUsers.map(normalizeHandle));
+            }
+            if (Array.isArray(freshProfile.friends)) {
+              setAddedFriends(freshProfile.friends.map(normalizeHandle));
             }
           }
         } catch {
@@ -494,6 +502,13 @@ export default function App() {
       });
     });
 
+    // Friends updated event (Multi-device friends sync)
+    const unsubFriends = socketService.onFriendsUpdated(({ friends }) => {
+      if (Array.isArray(friends)) {
+        setAddedFriends(friends.map(normalizeHandle));
+      }
+    });
+
     return () => {
       unsubMsg();
       unsubEdit();
@@ -508,6 +523,7 @@ export default function App() {
       unsubClear();
       unsubProfile();
       unsubUserUpdated();
+      unsubFriends();
     };
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
@@ -515,7 +531,11 @@ export default function App() {
     setCurrentUser(user);
     ChatStorageService.saveAuthUser(user);
     setMyAccounts(ChatStorageService.getMyAccounts());
-    setAddedFriends(ChatStorageService.getAddedFriends(user.handle));
+    if (Array.isArray(user.friends) && user.friends.length > 0) {
+      setAddedFriends(user.friends.map(normalizeHandle));
+    } else {
+      setAddedFriends(ChatStorageService.getAddedFriends(user.handle));
+    }
     if (Array.isArray(user.blockedUsers) && user.blockedUsers.length > 0) {
       const normalized = user.blockedUsers.map(normalizeHandle);
       setBlockedUsers(normalized);
@@ -654,23 +674,41 @@ export default function App() {
     }
   };
 
-  // Add Existing User to Friends List
-  const handleAddExistingFriend = (handle: string) => {
+  // Add Existing User to Friends List (Persisted to database)
+  const handleAddExistingFriend = async (handle: string) => {
     if (!currentUser) return;
-    const updated = ChatStorageService.addFriend(currentUser.handle, handle);
-    setAddedFriends(updated);
+    const clean = normalizeHandle(handle);
+    setAddedFriends((prev) => [...new Set([...prev, clean])]);
+    ChatStorageService.addFriend(currentUser.handle, clean);
+    try {
+      const serverFriends = await ApiService.toggleFriend(currentUser.handle, clean, 'add');
+      if (serverFriends && serverFriends.length > 0) {
+        setAddedFriends(serverFriends.map(normalizeHandle));
+      }
+    } catch {
+      // ignore
+    }
   };
 
-  // Remove Friend from Added Friends List
-  const handleRemoveFriend = (friendHandle?: string) => {
+  // Remove Friend from Added Friends List (Persisted to database)
+  const handleRemoveFriend = async (friendHandle?: string) => {
     if (!currentUser) return;
     const target = friendHandle || (selectedUser ? selectedUser.handle : '');
     if (!target) return;
-    if (confirm(`Remove ${target} from your friends list?`)) {
-      const updated = ChatStorageService.removeFriend(currentUser.handle, target);
-      setAddedFriends(updated);
-      if (selectedUser && normalizeHandle(selectedUser.handle) === normalizeHandle(target)) {
+    const clean = normalizeHandle(target);
+    if (confirm(`Remove ${clean} from your friends list?`)) {
+      setAddedFriends((prev) => prev.filter((f) => normalizeHandle(f) !== clean));
+      ChatStorageService.removeFriend(currentUser.handle, clean);
+      if (selectedUser && normalizeHandle(selectedUser.handle) === clean) {
         setSelectedUserId('');
+      }
+      try {
+        const serverFriends = await ApiService.toggleFriend(currentUser.handle, clean, 'remove');
+        if (serverFriends) {
+          setAddedFriends(serverFriends.map(normalizeHandle));
+        }
+      } catch {
+        // ignore
       }
     }
   };
@@ -696,6 +734,7 @@ export default function App() {
       setAddedFriends(friends);
       setSelectedUserId(registered.id);
       setSelectedGroupId(null);
+      await ApiService.toggleFriend(currentUser.handle, registered.handle, 'add');
     } catch {
       const updated = ChatStorageService.upsertUser(newFriend);
       setAllUsers(updated);
