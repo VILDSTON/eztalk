@@ -589,7 +589,7 @@ app.post('/api/users/:handle/block', async (req, res) => {
   }
 });
 
-// Toggle / Add / Remove Friend (Persisted across devices)
+// Toggle / Add / Remove Friend (Mutual cross-device persistence)
 app.post('/api/users/:handle/friends', async (req, res) => {
   try {
     const userHandle = normalizeHandle(req.params.handle);
@@ -601,37 +601,74 @@ app.post('/api/users/:handle/friends', async (req, res) => {
     }
 
     if (isMongoConnected) {
-      const user = await UserModel.findOne({ handle: userHandle });
+      const [user, targetUser] = await Promise.all([
+        UserModel.findOne({ handle: userHandle }),
+        UserModel.findOne({ handle: cleanTarget }),
+      ]);
+
       if (!user) return res.status(404).json({ error: 'User not found' });
       if (!user.friends) user.friends = [];
 
       const isFriend = user.friends.includes(cleanTarget);
-      if (action === 'remove' || (action === 'toggle' && isFriend)) {
+      const isRemoving = action === 'remove' || (action === 'toggle' && isFriend);
+
+      if (isRemoving) {
         user.friends = user.friends.filter((h) => h !== cleanTarget);
+        if (targetUser && targetUser.friends) {
+          targetUser.friends = targetUser.friends.filter((h) => h !== userHandle);
+          await targetUser.save();
+          io.to(cleanTarget).emit('friends_updated', { friends: targetUser.friends });
+          io.to(cleanTarget).emit('profile_updated', formatUser(targetUser));
+        }
       } else {
-        if (!isFriend) user.friends.push(cleanTarget);
+        if (!user.friends.includes(cleanTarget)) user.friends.push(cleanTarget);
+        if (targetUser) {
+          if (!targetUser.friends) targetUser.friends = [];
+          if (!targetUser.friends.includes(userHandle)) targetUser.friends.push(userHandle);
+          await targetUser.save();
+          io.to(cleanTarget).emit('friends_updated', { friends: targetUser.friends });
+          io.to(cleanTarget).emit('profile_updated', formatUser(targetUser));
+        }
       }
+
       await user.save();
       const formatted = formatUser(user);
       io.emit('user_updated', formatted);
+      if (targetUser) io.emit('user_updated', formatUser(targetUser));
       io.to(userHandle).emit('friends_updated', { friends: user.friends });
       io.to(userHandle).emit('profile_updated', formatted);
       res.json({ success: true, friends: user.friends });
     } else {
       const db = readLocalDB();
       const idx = db.users.findIndex((u) => u.handle.toLowerCase() === userHandle);
+      const targetIdx = db.users.findIndex((u) => u.handle.toLowerCase() === cleanTarget);
       if (idx === -1) return res.status(404).json({ error: 'User not found' });
       if (!db.users[idx].friends) db.users[idx].friends = [];
 
       const isFriend = db.users[idx].friends.includes(cleanTarget);
-      if (action === 'remove' || (action === 'toggle' && isFriend)) {
+      const isRemoving = action === 'remove' || (action === 'toggle' && isFriend);
+
+      if (isRemoving) {
         db.users[idx].friends = db.users[idx].friends.filter((h) => h !== cleanTarget);
+        if (targetIdx !== -1 && db.users[targetIdx].friends) {
+          db.users[targetIdx].friends = db.users[targetIdx].friends.filter((h) => h !== userHandle);
+          io.to(cleanTarget).emit('friends_updated', { friends: db.users[targetIdx].friends });
+          io.to(cleanTarget).emit('profile_updated', formatUser(db.users[targetIdx]));
+        }
       } else {
-        if (!isFriend) db.users[idx].friends.push(cleanTarget);
+        if (!db.users[idx].friends.includes(cleanTarget)) db.users[idx].friends.push(cleanTarget);
+        if (targetIdx !== -1) {
+          if (!db.users[targetIdx].friends) db.users[targetIdx].friends = [];
+          if (!db.users[targetIdx].friends.includes(userHandle)) db.users[targetIdx].friends.push(userHandle);
+          io.to(cleanTarget).emit('friends_updated', { friends: db.users[targetIdx].friends });
+          io.to(cleanTarget).emit('profile_updated', formatUser(db.users[targetIdx]));
+        }
       }
+
       writeLocalDB(db);
       const formatted = formatUser(db.users[idx]);
       io.emit('user_updated', formatted);
+      if (targetIdx !== -1) io.emit('user_updated', formatUser(db.users[targetIdx]));
       io.to(userHandle).emit('friends_updated', { friends: db.users[idx].friends });
       io.to(userHandle).emit('profile_updated', formatted);
       res.json({ success: true, friends: db.users[idx].friends });
