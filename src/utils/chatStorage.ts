@@ -341,6 +341,68 @@ export class ChatStorageService {
     return updatedConversations;
   }
 
+  // Save messages for a specific conversation key
+  static saveConversation(key: string, messages: Message[]) {
+    try {
+      const all = this.getConversations();
+      all[key] = messages;
+      this.saveConversations(all);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Drafts management
+  static getDraft(key: string): string {
+    try {
+      const data = localStorage.getItem('eztalk_drafts_v1');
+      if (data) {
+        const parsed = JSON.parse(data);
+        return parsed[key] || '';
+      }
+    } catch {}
+    return '';
+  }
+
+  static saveDraft(key: string, text: string) {
+    try {
+      const data = localStorage.getItem('eztalk_drafts_v1');
+      const parsed = data ? JSON.parse(data) : {};
+      if (text) {
+        parsed[key] = text;
+      } else {
+        delete parsed[key];
+      }
+      localStorage.setItem('eztalk_drafts_v1', JSON.stringify(parsed));
+    } catch {}
+  }
+
+  // Offline pending message queue
+  static getPendingQueue(): Message[] {
+    try {
+      const data = localStorage.getItem('eztalk_pending_queue_v1');
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static addPendingMessage(msg: Message) {
+    try {
+      const current = this.getPendingQueue();
+      const updated = [...current.filter((m) => m.id !== msg.id), msg];
+      localStorage.setItem('eztalk_pending_queue_v1', JSON.stringify(updated));
+    } catch {}
+  }
+
+  static removePendingMessage(id: string) {
+    try {
+      const current = this.getPendingQueue();
+      const updated = current.filter((m) => m.id !== id);
+      localStorage.setItem('eztalk_pending_queue_v1', JSON.stringify(updated));
+    } catch {}
+  }
+
   // Clear messages for a two-way conversation
   static clearConversation(handle1: string, handle2: string): Record<string, Message[]> {
     const convKey = getConversationKey(handle1, handle2);

@@ -162,7 +162,10 @@ export class ApiService {
     callInfo?: { type: 'incoming' | 'outgoing' | 'missed' | 'declined' | 'canceled'; duration?: number },
     id?: string,
     isForwarded?: boolean,
-    forwardedFrom?: string
+    forwardedFrom?: string,
+    ttlSeconds?: number,
+    isSecret?: boolean,
+    forwardRestricted?: boolean
   ): Promise<Message> {
     const payload = {
       id,
@@ -175,6 +178,9 @@ export class ApiService {
       callInfo,
       isForwarded,
       forwardedFrom,
+      ttlSeconds,
+      isSecret,
+      forwardRestricted,
       timestamp: 'Sent PM',
     };
     try {
@@ -198,6 +204,10 @@ export class ApiService {
         callInfo,
         isForwarded,
         forwardedFrom,
+        ttlSeconds,
+        isSecret,
+        forwardRestricted,
+        status: 'sent',
         timestamp: 'Sent PM',
       };
     }

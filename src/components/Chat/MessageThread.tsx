@@ -16,6 +16,7 @@ interface MessageThreadProps {
   onEdit?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
 }
 
 function formatMessageDateDivider(createdAt?: string, timestamp?: string): string {
@@ -70,6 +71,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   onEdit,
   onDelete,
   onToggleReaction,
+  onOpenMedia,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -168,6 +170,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onToggleReaction={onToggleReaction}
+                    onOpenMedia={onOpenMedia}
                   />
                 </React.Fragment>
               );

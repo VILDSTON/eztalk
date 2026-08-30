@@ -756,7 +756,22 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 // Post New Message (Encrypted at rest with AES-256-GCM)
 app.post('/api/messages', async (req, res) => {
   try {
-    const { id, senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, isForwarded, forwardedFrom, timestamp } = req.body;
+    const {
+      id,
+      senderHandle,
+      recipientHandle,
+      groupId,
+      text,
+      attachment,
+      replyTo,
+      callInfo,
+      isForwarded,
+      forwardedFrom,
+      ttlSeconds,
+      isSecret,
+      forwardRestricted,
+      timestamp,
+    } = req.body;
     const sHandle = normalizeHandle(senderHandle);
     let key;
     let rHandle = null;
@@ -785,6 +800,10 @@ app.post('/api/messages', async (req, res) => {
       isEdited: false,
       isForwarded: Boolean(isForwarded),
       forwardedFrom: forwardedFrom || null,
+      ttlSeconds: ttlSeconds ? Number(ttlSeconds) : null,
+      isSecret: Boolean(isSecret),
+      forwardRestricted: Boolean(forwardRestricted),
+      status: 'sent',
       timestamp: timestamp || 'Sent PM',
       createdAt: new Date().toISOString(),
     };
@@ -1161,6 +1180,39 @@ io.on('connection', (socket) => {
     const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
     if (callerHandle) io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
     if (recipientHandle && recipientHandle !== callerHandle) io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
+  });
+
+  socket.on('save_draft', ({ senderHandle, recipientHandle, text }) => {
+    const sHandle = normalizeHandle(senderHandle);
+    const rHandle = normalizeHandle(recipientHandle);
+    if (sHandle && rHandle) {
+      // Echo draft to sender's other tabs/devices
+      io.to(sHandle).emit('draft_synced', {
+        senderHandle: sHandle,
+        recipientHandle: rHandle,
+        text,
+      });
+    }
+  });
+
+  socket.on('mark_read', async ({ messageId, readerHandle, conversationKey }) => {
+    const rHandle = normalizeHandle(readerHandle);
+    const readAt = new Date().toISOString();
+
+    if (messageId) {
+      if (isMongoConnected) {
+        await MessageModel.updateOne({ id: messageId }, { $set: { status: 'read', readAt: new Date() } }).catch(() => {});
+      } else {
+        const db = readLocalDB();
+        const m = db.messages.find((x) => x.id === messageId);
+        if (m) {
+          m.status = 'read';
+          m.readAt = readAt;
+          writeLocalDB(db);
+        }
+      }
+      io.emit('message_read', { messageId, readerHandle: rHandle, readAt });
+    }
   });
 
   socket.on('webrtc_signal', (data) => {

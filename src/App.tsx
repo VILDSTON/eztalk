@@ -59,6 +59,8 @@ export default function App() {
 
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [activeTtls, setActiveTtls] = useState<Record<string, number>>({});
 
   // Voice Call State
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
@@ -202,27 +204,38 @@ export default function App() {
     }
   }, []);
 
-  // Fetch messages from Backend API whenever conversation pair or group changes
+  // Fetch messages from Backend API with Local-First 0ms instant cache rendering
   const refreshMessages = useCallback(async () => {
     const cUser = currentUserRef.current;
     if (!cUser) return;
 
     if (selectedGroupId) {
+      const convKey = `group__${selectedGroupId}`;
+      const local = ChatStorageService.getConversations()[convKey] || [];
+      if (local.length > 0) setMessages(local);
+
       try {
         const groupMsgs = await ApiService.getGroupMessages(selectedGroupId);
-        if (groupMsgs) setMessages(groupMsgs);
+        if (groupMsgs) {
+          setMessages(groupMsgs);
+          ChatStorageService.saveConversation(convKey, groupMsgs);
+        }
       } catch {
         // ignore
       }
     } else if (selectedUser) {
+      const convKey = getConversationKey(cUser.handle, selectedUser.handle);
+      const local = ChatStorageService.getMessages(cUser.handle, selectedUser.handle);
+      if (local.length > 0) setMessages(local);
+
       try {
         const serverMessages = await ApiService.getMessages(cUser.handle, selectedUser.handle);
-        if (serverMessages) {
+        if (serverMessages && serverMessages.length > 0) {
           setMessages(serverMessages);
+          ChatStorageService.saveConversation(convKey, serverMessages);
         }
       } catch {
-        const local = ChatStorageService.getMessages(cUser.handle, selectedUser.handle);
-        setMessages(local);
+        if (local.length > 0) setMessages(local);
       }
     }
   }, [selectedUser, selectedGroupId]);
@@ -514,6 +527,20 @@ export default function App() {
       }
     });
 
+    // Cloud Draft Synced event (Across devices/tabs)
+    const unsubDraft = socketService.onDraftSynced(({ recipientHandle, text }) => {
+      const cUser = currentUserRef.current;
+      if (!cUser) return;
+      const key = getConversationKey(cUser.handle, recipientHandle);
+      setDrafts((prev) => ({ ...prev, [key]: text }));
+      ChatStorageService.saveDraft(key, text);
+    });
+
+    // Message Read event (Two checkmarks status)
+    const unsubRead = socketService.onMessageRead(({ messageId }) => {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, status: 'read' } : m)));
+    });
+
     return () => {
       unsubMsg();
       unsubEdit();
@@ -530,6 +557,8 @@ export default function App() {
       unsubProfile();
       unsubUserUpdated();
       unsubFriends();
+      unsubDraft();
+      unsubRead();
     };
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
@@ -634,11 +663,13 @@ export default function App() {
     }));
   };
 
-  // Send Message (Direct or Group, with Reply & Forwarding)
+  // Send Message (Direct or Group, with Reply, Forwarding, TTL & Optimistic UI)
   const handleSendMessage = async (
     text: string,
     attachment?: Attachment,
     replyTo?: QuotedMessage,
+    ttlSeconds?: number,
+    isSecret?: boolean,
     overrideRecipientHandle?: string,
     overrideGroupId?: string,
     isForwarded?: boolean,
@@ -654,6 +685,8 @@ export default function App() {
       ? `group__${targetGroupId}`
       : getConversationKey(currentUser.handle, targetRecipient!);
 
+    const activeTtlSec = ttlSeconds !== undefined ? ttlSeconds : activeTtls[convKey];
+
     const tempMsg: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       conversationKey: convKey,
@@ -667,6 +700,10 @@ export default function App() {
       reactions: {},
       isForwarded: Boolean(isForwarded),
       forwardedFrom: forwardedFrom || undefined,
+      ttlSeconds: activeTtlSec ? Number(activeTtlSec) : undefined,
+      isSecret: isSecret || Boolean(activeTtlSec),
+      forwardRestricted: isSecret || Boolean(activeTtlSec),
+      status: 'sending',
       timestamp: 'Sent PM',
       createdAt: new Date().toISOString(),
     };
@@ -680,13 +717,20 @@ export default function App() {
       setMessages((prev) => [...prev, tempMsg]);
     }
 
+    // Save to local cache immediately
+    ChatStorageService.saveConversation(convKey, [...messages, tempMsg]);
+
+    // Clear draft for this conversation
+    ChatStorageService.saveDraft(convKey, '');
+    setDrafts((prev) => ({ ...prev, [convKey]: '' }));
     if (targetRecipient) {
+      socketService.sendDraft(currentUser.handle, targetRecipient, '');
       setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(targetRecipient)])]);
     }
 
     // Send to Backend API
     try {
-      await ApiService.sendMessage(
+      const serverMsg = await ApiService.sendMessage(
         currentUser.handle,
         targetGroupId ? null : targetRecipient!,
         text,
@@ -696,9 +740,18 @@ export default function App() {
         undefined,
         tempMsg.id,
         isForwarded,
-        forwardedFrom
+        forwardedFrom,
+        activeTtlSec,
+        Boolean(activeTtlSec),
+        Boolean(activeTtlSec)
+      );
+
+      // Update status to 'sent'
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'sent', ...(serverMsg || {}) } : m))
       );
     } catch {
+      ChatStorageService.addPendingMessage(tempMsg);
       if (!targetGroupId && targetRecipient) {
         ChatStorageService.addMessage(currentUser.handle, targetRecipient, tempMsg);
       }
@@ -722,6 +775,8 @@ export default function App() {
       forwardedText,
       forwardedAttachment,
       undefined,
+      undefined,
+      false,
       targetHandle || undefined,
       targetGroupId,
       true,
@@ -1078,6 +1133,45 @@ export default function App() {
               isBlocked={Boolean(selectedUser && blockedUsers.includes(normalizeHandle(selectedUser.handle)))}
               isOnline={Boolean(selectedUser && onlineHandles.some(h => normalizeHandle(h).toLowerCase() === normalizeHandle(selectedUser.handle).toLowerCase()))}
               isSavedMessages={isSavedMessages}
+              activeTtl={
+                selectedGroupId
+                  ? activeTtls[`group__${selectedGroupId}`]
+                  : selectedUser
+                  ? activeTtls[getConversationKey(currentUser.handle, selectedUser.handle)]
+                  : undefined
+              }
+              draftText={
+                selectedGroupId
+                  ? drafts[`group__${selectedGroupId}`] || ChatStorageService.getDraft(`group__${selectedGroupId}`)
+                  : selectedUser
+                  ? drafts[getConversationKey(currentUser.handle, selectedUser.handle)] ||
+                    ChatStorageService.getDraft(getConversationKey(currentUser.handle, selectedUser.handle))
+                  : ''
+              }
+              onSetTtl={(ttl) => {
+                const key = selectedGroupId
+                  ? `group__${selectedGroupId}`
+                  : selectedUser
+                  ? getConversationKey(currentUser.handle, selectedUser.handle)
+                  : '';
+                if (key) {
+                  setActiveTtls((prev) => ({ ...prev, [key]: ttl || 0 }));
+                }
+              }}
+              onDraftChange={(text) => {
+                const key = selectedGroupId
+                  ? `group__${selectedGroupId}`
+                  : selectedUser
+                  ? getConversationKey(currentUser.handle, selectedUser.handle)
+                  : '';
+                if (key) {
+                  setDrafts((prev) => ({ ...prev, [key]: text }));
+                  ChatStorageService.saveDraft(key, text);
+                  if (selectedUser) {
+                    socketService.sendDraft(currentUser.handle, selectedUser.handle, text);
+                  }
+                }
+              }}
               onBack={() => {
                 setSelectedUserObj(null);
                 setSelectedUserId('');

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Message, QuotedMessage } from '../../types/chat';
 import {
   FileText,
@@ -19,6 +19,9 @@ import {
   PhoneMissed,
   PhoneOff,
   Check,
+  Flame,
+  Lock,
+  Clock,
 } from 'lucide-react';
 import { normalizeHandle } from '../../utils/chatStorage';
 
@@ -32,6 +35,7 @@ interface MessageBubbleProps {
   onEdit?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
 }
 
 function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
@@ -41,9 +45,7 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
       if (!isNaN(d.getTime())) {
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
   if (fallbackText && (fallbackText.includes(':') || fallbackText.includes('M'))) {
     return fallbackText;
@@ -52,6 +54,7 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
 }
 
 const EMOJI_OPTIONS = ['👍', '❤️', '🔥', '😂', '👏', '🚀', '😮', '😢'];
+const PLAYBACK_SPEEDS = [1, 1.5, 2];
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -63,20 +66,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onEdit,
   onDelete,
   onToggleReaction,
+  onOpenMedia,
 }) => {
-  const [showFullImage, setShowFullImage] = useState(false);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Swipe to Reply Gesture State
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const swipeStartXRef = useRef<number | null>(null);
+  const hasHaptickedRef = useRef(false);
 
   // Custom Context Menu State
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Audio player state
+  // Audio & Waveform player state
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [currentTimeSec, setCurrentTimeSec] = useState(0);
+  const [playbackSpeedIdx, setPlaybackSpeedIdx] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+
+  // TTL Burn-on-Read Countdown State
+  const [ttlRemaining, setTtlRemaining] = useState<number | null>(
+    message.ttlSeconds ? Number(message.ttlSeconds) : null
+  );
+  const [isDissolving, setIsDissolving] = useState(false);
 
   const isMe =
     (currentUserHandle &&
@@ -103,10 +121,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
   }, [contextMenuPos]);
 
-  // Audio Playback
+  // Audio Playback Lifecycle
   useEffect(() => {
     if (message.attachment?.type === 'audio') {
       const audio = new Audio(message.attachment.url);
+      audio.preservesPitch = true;
+      audio.playbackRate = PLAYBACK_SPEEDS[playbackSpeedIdx];
       audioRef.current = audio;
 
       audio.ontimeupdate = () => {
@@ -115,11 +135,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ? audio.duration
             : message.attachment?.duration || 1;
         setAudioProgress(Math.min(100, (audio.currentTime / total) * 100));
+        setCurrentTimeSec(Math.floor(audio.currentTime));
       };
 
       audio.onended = () => {
         setIsPlaying(false);
         setAudioProgress(0);
+        setCurrentTimeSec(0);
       };
 
       audio.onerror = () => {
@@ -137,6 +159,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   }, [message.attachment]);
 
+  // TTL Burn-on-Read Countdown Timer
+  useEffect(() => {
+    if (!message.ttlSeconds || message.ttlSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setTtlRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          setIsDissolving(true);
+          setTimeout(() => {
+            if (onDelete) onDelete(message.id);
+          }, 600);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [message.ttlSeconds, message.id, onDelete]);
+
   const togglePlayAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!audioRef.current) return;
@@ -149,15 +192,104 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  const handleDownloadFile = (e: React.MouseEvent) => {
+  const handleSpeedToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!message.attachment) return;
-    const a = document.createElement('a');
-    a.href = message.attachment.url;
-    a.download = message.attachment.name || 'attachment';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const nextIdx = (playbackSpeedIdx + 1) % PLAYBACK_SPEEDS.length;
+    setPlaybackSpeedIdx(nextIdx);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = PLAYBACK_SPEEDS[nextIdx];
+    }
+  };
+
+  // Scrub audio via waveform click/drag
+  const handleWaveformSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!waveformRef.current || !audioRef.current) return;
+    const rect = waveformRef.current.getBoundingClientRect();
+    const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const percentage = clickX / rect.width;
+    const totalDuration =
+      audioRef.current.duration && isFinite(audioRef.current.duration)
+        ? audioRef.current.duration
+        : message.attachment?.duration || 5;
+
+    audioRef.current.currentTime = percentage * totalDuration;
+    setAudioProgress(percentage * 100);
+    setCurrentTimeSec(Math.floor(audioRef.current.currentTime));
+    if (!isPlaying) {
+      audioRef.current.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  };
+
+  // Generate or read audio peaks (32 bars)
+  const waveformBars = useMemo(() => {
+    if (message.attachment?.peaks && message.attachment.peaks.length > 0) {
+      return message.attachment.peaks;
+    }
+    // Deterministic pseudo-peaks derived from message id
+    const seed = (message.id || 'msg').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const bars: number[] = [];
+    for (let i = 0; i < 32; i++) {
+      const val = Math.abs(Math.sin((i + seed) * 0.45)) * 75 + 20;
+      bars.push(Math.round(val));
+    }
+    return bars;
+  }, [message.attachment?.peaks, message.id]);
+
+  // Swipe-to-Reply Touch / Mouse Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    swipeStartXRef.current = touch.clientX;
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    hasHaptickedRef.current = false;
+    setIsSwiping(true);
+
+    longPressTimerRef.current = setTimeout(() => {
+      const x = Math.min(window.innerWidth - 190, Math.max(10, touch.clientX));
+      const y = Math.min(window.innerHeight - 230, Math.max(10, touch.clientY));
+      setContextMenuPos({ x, y });
+    }, 450);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (touchStartPosRef.current) {
+      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    }
+
+    if (swipeStartXRef.current !== null) {
+      const deltaX = touch.clientX - swipeStartXRef.current;
+      // Allow only swipe left (negative delta)
+      if (deltaX < 0) {
+        const dampened = -Math.min(80, Math.pow(-deltaX, 0.9));
+        setSwipeOffset(dampened);
+        if (Math.abs(dampened) >= 55 && !hasHaptickedRef.current) {
+          if ('vibrate' in navigator) navigator.vibrate(10);
+          hasHaptickedRef.current = true;
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (Math.abs(swipeOffset) >= 55) {
+      triggerReply();
+    }
+    setSwipeOffset(0);
+    setIsSwiping(false);
+    swipeStartXRef.current = null;
   };
 
   // Right-Click Context Menu Trigger
@@ -169,39 +301,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setContextMenuPos({ x, y });
   };
 
-  // Mobile Long Press Touch Handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-
-    longPressTimerRef.current = setTimeout(() => {
-      const x = Math.min(window.innerWidth - 190, Math.max(10, touch.clientX));
-      const y = Math.min(window.innerHeight - 230, Math.max(10, touch.clientY));
-      setContextMenuPos({ x, y });
-    }, 450);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartPosRef.current) return;
-    const touch = e.touches[0];
-    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
-    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
-    if (dx > 10 || dy > 10) {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
-
-  // Copy Message Text
+  // Copy Message Text (Without author headers if secret/forward restricted)
   const handleCopyText = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const content = message.text || message.attachment?.url || '';
@@ -227,9 +327,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const triggerForward = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (onForward) {
-      onForward(message);
-    }
+    if (message.forwardRestricted || message.isSecret) return;
+    if (onForward) onForward(message);
     setContextMenuPos(null);
   };
 
@@ -245,12 +344,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setContextMenuPos(null);
   };
 
+  const handleMediaClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (message.attachment && onOpenMedia) {
+      onOpenMedia({
+        url: message.attachment.url,
+        name: message.attachment.name,
+        type: message.attachment.type,
+      });
+    }
+  };
+
   return (
     <>
       <div
-        className={`contain-content group/bubble relative flex flex-col mb-1.5 max-w-full ${
+        className={`relative flex flex-col mb-1.5 max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } animate-fade-in font-sans`}
+        } ${isDissolving ? 'animate-dissolve opacity-0 scale-95 transition-all duration-500' : 'animate-fade-in'} font-sans`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -313,17 +423,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <CornerUpLeft className="w-3.5 h-3.5" />
           </button>
 
-          {/* Forward */}
-          <button
-            type="button"
-            onClick={triggerForward}
-            className="p-1 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-            title="Forward"
-          >
-            <CornerUpRight className="w-3.5 h-3.5" />
-          </button>
+          {/* Forward (Hidden if secret / forwardRestricted) */}
+          {!message.forwardRestricted && !message.isSecret && (
+            <button
+              type="button"
+              onClick={triggerForward}
+              className="p-1 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+              title="Forward"
+            >
+              <CornerUpRight className="w-3.5 h-3.5" />
+            </button>
+          )}
 
-          {/* More Options / Context Menu Trigger */}
+          {/* More Options */}
           <button
             type="button"
             onClick={(e) => {
@@ -341,19 +453,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </button>
         </div>
 
-        {/* Bubble */}
+        {/* Swipe-to-Reply Neon Arrow Indicator Reveal */}
+        {swipeOffset < 0 && (
+          <div
+            className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-transform duration-75"
+            style={{
+              transform: `translateX(${Math.abs(swipeOffset) * 0.3}px) scale(${Math.min(1.2, Math.abs(swipeOffset) / 50)})`,
+              opacity: Math.min(1, Math.abs(swipeOffset) / 40),
+            }}
+          >
+            <div className="w-8 h-8 rounded-full bg-neon-green/20 border border-neon-green/50 flex items-center justify-center text-neon-green shadow-neon-sm">
+              <CornerUpLeft className="w-4 h-4" />
+            </div>
+          </div>
+        )}
+
+        {/* Main Message Bubble with Swipe Physics */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm cursor-pointer select-none ${
+          className={`group/bubble relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm cursor-pointer select-none transition-transform ${
+            isSwiping ? '' : 'duration-200 ease-out'
+          } ${
             isMe
               ? 'bg-ez-sent text-white border border-neon-green/15 rounded-br-sm telegram-bubble-out'
               : 'bg-ez-received text-slate-100 border border-ez-border/50 rounded-bl-sm telegram-bubble-in'
           }`}
-          onClick={(e) => {
-            // If on mobile or clicked directly, can toggle context menu or full image
-            if (message.attachment?.type === 'image') {
-              setShowFullImage(true);
-            }
-          }}
+          style={{ transform: `translateX(${swipeOffset}px)` }}
         >
           {/* Forwarded Header */}
           {message.isForwarded && (
@@ -377,45 +501,77 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Voice Audio Player */}
+          {/* Interactive Voice Waveform Player */}
           {message.attachment?.type === 'audio' && (
-            <div className="flex items-center space-x-2.5 py-1 pr-2 min-w-[210px]">
+            <div className="flex items-center space-x-3 py-1.5 pr-2 min-w-[240px] sm:min-w-[270px]">
               <button
                 type="button"
                 onClick={togglePlayAudio}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-neon-green text-black hover:scale-105 shadow-neon-sm transition-transform duration-150 cursor-pointer shrink-0"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-neon-green text-black hover:scale-105 shadow-neon-sm transition-transform duration-150 cursor-pointer shrink-0"
               >
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
               </button>
+
+              {/* Waveform Equalizer Container */}
               <div className="flex-1 flex flex-col justify-center min-w-0">
-                <div className="h-1.5 bg-white/15 rounded-full overflow-hidden w-full">
-                  <div
-                    className="h-full bg-neon-green rounded-full gpu-layer"
-                    style={{ width: `${audioProgress}%`, transition: 'width 100ms linear' }}
-                  />
+                <div
+                  ref={waveformRef}
+                  onClick={handleWaveformSeek}
+                  className="flex items-center space-x-[2px] h-6 cursor-pointer py-1 group/wave"
+                  title="Click to seek"
+                >
+                  {waveformBars.map((height, idx) => {
+                    const barPercent = (idx / waveformBars.length) * 100;
+                    const isPassed = barPercent <= audioProgress;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex-1 rounded-full transition-all duration-75 ${
+                          isPassed
+                            ? 'bg-neon-green shadow-neon-dot'
+                            : 'bg-white/20 group-hover/wave:bg-white/35'
+                        }`}
+                        style={{ height: `${Math.max(15, height)}%` }}
+                      />
+                    );
+                  })}
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-ez-muted font-mono mt-1">
-                  <span>Voice message</span>
-                  <span>{message.attachment.duration ? `0:0${message.attachment.duration}` : '0:05'}</span>
+
+                <div className="flex justify-between items-center text-[10px] text-ez-muted font-mono mt-0.5">
+                  <span>
+                    {isPlaying
+                      ? `0:${currentTimeSec < 10 ? '0' : ''}${currentTimeSec}`
+                      : 'Voice message'}
+                  </span>
+                  <span>
+                    {message.attachment.duration ? `0:${message.attachment.duration < 10 ? '0' : ''}${message.attachment.duration}` : '0:05'}
+                  </span>
                 </div>
               </div>
+
+              {/* Speed Toggle Pill Button */}
+              <button
+                type="button"
+                onClick={handleSpeedToggle}
+                className="px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono text-neon-green bg-neon-green/10 hover:bg-neon-green/20 border border-neon-green/30 transition-colors cursor-pointer shrink-0"
+                title="Playback Speed"
+              >
+                {PLAYBACK_SPEEDS[playbackSpeedIdx]}x
+              </button>
             </div>
           )}
 
-          {/* Image Preview */}
+          {/* Fluid Image Preview */}
           {message.attachment && message.attachment.type === 'image' && (
             <div className="mb-1 rounded-xl overflow-hidden">
               <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowFullImage(true);
-                }}
-                className="relative cursor-pointer rounded-xl overflow-hidden bg-black/20"
+                onClick={handleMediaClick}
+                className="relative cursor-pointer rounded-xl overflow-hidden bg-black/20 group/media"
               >
                 <img
                   src={message.attachment.url}
                   alt={message.attachment.name}
-                  className="max-h-72 max-w-full rounded-xl object-contain hover:scale-[1.01] transition-transform duration-150"
+                  className="max-h-72 max-w-full rounded-xl object-contain group-hover/media:scale-[1.01] transition-transform duration-150"
                 />
               </div>
             </div>
@@ -424,7 +580,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Document Attachment */}
           {message.attachment && message.attachment.type === 'file' && (
             <div
-              onClick={handleDownloadFile}
+              onClick={handleMediaClick}
               className="flex items-center justify-between space-x-2.5 p-2 rounded-xl cursor-pointer bg-black/20 hover:bg-black/30 mb-1 border border-white/5 transition-colors duration-150"
             >
               <div className="flex items-center space-x-2 min-w-0">
@@ -479,148 +635,112 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Text & Inline Timestamp */}
-          {message.text && !message.callInfo && (
-            <span className="break-words select-text mr-1.5">{message.text}</span>
+          {/* Text Content */}
+          {message.text && (
+            <p className="whitespace-pre-wrap break-words word-break-all select-text selection:bg-neon-green selection:text-black">
+              {message.text}
+            </p>
           )}
 
-          {/* Time + Checkmark Footer */}
-          <span className="inline-flex items-center float-right ml-2 mt-1 space-x-1 select-none text-[10px] text-gray-400/80 font-mono">
-            {message.isEdited && <span className="text-[9px] italic mr-0.5">edited</span>}
-            <span>{timeString}</span>
-            {isMe && (
-              <span className="text-neon-green flex items-center ml-0.5">
-                <CheckCheck className="w-3.5 h-3.5" />
+          {/* Bubble Meta Footer: Time + TTL Ring + Checkmarks */}
+          <div className="flex items-center justify-end space-x-1.5 text-[10px] font-mono select-none mt-0.5 text-ez-muted">
+            {/* TTL Countdown Ring */}
+            {ttlRemaining !== null && ttlRemaining > 0 && (
+              <div
+                className="flex items-center space-x-1 text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-bold font-mono animate-pulse"
+                title={`Self-destructs in ${ttlRemaining} seconds`}
+              >
+                <Flame className="w-3 h-3 text-amber-400" />
+                <span>{ttlRemaining}s</span>
+              </div>
+            )}
+
+            {/* Secret / Forward Protected Lock Icon */}
+            {(message.forwardRestricted || message.isSecret) && (
+              <span title="Secret / Forward Restricted">
+                <Lock className="w-2.5 h-2.5 text-neon-green" />
               </span>
             )}
-          </span>
+
+            {message.isEdited && <span className="italic text-[9px] text-ez-muted mr-0.5">edited</span>}
+
+            <span>{timeString}</span>
+
+            {/* Delivery / Sending Status */}
+            {isMe && (
+              <span className="ml-0.5">
+                {message.status === 'sending' ? (
+                  <Clock className="w-3 h-3 text-ez-muted animate-spin" />
+                ) : message.status === 'read' ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
+                ) : (
+                  <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70" />
+                )}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Reaction Badges */}
-        {message.reactions && Object.keys(message.reactions).length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1 px-1">
-            {Object.entries(message.reactions).map(([emoji, users]) => {
-              const hasReacted =
-                currentUserHandle && users.includes(normalizeHandle(currentUserHandle));
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => onToggleReaction && onToggleReaction(message.id, emoji)}
-                  className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] transition-colors duration-150 cursor-pointer ${
-                    hasReacted
-                      ? 'bg-neon-green/15 border border-neon-green/40 text-white font-bold'
-                      : 'bg-ez-elevated border border-ez-border text-gray-300 hover:border-ez-hover'
-                  }`}
-                >
-                  <span>{emoji}</span>
-                  <span className="text-[10px] font-mono text-ez-muted">{users.length}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Floating Context Menu (Right Click / Long Press / More Click) */}
-      {contextMenuPos && (
-        <div
-          className="fixed z-50 bg-ez-elevated/95 backdrop-blur-xl border border-ez-border rounded-2xl shadow-glass-lg p-1.5 w-44 animate-scale-up space-y-0.5 select-none font-sans"
-          style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Reaction Quick Bar inside Context Menu */}
-          <div className="flex items-center justify-between px-2 py-1 mb-1 border-b border-ez-border/40">
-            {EMOJI_OPTIONS.slice(0, 5).map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => {
-                  if (onToggleReaction) onToggleReaction(message.id, emoji);
-                  setContextMenuPos(null);
-                }}
-                className="hover:scale-125 transition-transform text-sm cursor-pointer p-0.5"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={triggerReply}
-            className="w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer"
+        {/* Floating Context Menu */}
+        {contextMenuPos && (
+          <div
+            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-50 animate-scale-up text-xs space-y-0.5 w-44 select-none"
+            style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <CornerUpLeft className="w-3.5 h-3.5 text-neon-green" />
-            <span>Reply</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={triggerForward}
-            className="w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer"
-          >
-            <CornerUpRight className="w-3.5 h-3.5 text-neon-green" />
-            <span>Forward</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopyText}
-            className="w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-neon-green" /> : <Copy className="w-3.5 h-3.5 text-ez-muted" />}
-            <span>{copied ? 'Copied!' : 'Copy Text'}</span>
-          </button>
-
-          {isMe && !message.callInfo && (
             <button
               type="button"
-              onClick={triggerEdit}
-              className="w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 transition-colors cursor-pointer"
+              onClick={triggerReply}
+              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
-              <Edit2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>Edit</span>
+              <CornerUpLeft className="w-3.5 h-3.5 text-neon-green" />
+              <span>Reply</span>
             </button>
-          )}
 
-          {isMe && (
+            <button
+              type="button"
+              onClick={handleCopyText}
+              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-neon-green" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+            </button>
+
+            {!message.forwardRestricted && !message.isSecret && (
+              <button
+                type="button"
+                onClick={triggerForward}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <CornerUpRight className="w-3.5 h-3.5 text-neon-green" />
+                <span>Forward</span>
+              </button>
+            )}
+
+            {isMe && message.text && (
+              <button
+                type="button"
+                onClick={triggerEdit}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Edit</span>
+              </button>
+            )}
+
+            <div className="h-px bg-ez-border/50 my-1" />
+
             <button
               type="button"
               onClick={triggerDelete}
-              className="w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <Trash2 className="w-3.5 h-3.5" />
               <span>Delete</span>
             </button>
-          )}
-        </div>
-      )}
-
-      {/* Full Image Preview Modal */}
-      {showFullImage && message.attachment && (
-        <div
-          onClick={() => setShowFullImage(false)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none"
-        >
-          <button
-            onClick={() => setShowFullImage(false)}
-            className="absolute top-5 right-5 text-gray-300 hover:text-white p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors duration-150 cursor-pointer"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div
-            className="relative max-w-4xl max-h-[85vh] flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={message.attachment.url}
-              alt={message.attachment.name}
-              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
-            />
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 };

@@ -234,6 +234,40 @@ class SocketService {
     this.socket?.emit('update_status', user);
   }
 
+  public isConnected(): boolean {
+    return Boolean(this.socket?.connected);
+  }
+
+  public sendDraft(senderHandle: string, recipientHandle: string, text: string) {
+    this.socket?.emit('save_draft', {
+      senderHandle: normalizeHandle(senderHandle),
+      recipientHandle: normalizeHandle(recipientHandle),
+      text,
+    });
+  }
+
+  public onDraftSynced(callback: (data: { senderHandle: string; recipientHandle: string; text: string }) => void) {
+    this.socket?.on('draft_synced', callback);
+    return () => {
+      this.socket?.off('draft_synced', callback);
+    };
+  }
+
+  public markMessageRead(messageId: string, readerHandle: string, conversationKey?: string) {
+    this.socket?.emit('mark_read', {
+      messageId,
+      readerHandle: normalizeHandle(readerHandle),
+      conversationKey,
+    });
+  }
+
+  public onMessageRead(callback: (data: { messageId: string; readerHandle: string; readAt: string }) => void) {
+    this.socket?.on('message_read', callback);
+    return () => {
+      this.socket?.off('message_read', callback);
+    };
+  }
+
   public disconnect() {
     this.socket?.disconnect();
     this.socket = null;

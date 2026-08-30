@@ -84,6 +84,10 @@ const userSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    drafts: {
+      type: Object,
+      default: {},
+    },
     bio: {
       type: String,
       default: 'Hey there! I am using EzTalk.',

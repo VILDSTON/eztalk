@@ -42,6 +42,7 @@ const messageSchema = new mongoose.Schema(
       url: String,
       size: String,
       duration: Number,
+      peaks: [Number],
     },
     replyTo: {
       type: Object,
@@ -66,6 +67,31 @@ const messageSchema = new mongoose.Schema(
     forwardedFrom: {
       type: String,
       default: null,
+    },
+    ttlSeconds: {
+      type: Number,
+      default: null,
+    },
+    isSecret: {
+      type: Boolean,
+      default: false,
+    },
+    forwardRestricted: {
+      type: Boolean,
+      default: false,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ['sending', 'sent', 'delivered', 'read'],
+      default: 'sent',
     },
     timestamp: {
       type: String,

@@ -4,6 +4,7 @@ import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
 import { MessageInput } from './MessageInput';
 import { ForwardModal } from './ForwardModal';
+import { MediaLightboxModal } from './MediaLightboxModal';
 import { UserPlus, X, Ban } from 'lucide-react';
 
 interface ChatWindowProps {
@@ -22,10 +23,20 @@ interface ChatWindowProps {
   isBlocked?: boolean;
   isOnline?: boolean;
   isSavedMessages?: boolean;
+  activeTtl?: number;
+  draftText?: string;
   onBack?: () => void;
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
-  onSendMessage: (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => void;
+  onSetTtl?: (ttl: number | undefined) => void;
+  onDraftChange?: (text: string) => void;
+  onSendMessage: (
+    text: string,
+    attachment?: Attachment,
+    replyTo?: QuotedMessage,
+    ttlSeconds?: number,
+    isSecret?: boolean
+  ) => void;
   onForwardMessage?: (message: Message, targetUser?: User, targetGroup?: Group) => void;
   onEditMessage?: (id: string, newText: string) => void;
   onDeleteMessage?: (id: string) => void;
@@ -53,9 +64,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isBlocked = false,
   isOnline = false,
   isSavedMessages = false,
+  activeTtl,
+  draftText = '',
   onBack,
   onToggleMute,
   onToggleBlock,
+  onSetTtl,
+  onDraftChange,
   onSendMessage,
   onForwardMessage,
   onEditMessage,
@@ -70,6 +85,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    url: string;
+    name?: string;
+    type?: 'image' | 'video' | 'file' | 'audio';
+  } | null>(null);
   const [showAddBanner, setShowAddBanner] = useState(true);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
 
@@ -99,6 +119,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isOnline={isOnline}
         isTyping={isTyping}
         isSavedMessages={isSavedMessages}
+        activeTtl={activeTtl}
+        onSetTtl={onSetTtl}
         onBack={onBack}
         onSearchChange={(q) => setInChatSearchQuery(q)}
         onToggleMute={onToggleMute}
@@ -177,7 +199,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onEdit={(msg: Message) => setEditingMessage({ id: msg.id, text: msg.text })}
         onDelete={onDeleteMessage}
         onToggleReaction={onToggleReaction}
+        onOpenMedia={(m) => setLightboxMedia(m)}
       />
+
+      {/* Fluid Media Lightbox Viewer */}
+      {lightboxMedia && (
+        <MediaLightboxModal
+          isOpen={Boolean(lightboxMedia)}
+          media={lightboxMedia}
+          onClose={() => setLightboxMedia(null)}
+        />
+      )}
 
       {/* Forward Message Modal */}
       {forwardingMessage && currentUser && (
@@ -218,12 +250,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       ) : (
         <MessageInput
           enterToSend={currentUser?.enterToSend !== false}
-          onSendMessage={(text, attachment, replyTo) => {
+          activeTtl={activeTtl}
+          initialDraft={draftText}
+          onDraftChange={onDraftChange}
+          onSendMessage={(text, attachment, replyTo, ttlSeconds, isSecret) => {
             if (editingMessage && onEditMessage) {
               onEditMessage(editingMessage.id, text);
               setEditingMessage(null);
             } else {
-              onSendMessage(text, attachment, replyTo);
+              onSendMessage(text, attachment, replyTo, ttlSeconds, isSecret);
               setReplyingTo(null);
             }
           }}

@@ -44,6 +44,7 @@ export interface Attachment {
   url: string;
   size?: string;
   duration?: number;
+  peaks?: number[]; // Normalized audio amplitude array (0-100) for waveform visualization
 }
 
 export interface QuotedMessage {
@@ -66,7 +67,7 @@ export interface Message {
   recipientHandle?: string; // e.g. "@User_A"
   text: string;
   timestamp: string; // e.g. "Sent PM", "Received"
-  status?: 'sent' | 'delivered' | 'read';
+  status?: 'sending' | 'sent' | 'delivered' | 'read';
   timeFormatted?: string;
   attachment?: Attachment;
   replyTo?: QuotedMessage;
@@ -76,6 +77,11 @@ export interface Message {
   isDeleted?: boolean;
   isForwarded?: boolean;
   forwardedFrom?: string;
+  ttlSeconds?: number; // Burn-on-read TTL in seconds (e.g. 5, 10, 60)
+  isSecret?: boolean;
+  forwardRestricted?: boolean;
+  readAt?: string;
+  expiresAt?: string;
   createdAt?: string;
 }
 
@@ -113,4 +119,6 @@ export interface ChatState {
   typingUsers: Record<string, boolean>;
   mutedUsers: Record<string, boolean>;
   blockedUsers: string[];
+  drafts?: Record<string, string>;
+  activeTtls?: Record<string, number>;
 }
