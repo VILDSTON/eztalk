@@ -216,6 +216,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       ) : (
         <MessageInput
+          enterToSend={currentUser?.enterToSend !== false}
           onSendMessage={(text, attachment, replyTo) => {
             if (editingMessage && onEditMessage) {
               onEditMessage(editingMessage.id, text);

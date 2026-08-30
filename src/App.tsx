@@ -14,40 +14,9 @@ import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
 import { ChatStorageService, getConversationKey, normalizeHandle } from './utils/chatStorage';
 import { ApiService } from './services/api';
 import { socketService } from './services/socket';
-import { callSoundService } from './utils/callSounds';
+import { callSoundService, playMessageChime } from './utils/callSounds';
+import { applyTheme, applyCompactMode } from './utils/theme';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
-
-// Play audible notification chime on receiving a message
-function playReceiveChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(659.25, now); // E5
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880.00, now + 0.1); // A5
-
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc1.start(now);
-    osc1.stop(now + 0.12);
-    osc2.start(now + 0.1);
-    osc2.stop(now + 0.35);
-  } catch {
-    // Ignore audio autoplay policies
-  }
-}
 
 interface ToastNotification {
   id: string;
@@ -258,6 +227,19 @@ export default function App() {
     }
   }, [selectedUser, selectedGroupId]);
 
+  // Apply user theme and density settings
+  useEffect(() => {
+    if (currentUser) {
+      applyTheme(currentUser.theme || 'neon');
+      applyCompactMode(Boolean(currentUser.compactMode));
+    } else {
+      const savedTheme = localStorage.getItem('eztalk_theme') || 'neon';
+      const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
+      applyTheme(savedTheme);
+      applyCompactMode(savedCompact);
+    }
+  }, [currentUser?.theme, currentUser?.compactMode]);
+
   useEffect(() => {
     refreshUsersAndGroups();
   }, [refreshUsersAndGroups]);
@@ -309,31 +291,23 @@ export default function App() {
 
       if (!isForGroup && !isForMe) return;
 
-      // Add to active chats (WITHOUT auto-adding to friends list)
-      if (!isForGroup) {
-        const otherHandle = sHandle === myHandle ? rHandle : sHandle;
-        if (otherHandle) {
-          setActiveChatHandles((prev) => [...new Set([...prev, otherHandle])]);
-        }
-      }
-
-      // Check if this incoming message is for the currently open chat
-      const isForActiveChat = isForGroup
+      // Update unread count if message is not sent by current user and chat is not open
+      const isCurrentChatOpen = isForGroup
         ? selectedGroupIdRef.current === newMsg.groupId
-        : selectedUserRef.current &&
-          getConversationKey(cUser.handle, selectedUserRef.current.handle) === getConversationKey(sHandle, rHandle);
+        : selectedUserRef.current && normalizeHandle(selectedUserRef.current.handle) === sHandle;
 
-      // Track unread badge if message is not in currently active chat and not from me
-      if (!isForActiveChat && sHandle !== myHandle) {
-        const unreadKey = isForGroup ? newMsg.groupId! : sHandle;
-        setUnreadCounts((prev) => ({
-          ...prev,
-          [unreadKey]: (prev[unreadKey] || 0) + 1,
-        }));
+      if (sHandle !== myHandle && !isCurrentChatOpen) {
+        setUnreadCounts((prev) => {
+          const key = isForGroup ? newMsg.groupId! : sHandle;
+          return {
+            ...prev,
+            [key]: (prev[key] || 0) + 1,
+          };
+        });
       }
 
-      // Update active messages thread if active chat matches
-      if (isForGroup && selectedGroupIdRef.current === newMsg.groupId) {
+      // Add to current message thread if active
+      if (isCurrentChatOpen) {
         setMessages((prev) => {
           const index = prev.findIndex((m) => m.id === newMsg.id);
           if (index >= 0) {
@@ -343,20 +317,6 @@ export default function App() {
           }
           return [...prev, newMsg];
         });
-      } else if (!isForGroup && selectedUserRef.current) {
-        const activeKey = getConversationKey(cUser.handle, selectedUserRef.current.handle);
-        const msgKey = getConversationKey(sHandle, rHandle);
-        if (msgKey === activeKey) {
-          setMessages((prev) => {
-            const index = prev.findIndex((m) => m.id === newMsg.id);
-            if (index >= 0) {
-              const updated = [...prev];
-              updated[index] = newMsg;
-              return updated;
-            }
-            return [...prev, newMsg];
-          });
-        }
       }
 
       // Check if notifications are muted for this sender or group
@@ -365,30 +325,58 @@ export default function App() {
         mutedUsersRef.current[sHandle] ||
         (isForGroup && mutedUsersRef.current[newMsg.groupId!]);
 
-      // If message is from someone else and NOT muted, play sound & show toast
+      // If message is from someone else and NOT muted, handle sound, desktop notifications, and floating toasts
       if (sHandle !== myHandle && !isMuted) {
-        playReceiveChime();
+        // 1. Audible Chimes: Trigger chime if enabled and chat not focused or app in background
+        if (currentUserRef.current?.soundNotifications !== false) {
+          if (!isCurrentChatOpen || document.hidden) {
+            playMessageChime();
+          }
+        }
 
         const sender = allUsersRef.current.find((u) => normalizeHandle(u.handle) === sHandle);
         const senderName = sender?.name || sHandle;
         const senderAvatar = sender?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
         const senderId = sender?.id || sHandle;
 
-        setToast({
-          id: `toast_${Date.now()}`,
-          senderName: isForGroup ? `Group message` : senderName,
-          senderHandle: sHandle,
-          senderAvatar,
-          text: newMsg.text || 'Sent an attachment',
-          senderId: isForGroup ? undefined : senderId,
-          groupId: newMsg.groupId || undefined,
-        });
-
-        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
-          new Notification(`EzTalk: ${senderName}`, {
-            body: newMsg.text || 'Sent an attachment',
-            icon: senderAvatar,
+        // 2. In-App Floating Toasts: Render animated floating toast if enabled and chat is NOT open
+        if (currentUserRef.current?.floatingToasts !== false && !isCurrentChatOpen) {
+          setToast({
+            id: `toast_${Date.now()}`,
+            senderName: isForGroup ? `Group message` : senderName,
+            senderHandle: sHandle,
+            senderAvatar,
+            text: newMsg.text || (newMsg.attachment ? `Sent an attachment` : 'New message'),
+            senderId: isForGroup ? undefined : senderId,
+            groupId: newMsg.groupId || undefined,
           });
+        }
+
+        // 3. Browser Desktop Notifications: Show system toast when enabled and app in background
+        if (
+          currentUserRef.current?.desktopNotifications !== false &&
+          'Notification' in window &&
+          Notification.permission === 'granted' &&
+          document.hidden
+        ) {
+          try {
+            const notif = new Notification(`EzTalk: ${senderName}`, {
+              body: newMsg.text || (newMsg.attachment ? `Sent an attachment` : 'New message'),
+              icon: senderAvatar,
+            });
+            notif.onclick = () => {
+              window.focus();
+              if (isForGroup && newMsg.groupId) {
+                setSelectedGroupId(newMsg.groupId);
+                setSelectedUserId(null);
+              } else {
+                setSelectedUserId(senderId);
+                setSelectedGroupId(null);
+              }
+            };
+          } catch {
+            // ignore
+          }
         }
       }
     });
@@ -962,7 +950,7 @@ export default function App() {
             }
             setToast(null);
           }}
-          className="fixed top-4 right-4 z-50 flex items-center space-x-3 bg-ez-elevated/95 border border-neon-green/40 hover:border-neon-green p-3.5 rounded-2xl shadow-glass-lg text-white cursor-pointer transition-all animate-slide-up max-w-sm backdrop-blur-md"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 bg-ez-elevated/95 border border-neon-green/40 hover:border-neon-green p-3.5 rounded-2xl shadow-glass-lg text-white cursor-pointer transition-all animate-slide-up w-[92vw] sm:w-auto sm:max-w-md backdrop-blur-md"
         >
           <div className="relative shrink-0">
             <img
@@ -1216,6 +1204,7 @@ export default function App() {
         <IncomingCallModal
           caller={incomingCall.caller}
           isOpen={Boolean(incomingCall)}
+          callRingtonesEnabled={currentUser?.callRingtones !== false}
           onAccept={() => {
             callSoundService.stopAll();
             if (currentUser) {

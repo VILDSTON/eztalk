@@ -1,5 +1,16 @@
 export type StatusType = 'Online' | 'Offline' | 'Away' | 'Busy';
 
+export interface UserSettings {
+  soundNotifications?: boolean;
+  desktopNotifications?: boolean;
+  floatingToasts?: boolean;
+  callRingtones?: boolean;
+  theme?: string;
+  accentColor?: string;
+  enterToSend?: boolean;
+  compactMode?: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -15,6 +26,12 @@ export interface User {
   bio?: string;
   theme?: string;
   soundNotifications?: boolean;
+  desktopNotifications?: boolean;
+  floatingToasts?: boolean;
+  callRingtones?: boolean;
+  enterToSend?: boolean;
+  compactMode?: boolean;
+  settings?: UserSettings;
   lastSeen?: string;
   friends?: string[];
   blockedUsers?: string[];

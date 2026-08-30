@@ -6,6 +6,7 @@ import { callSoundService } from '../../utils/callSounds';
 interface IncomingCallModalProps {
   caller: User;
   isOpen: boolean;
+  callRingtonesEnabled?: boolean;
   onAccept: () => void;
   onDecline: () => void;
 }
@@ -13,31 +14,69 @@ interface IncomingCallModalProps {
 export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   caller,
   isOpen,
+  callRingtonesEnabled = true,
   onAccept,
   onDecline,
 }) => {
   useEffect(() => {
     if (!isOpen) {
       callSoundService.stopAll();
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(0);
+        } catch {
+          // ignore
+        }
+      }
       return;
     }
 
-    callSoundService.playIncoming();
+    if (callRingtonesEnabled) {
+      callSoundService.playIncoming();
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([200, 100, 200, 100, 200]);
+        } catch {
+          // ignore
+        }
+      }
+    }
 
     return () => {
       callSoundService.stopAll();
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(0);
+        } catch {
+          // ignore
+        }
+      }
     };
-  }, [isOpen]);
+  }, [isOpen, callRingtonesEnabled]);
 
   if (!isOpen) return null;
 
   const handleAccept = () => {
     callSoundService.stopAll();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch {
+        // ignore
+      }
+    }
     onAccept();
   };
 
   const handleDecline = () => {
     callSoundService.stopAll();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch {
+        // ignore
+      }
+    }
     onDecline();
   };
 

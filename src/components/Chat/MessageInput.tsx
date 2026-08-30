@@ -6,6 +6,7 @@ interface MessageInputProps {
   recipientHandle?: string;
   replyingTo?: QuotedMessage | null;
   editingMessage?: { id: string; text: string } | null;
+  enterToSend?: boolean;
   onSendMessage: (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => void;
   onSaveEdit?: (id: string, newText: string) => void;
   onCancelReply?: () => void;
@@ -16,6 +17,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   recipientHandle,
   replyingTo,
   editingMessage,
+  enterToSend = true,
   onSendMessage,
   onSaveEdit,
   onCancelReply,
@@ -70,9 +72,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (enterToSend !== false) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 

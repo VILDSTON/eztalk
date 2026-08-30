@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root, [data-theme="neon"] {
   color-scheme: dark;
 
   /* Design System Tokens */
@@ -16,6 +16,55 @@
   --ez-muted: #64748B;
   --ez-sent: #0D3B2E;
   --ez-received: #1E2230;
+  --ez-accent-glow: rgba(16, 185, 129, 0.45);
+}
+
+[data-theme="cyan"] {
+  --ez-accent: #38BDF8;
+  --ez-glow: #0EA5E9;
+  --ez-sent: #0C3B5E;
+  --ez-accent-glow: rgba(56, 189, 248, 0.45);
+}
+
+[data-theme="purple"] {
+  --ez-accent: #C084FC;
+  --ez-glow: #A855F7;
+  --ez-sent: #381E54;
+  --ez-accent-glow: rgba(192, 132, 252, 0.45);
+}
+
+[data-theme="amber"] {
+  --ez-accent: #FBBF24;
+  --ez-glow: #F59E0B;
+  --ez-sent: #4D380D;
+  --ez-accent-glow: rgba(251, 191, 36, 0.45);
+}
+
+[data-theme="rose"] {
+  --ez-accent: #FB7185;
+  --ez-glow: #F43F5E;
+  --ez-sent: #4D1224;
+  --ez-accent-glow: rgba(251, 113, 133, 0.45);
+}
+
+/* ─── Compact Density Mode ─── */
+.compact-mode .chat-list-item {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+.compact-mode .message-row {
+  margin-top: 0.15rem !important;
+  margin-bottom: 0.15rem !important;
+}
+
+.compact-mode .message-bubble-padding {
+  padding: 0.35rem 0.65rem !important;
+}
+
+.compact-mode .avatar-compact {
+  width: 2rem !important;
+  height: 2rem !important;
 }
 
 html, body, #root {
@@ -132,5 +181,33 @@ html, body, #root {
 
 /* ─── Focus Ring ─── */
 .focus-ring-accent:focus-within {
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 0 2px var(--ez-accent-glow);
 }
+
+/* ─── Dynamic Accent Theme Overrides ─── */
+[data-theme] .text-neon-green {
+  color: var(--ez-accent);
+}
+[data-theme] .bg-neon-green {
+  background-color: var(--ez-accent);
+}
+[data-theme] .border-neon-green {
+  border-color: var(--ez-accent);
+}
+[data-theme] .bg-ez-sent {
+  background-color: var(--ez-sent);
+}
+[data-theme] .shadow-neon-sm {
+  box-shadow: 0 0 10px var(--ez-accent-glow);
+}
+[data-theme] .shadow-neon-md {
+  box-shadow: 0 0 20px var(--ez-accent-glow);
+}
+[data-theme] .shadow-neon-lg {
+  box-shadow: 0 0 30px var(--ez-accent-glow);
+}
+[data-theme] .neon-dot {
+  background-color: var(--ez-glow);
+  box-shadow: 0 0 8px var(--ez-glow);
+}
+

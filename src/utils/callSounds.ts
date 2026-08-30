@@ -153,3 +153,40 @@ class CallSoundService {
 }
 
 export const callSoundService = new CallSoundService();
+
+// Signature Web Audio chime for incoming messages (E5 -> A5 ascending bell)
+export function playMessageChime() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(659.25, now); // E5
+    osc.frequency.exponentialRampToValueAtTime(880.0, now + 0.12); // A5
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+
+    setTimeout(() => {
+      try {
+        if (ctx.state !== 'closed') ctx.close().catch(() => {});
+      } catch {
+        // ignore
+      }
+    }, 500);
+  } catch {
+    // ignore
+  }
+}

@@ -19,6 +19,8 @@ import {
   Lock,
 } from 'lucide-react';
 import { User } from '../../types/chat';
+import { THEME_OPTIONS, applyTheme, applyCompactMode } from '../../utils/theme';
+import { playMessageChime } from '../../utils/callSounds';
 
 interface TelegramSettingsModalProps {
   isOpen: boolean;
@@ -46,14 +48,6 @@ const PRESET_BANNERS = [
 
 const STATUS_EMOJIS = ['🚀', '⚡', '💻', '🎧', '☕', '🔥', '🌙', '🎮', '💡', '✨'];
 
-const THEME_ACCENTS = [
-  { id: 'neon', name: 'Neon Green', color: '#00ff73', glow: 'shadow-[0_0_12px_rgba(0,255,115,0.4)]' },
-  { id: 'cyan', name: 'Cyber Blue', color: '#38bdf8', glow: 'shadow-[0_0_12px_rgba(56,189,248,0.4)]' },
-  { id: 'purple', name: 'Purple Night', color: '#c084fc', glow: 'shadow-[0_0_12px_rgba(192,132,252,0.4)]' },
-  { id: 'amber', name: 'Sunset Amber', color: '#fbbf24', glow: 'shadow-[0_0_12px_rgba(251,191,36,0.4)]' },
-  { id: 'rose', name: 'Ruby Glow', color: '#fb7185', glow: 'shadow-[0_0_12px_rgba(251,113,133,0.4)]' },
-];
-
 type SettingsTab = 'profile' | 'notifications' | 'appearance' | 'privacy' | 'storage';
 
 export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
@@ -75,23 +69,47 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   const [customStatusText, setCustomStatusText] = useState(currentUser.customStatusText || '');
 
   // Notifications State
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(
-    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+  const [soundEnabled, setSoundEnabled] = useState(currentUser.soundNotifications !== false);
+  const [desktopNotificationsEnabled, setDesktopNotificationsEnabled] = useState(
+    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && currentUser.desktopNotifications !== false
   );
-  const [previewEnabled, setPreviewEnabled] = useState(true);
-  const [callRingtoneEnabled, setCallRingtoneEnabled] = useState(true);
+  const [floatingToastsEnabled, setFloatingToastsEnabled] = useState(currentUser.floatingToasts !== false);
+  const [callRingtoneEnabled, setCallRingtoneEnabled] = useState(currentUser.callRingtones !== false);
 
-  // Appearance
-  const [selectedAccent, setSelectedAccent] = useState('neon');
-  const [compactMode, setCompactMode] = useState(false);
-  const [enterToSend, setEnterToSend] = useState(true);
+  // Appearance State
+  const [selectedAccent, setSelectedAccent] = useState(currentUser.theme || 'neon');
+  const [compactMode, setCompactMode] = useState(Boolean(currentUser.compactMode));
+  const [enterToSend, setEnterToSend] = useState(currentUser.enterToSend !== false);
 
-  // Storage & Cache
+  // Storage & Cache State
+  const [usedStorageMB, setUsedStorageMB] = useState('0.00');
+  const [usedPercent, setUsedPercent] = useState(0);
   const [cacheCleared, setCacheCleared] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Calculate actual storage usage from localStorage
+  const calculateStorage = () => {
+    let totalBytes = 0;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) {
+            const val = localStorage.getItem(key) || '';
+            totalBytes += (key.length + val.length) * 2;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    const mb = (totalBytes / (1024 * 1024)).toFixed(2);
+    setUsedStorageMB(mb);
+    const pct = Math.min(100, Math.max(4, Math.round((totalBytes / (5 * 1024 * 1024)) * 100)));
+    setUsedPercent(pct);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -102,7 +120,20 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       setStatus(currentUser.status || 'Online');
       setStatusEmoji(currentUser.statusEmoji || '🚀');
       setCustomStatusText(currentUser.customStatusText || '');
+
+      setSoundEnabled(currentUser.soundNotifications !== false);
+      const isGranted = typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+      setDesktopNotificationsEnabled(isGranted && currentUser.desktopNotifications !== false);
+      setFloatingToastsEnabled(currentUser.floatingToasts !== false);
+      setCallRingtoneEnabled(currentUser.callRingtones !== false);
+
+      const themeId = currentUser.theme || 'neon';
+      setSelectedAccent(themeId);
+      setCompactMode(Boolean(currentUser.compactMode));
+      setEnterToSend(currentUser.enterToSend !== false);
+
       setSavedSuccess(false);
+      calculateStorage();
     }
   }, [isOpen, currentUser]);
 
@@ -121,8 +152,19 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     }
   };
 
+  const handleSelectTheme = (themeId: string) => {
+    setSelectedAccent(themeId);
+    applyTheme(themeId);
+  };
+
+  const handleToggleCompact = (val: boolean) => {
+    setCompactMode(val);
+    applyCompactMode(val);
+  };
+
   const handleSave = () => {
-    const selectedColor = THEME_ACCENTS.find((a) => a.id === selectedAccent)?.color || '#00ff73';
+    const selectedColor = THEME_OPTIONS.find((a) => a.id === selectedAccent)?.color || '#10B981';
+
     const updated: User = {
       ...currentUser,
       name: name.trim() || currentUser.handle,
@@ -133,9 +175,27 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       statusEmoji,
       customStatusText: customStatusText.trim(),
       accentColor: selectedColor,
-      soundNotifications: soundEnabled,
       theme: selectedAccent,
+      soundNotifications: soundEnabled,
+      desktopNotifications: desktopNotificationsEnabled,
+      floatingToasts: floatingToastsEnabled,
+      callRingtones: callRingtoneEnabled,
+      enterToSend,
+      compactMode,
+      settings: {
+        soundNotifications: soundEnabled,
+        desktopNotifications: desktopNotificationsEnabled,
+        floatingToasts: floatingToastsEnabled,
+        callRingtones: callRingtoneEnabled,
+        theme: selectedAccent,
+        accentColor: selectedColor,
+        enterToSend,
+        compactMode,
+      },
     };
+
+    applyTheme(selectedAccent);
+    applyCompactMode(compactMode);
     onSaveProfile(updated);
     setSavedSuccess(true);
     setTimeout(() => {
@@ -144,34 +204,53 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   };
 
   const playTestChime = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(659.25, now);
-      osc.frequency.exponentialRampToValueAtTime(880.0, now + 0.15);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.35);
-    } catch {
-      // ignore
-    }
+    playMessageChime();
   };
 
   const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      setNotificationsEnabled(permission === 'granted');
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          setDesktopNotificationsEnabled(true);
+        } else {
+          setDesktopNotificationsEnabled(false);
+        }
+      } catch {
+        // ignore
+      }
     }
   };
 
-  const handleClearCache = () => {
+  const handleClearCache = async () => {
+    try {
+      const keepKeys = new Set([
+        'eztalk_auth_user',
+        'eztalk_accounts',
+        'eztalk_token',
+        'eztalk_theme',
+        'eztalk_compact_mode',
+        'eztalk_blocked_users',
+      ]);
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && !keepKeys.has(key)) {
+          toRemove.push(key);
+        }
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+    } catch {
+      // ignore
+    }
+
+    calculateStorage();
     setCacheCleared(true);
     setTimeout(() => setCacheCleared(false), 3000);
   };
@@ -445,11 +524,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     <p className="text-xs text-ez-muted">Play a signature sound chime when messages arrive</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2.5">
                   <button
                     type="button"
                     onClick={playTestChime}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-neon-green font-bold transition-colors duration-150 cursor-pointer flex items-center space-x-1"
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-neon-green font-bold transition-colors duration-150 cursor-pointer flex items-center space-x-1 border border-neon-green/20"
                     title="Preview Chime"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
@@ -484,12 +563,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   type="button"
                   onClick={requestNotificationPermission}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${
-                    notificationsEnabled
+                    desktopNotificationsEnabled
                       ? 'bg-neon-green/15 text-neon-green border border-neon-green/30'
-                      : 'bg-neon-green text-black shadow-neon-sm'
+                      : 'bg-neon-green text-black shadow-neon-sm hover:scale-105'
                   }`}
                 >
-                  {notificationsEnabled ? 'Active' : 'Enable'}
+                  {desktopNotificationsEnabled ? 'Enabled' : 'Enable'}
                 </button>
               </div>
 
@@ -505,14 +584,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setPreviewEnabled(!previewEnabled)}
+                  onClick={() => setFloatingToastsEnabled(!floatingToastsEnabled)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    previewEnabled ? 'bg-neon-green' : 'bg-gray-700'
+                    floatingToastsEnabled ? 'bg-neon-green' : 'bg-gray-700'
                   }`}
                 >
                   <div
                     className={`w-4 h-4 rounded-full bg-black absolute top-1 transition-transform duration-150 ${
-                      previewEnabled ? 'right-1' : 'left-1'
+                      floatingToastsEnabled ? 'right-1' : 'left-1'
                     }`}
                   />
                 </button>
@@ -525,7 +604,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Call Ringtones & Vibrations</h4>
-                    <p className="text-xs text-ez-muted">Play acoustic ringers for incoming audio/video calls</p>
+                    <p className="text-xs text-ez-muted">Play acoustic ringers and vibrate for incoming voice calls</p>
                   </div>
                 </div>
                 <button
@@ -553,18 +632,18 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   Vibrant Accent Theme
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  {THEME_ACCENTS.map((th) => (
+                  {THEME_OPTIONS.map((th) => (
                     <button
                       key={th.id}
                       type="button"
-                      onClick={() => setSelectedAccent(th.id)}
+                      onClick={() => handleSelectTheme(th.id)}
                       className={`p-3 rounded-2xl border flex flex-col items-center space-y-2 transition-all duration-150 cursor-pointer ${
                         selectedAccent === th.id
-                          ? 'border-white/40 bg-white/10 shadow-glass'
+                          ? 'border-white/50 bg-white/10 ring-2 ring-white/30 shadow-glass'
                           : 'border-ez-border bg-ez-elevated hover:bg-white/5'
                       }`}
                     >
-                      <div className={`w-7 h-7 rounded-full ${th.glow}`} style={{ backgroundColor: th.color }} />
+                      <div className={`w-7 h-7 rounded-full ${th.badge}`} style={{ backgroundColor: th.color }} />
                       <span className="text-xs font-bold text-white truncate">{th.name}</span>
                     </button>
                   ))}
@@ -598,7 +677,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCompactMode(!compactMode)}
+                  onClick={() => handleToggleCompact(!compactMode)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
                     compactMode ? 'bg-neon-green' : 'bg-gray-700'
                   }`}
@@ -670,11 +749,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   <span className="text-xs font-mono font-bold text-neon-green">Healthy</span>
                 </div>
                 <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-                  <div className="bg-gradient-to-r from-neon-green to-emerald-400 h-full w-[28%] rounded-full shadow-neon-dot" />
+                  <div
+                    className="bg-gradient-to-r from-neon-green to-emerald-400 h-full rounded-full shadow-neon-dot transition-all duration-300"
+                    style={{ width: `${usedPercent}%` }}
+                  />
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-ez-muted mt-2">
-                  <span>Used: ~2.4 MB</span>
-                  <span>Available: Unlimited Web Storage</span>
+                  <span>Used: ~{usedStorageMB} MB</span>
+                  <span>Available: ~5.00 MB Web Storage</span>
                 </div>
               </div>
 
@@ -742,4 +824,3 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     </div>
   );
 };
-
