@@ -50,6 +50,51 @@ const ICE_SERVERS: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
+// Modifies SDP to set Opus to 128kbps HD voice, enable forward error correction (FEC) and optimal packetization
+function optimizeAudioSDP(sdp: string): string {
+  if (!sdp) return sdp;
+
+  // Find opus payload type number (usually 111)
+  const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+  if (!opusMatch) return sdp;
+  const pt = opusMatch[1];
+
+  const hdParams = 'minptime=10;useinbandfec=1;maxaveragebitrate=128000;stereo=1;sprop-stereo=1;maxplaybackrate=48000;cbr=0';
+
+  const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.*)`, 'i');
+  if (fmtpRegex.test(sdp)) {
+    return sdp.replace(fmtpRegex, (_match, existing) => {
+      return `a=fmtp:${pt} ${existing};${hdParams}`;
+    });
+  } else {
+    return sdp.replace(
+      new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000[^\r\n]*)`, 'i'),
+      `$1\r\na=fmtp:${pt} ${hdParams}`
+    );
+  }
+}
+
+// Configures RTCRtpSender encoding bitrate and priority for HD audio
+function configureHighQualitySender(pc: RTCPeerConnection) {
+  try {
+    pc.getSenders().forEach((sender) => {
+      if (sender.track && sender.track.kind === 'audio') {
+        const params = sender.getParameters();
+        if (params && params.encodings && params.encodings.length > 0) {
+          params.encodings.forEach((enc) => {
+            enc.maxBitrate = 128000;
+            enc.priority = 'high';
+            enc.networkPriority = 'high';
+          });
+          sender.setParameters(params).catch(() => {});
+        }
+      }
+    });
+  } catch {
+    // ignore
+  }
+}
+
 // Web Audio synthesizer for calling ringtones and chimes
 class CallSoundService {
   private audioCtx: AudioContext | null = null;
@@ -211,7 +256,9 @@ export const CallModal: React.FC<CallModalProps> = ({
         }
 
         const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        const optimizedSDP = optimizeAudioSDP(answer.sdp || '');
+        await pc.setLocalDescription(new RTCSessionDescription({ type: answer.type, sdp: optimizedSDP }));
+        configureHighQualitySender(pc);
         socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
           answer: pc.localDescription,
         });
@@ -220,6 +267,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       } else if (signal.answer) {
         if (pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+          configureHighQualitySender(pc);
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();
             if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
@@ -246,6 +294,7 @@ export const CallModal: React.FC<CallModalProps> = ({
     localStream.getTracks().forEach((track) => {
       pc.addTrack(track, localStream);
     });
+    configureHighQualitySender(pc);
 
     pc.ontrack = (event) => {
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
@@ -284,10 +333,12 @@ export const CallModal: React.FC<CallModalProps> = ({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          sampleRate: { ideal: 48000 },
+          sampleSize: { ideal: 16 },
+          channelCount: { ideal: 2 },
         },
       });
       localStreamRef.current = stream;
@@ -338,7 +389,9 @@ export const CallModal: React.FC<CallModalProps> = ({
         if (pc) {
           try {
             const offer = await pc.createOffer({ offerToReceiveAudio: true });
-            await pc.setLocalDescription(offer);
+            const optimizedSDP = optimizeAudioSDP(offer.sdp || '');
+            await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: optimizedSDP }));
+            configureHighQualitySender(pc);
             hasOfferedRef.current = true;
             socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
               offer: pc.localDescription,
