@@ -528,7 +528,14 @@ export default function App() {
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
   const handleLogin = (user: User) => {
+    setSelectedUserId('');
+    setSelectedGroupId(null);
+    setSelectedUserObj(null);
+    setMessages([]);
+    setUnreadCounts({});
+    setActiveSection('chats');
     setCurrentUser(user);
+    currentUserRef.current = user;
     ChatStorageService.saveAuthUser(user);
     setMyAccounts(ChatStorageService.getMyAccounts());
     if (Array.isArray(user.friends) && user.friends.length > 0) {
@@ -540,14 +547,66 @@ export default function App() {
       const normalized = user.blockedUsers.map(normalizeHandle);
       setBlockedUsers(normalized);
       localStorage.setItem('eztalk_blocked_users', JSON.stringify(normalized));
+    } else {
+      setBlockedUsers([]);
+      localStorage.removeItem('eztalk_blocked_users');
     }
+    socketService.connect(user.handle);
     socketService.setHandle(user.handle);
+    refreshUsersAndGroups();
+  };
+
+  const handleSwitchAccount = async (targetAccount: User) => {
+    setSelectedUserId('');
+    setSelectedGroupId(null);
+    setSelectedUserObj(null);
+    setMessages([]);
+    setUnreadCounts({});
+    setActiveSection('chats');
+    setIsDrawerOpen(false);
+
+    let userToSet = targetAccount;
+    try {
+      const freshProfile = await ApiService.getProfile(targetAccount.handle);
+      if (freshProfile) {
+        userToSet = freshProfile;
+      }
+    } catch {
+      // fallback
+    }
+
+    setCurrentUser(userToSet);
+    currentUserRef.current = userToSet;
+    ChatStorageService.saveAuthUser(userToSet);
+    setMyAccounts(ChatStorageService.getMyAccounts());
+
+    if (Array.isArray(userToSet.friends) && userToSet.friends.length > 0) {
+      setAddedFriends(userToSet.friends.map(normalizeHandle));
+    } else {
+      setAddedFriends(ChatStorageService.getAddedFriends(userToSet.handle));
+    }
+
+    if (Array.isArray(userToSet.blockedUsers) && userToSet.blockedUsers.length > 0) {
+      const normalized = userToSet.blockedUsers.map(normalizeHandle);
+      setBlockedUsers(normalized);
+      localStorage.setItem('eztalk_blocked_users', JSON.stringify(normalized));
+    } else {
+      setBlockedUsers([]);
+      localStorage.removeItem('eztalk_blocked_users');
+    }
+
+    socketService.connect(userToSet.handle);
+    socketService.setHandle(userToSet.handle);
     refreshUsersAndGroups();
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     ChatStorageService.saveAuthUser(null);
+    setSelectedUserId('');
+    setSelectedGroupId(null);
+    setSelectedUserObj(null);
+    setMessages([]);
     setAddedFriends([]);
     setActiveChatHandles([]);
     socketService.disconnect();
@@ -879,7 +938,7 @@ export default function App() {
                 setActiveSection('saved');
               }
             }}
-            onSwitchUser={handleLogin}
+            onSwitchUser={handleSwitchAccount}
             onRemoveAccount={handleRemoveAccount}
             onAddAccount={() => setCurrentUser(null)}
             onLogout={handleLogout}
@@ -1002,7 +1061,7 @@ export default function App() {
         onUpdateStatus={(st) => {
           handleUpdateCurrentUser({ ...currentUser, status: st });
         }}
-        onSwitchAccount={handleLogin}
+        onSwitchAccount={handleSwitchAccount}
         onAddAccount={() => setCurrentUser(null)}
         onRemoveAccount={handleRemoveAccount}
         onLogout={handleLogout}
