@@ -23,19 +23,15 @@ interface ChatWindowProps {
   isBlocked?: boolean;
   isOnline?: boolean;
   isSavedMessages?: boolean;
-  activeTtl?: number;
   draftText?: string;
   onBack?: () => void;
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
-  onSetTtl?: (ttl: number | undefined) => void;
   onDraftChange?: (text: string) => void;
   onSendMessage: (
     text: string,
     attachment?: Attachment,
-    replyTo?: QuotedMessage,
-    ttlSeconds?: number,
-    isSecret?: boolean
+    replyTo?: QuotedMessage
   ) => void;
   onForwardMessage?: (message: Message, targetUser?: User, targetGroup?: Group) => void;
   onEditMessage?: (id: string, newText: string) => void;
@@ -64,12 +60,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isBlocked = false,
   isOnline = false,
   isSavedMessages = false,
-  activeTtl,
   draftText = '',
   onBack,
   onToggleMute,
   onToggleBlock,
-  onSetTtl,
   onDraftChange,
   onSendMessage,
   onForwardMessage,
@@ -119,8 +113,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isOnline={isOnline}
         isTyping={isTyping}
         isSavedMessages={isSavedMessages}
-        activeTtl={activeTtl}
-        onSetTtl={onSetTtl}
         onBack={onBack}
         onSearchChange={(q) => setInChatSearchQuery(q)}
         onToggleMute={onToggleMute}
@@ -250,15 +242,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       ) : (
         <MessageInput
           enterToSend={currentUser?.enterToSend !== false}
-          activeTtl={activeTtl}
           initialDraft={draftText}
           onDraftChange={onDraftChange}
-          onSendMessage={(text, attachment, replyTo, ttlSeconds, isSecret) => {
+          onSendMessage={(text, attachment, replyTo) => {
             if (editingMessage && onEditMessage) {
               onEditMessage(editingMessage.id, text);
               setEditingMessage(null);
             } else {
-              onSendMessage(text, attachment, replyTo, ttlSeconds, isSecret);
+              onSendMessage(text, attachment, replyTo);
               setReplyingTo(null);
             }
           }}

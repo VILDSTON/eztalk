@@ -67,11 +67,6 @@ const messageSchema = new mongoose.Schema(
     forwardedFrom: {
       type: String,
       default: null,
-    },
-    ttlSeconds: {
-      type: Number,
-      default: null,
-    },
     isSecret: {
       type: Boolean,
       default: false,
@@ -81,10 +76,6 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     readAt: {
-      type: Date,
-      default: null,
-    },
-    expiresAt: {
       type: Date,
       default: null,
     },

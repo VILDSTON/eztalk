@@ -1,43 +1,31 @@
 import React, { useRef, useEffect } from 'react';
-import { User as UserIcon, Bell, BellOff, Trash2, ShieldAlert, Download, UserMinus, UserPlus, Flame } from 'lucide-react';
+import { User as UserIcon, Bell, BellOff, Trash2, ShieldAlert, Download, UserMinus, UserPlus } from 'lucide-react';
 
 export interface ChatMenuDropdownProps {
   isOpen: boolean;
   isMuted?: boolean;
   isFriend?: boolean;
   isBlocked?: boolean;
-  activeTtl?: number;
   onClose: () => void;
   onViewProfile: () => void;
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
   onExportChat?: () => void;
-  onSetTtl?: (ttl: number | undefined) => void;
   onClearChat: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
 }
-
-const TTL_OPTIONS = [
-  { label: 'Off', val: undefined },
-  { label: '5s', val: 5 },
-  { label: '10s', val: 10 },
-  { label: '1m', val: 60 },
-  { label: '24h', val: 86400 },
-];
 
 export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   isOpen,
   isMuted = false,
   isFriend = true,
   isBlocked = false,
-  activeTtl,
   onClose,
   onViewProfile,
   onToggleMute,
   onToggleBlock,
   onExportChat,
-  onSetTtl,
   onClearChat,
   onRemoveFriend,
   onAddFriend,
@@ -63,7 +51,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute top-14 right-6 w-56 bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-40 animate-scale-up text-xs select-none space-y-0.5"
+      className="absolute top-14 right-6 w-52 bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-40 animate-scale-up text-xs select-none space-y-0.5"
     >
       <button
         type="button"
@@ -97,46 +85,6 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           </>
         )}
       </button>
-
-      {/* Auto-Delete / TTL Timer Selector */}
-      {onSetTtl && (
-        <div className="px-3 py-2 bg-white/[0.02] rounded-xl border border-ez-border/40 my-1">
-          <div className="flex items-center justify-between text-gray-300 mb-1.5">
-            <div className="flex items-center space-x-1.5 font-semibold text-[11px]">
-              <Flame className="w-3.5 h-3.5 text-amber-400" />
-              <span>Burn Timer (TTL)</span>
-            </div>
-            {activeTtl ? (
-              <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-500/15 px-1.5 py-0.5 rounded">
-                {activeTtl >= 60 ? `${activeTtl / 60}m` : `${activeTtl}s`}
-              </span>
-            ) : (
-              <span className="text-[10px] text-ez-muted font-mono">Off</span>
-            )}
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            {TTL_OPTIONS.map((opt) => {
-              const isSelected = activeTtl === opt.val;
-              return (
-                <button
-                  key={opt.label}
-                  type="button"
-                  onClick={() => {
-                    onSetTtl(opt.val);
-                  }}
-                  className={`py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-amber-400 text-black shadow-[0_0_8px_#f59e0b]'
-                      : 'bg-ez-surface hover:bg-white/10 text-gray-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {onExportChat && (
         <button

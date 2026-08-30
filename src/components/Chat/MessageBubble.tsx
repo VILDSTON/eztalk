@@ -4,7 +4,6 @@ import {
   FileText,
   CheckCheck,
   Download,
-  X,
   Play,
   Pause,
   CornerUpLeft,
@@ -19,7 +18,6 @@ import {
   PhoneMissed,
   PhoneOff,
   Check,
-  Flame,
   Lock,
   Clock,
 } from 'lucide-react';
@@ -53,7 +51,7 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
   return '12:00';
 }
 
-const EMOJI_OPTIONS = ['👍', '❤️', '🔥', '😂', '👏', '🚀', '😮', '😢'];
+const EMOJI_OPTIONS = ['❤️', '👍', '😂', '🔥', '😮', '👏', '🚀', '😢'];
 const PLAYBACK_SPEEDS = [1, 1.5, 2];
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -71,16 +69,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Swipe to Reply Gesture State
+  // Mobile Swipe-to-Reply Gesture State (Touch Only)
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const swipeStartXRef = useRef<number | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isHorizontalSwipeRef = useRef(false);
   const hasHaptickedRef = useRef(false);
 
-  // Custom Context Menu State
+  // Context Menu State (Desktop Right-Click & Mobile Long-Press)
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Audio & Waveform player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -89,12 +87,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [playbackSpeedIdx, setPlaybackSpeedIdx] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
-
-  // TTL Burn-on-Read Countdown State
-  const [ttlRemaining, setTtlRemaining] = useState<number | null>(
-    message.ttlSeconds ? Number(message.ttlSeconds) : null
-  );
-  const [isDissolving, setIsDissolving] = useState(false);
 
   const isMe =
     (currentUserHandle &&
@@ -159,27 +151,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   }, [message.attachment]);
 
-  // TTL Burn-on-Read Countdown Timer
-  useEffect(() => {
-    if (!message.ttlSeconds || message.ttlSeconds <= 0) return;
-
-    const interval = setInterval(() => {
-      setTtlRemaining((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval);
-          setIsDissolving(true);
-          setTimeout(() => {
-            if (onDelete) onDelete(message.id);
-          }, 600);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [message.ttlSeconds, message.id, onDelete]);
-
   const togglePlayAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!audioRef.current) return;
@@ -201,7 +172,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  // Scrub audio via waveform click/drag
+  // Scrub audio via waveform click
   const handleWaveformSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (!waveformRef.current || !audioRef.current) return;
@@ -227,7 +198,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (message.attachment?.peaks && message.attachment.peaks.length > 0) {
       return message.attachment.peaks;
     }
-    // Deterministic pseudo-peaks derived from message id
     const seed = (message.id || 'msg').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const bars: number[] = [];
     for (let i = 0; i < 32; i++) {
@@ -237,44 +207,60 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return bars;
   }, [message.attachment?.peaks, message.id]);
 
-  // Swipe-to-Reply Touch / Mouse Handlers
+  // Mobile Touch Handlers: Swipe-to-Reply & Long-Press Context Menu (NO mouse dragging)
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    swipeStartXRef.current = touch.clientX;
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isHorizontalSwipeRef.current = false;
     hasHaptickedRef.current = false;
-    setIsSwiping(true);
 
+    // Start mobile 450ms long press timer
     longPressTimerRef.current = setTimeout(() => {
-      const x = Math.min(window.innerWidth - 190, Math.max(10, touch.clientX));
-      const y = Math.min(window.innerHeight - 230, Math.max(10, touch.clientY));
+      if ('vibrate' in navigator) {
+        try {
+          navigator.vibrate(20);
+        } catch {}
+      }
+      const x = Math.min(window.innerWidth - 210, Math.max(10, touch.clientX));
+      const y = Math.min(window.innerHeight - 280, Math.max(10, touch.clientY));
       setContextMenuPos({ x, y });
     }, 450);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current) return;
     const touch = e.touches[0];
-    if (touchStartPosRef.current) {
-      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
-      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
-      if (dx > 10 || dy > 10) {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = null;
-        }
+    const dx = touch.clientX - touchStartPosRef.current.x;
+    const dy = touch.clientY - touchStartPosRef.current.y;
+
+    // Cancel long press if moved > 10px
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
       }
     }
 
-    if (swipeStartXRef.current !== null) {
-      const deltaX = touch.clientX - swipeStartXRef.current;
-      // Allow only swipe left (negative delta)
-      if (deltaX < 0) {
-        const dampened = -Math.min(80, Math.pow(-deltaX, 0.9));
-        setSwipeOffset(dampened);
-        if (Math.abs(dampened) >= 55 && !hasHaptickedRef.current) {
-          if ('vibrate' in navigator) navigator.vibrate(10);
-          hasHaptickedRef.current = true;
+    // Determine swipe orientation
+    if (!isHorizontalSwipeRef.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+        isHorizontalSwipeRef.current = true;
+        setIsSwiping(true);
+      }
+    }
+
+    // Horizontal left-swipe rubber-band clamping (constrained to max -75px)
+    if (isHorizontalSwipeRef.current && dx < 0) {
+      const clamped = Math.max(-75, Math.min(0, dx));
+      setSwipeOffset(clamped);
+
+      if (clamped <= -55 && !hasHaptickedRef.current) {
+        if ('vibrate' in navigator) {
+          try {
+            navigator.vibrate(10);
+          } catch {}
         }
+        hasHaptickedRef.current = true;
       }
     }
   };
@@ -284,24 +270,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    if (Math.abs(swipeOffset) >= 55) {
+
+    if (swipeOffset <= -55) {
       triggerReply();
     }
+
+    // Always spring back smoothly to 0px
     setSwipeOffset(0);
     setIsSwiping(false);
-    swipeStartXRef.current = null;
+    isHorizontalSwipeRef.current = false;
+    touchStartPosRef.current = null;
   };
 
-  // Right-Click Context Menu Trigger
+  // Right-Click Context Menu Trigger (Desktop & Touch)
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const x = Math.min(window.innerWidth - 190, Math.max(10, e.clientX));
-    const y = Math.min(window.innerHeight - 230, Math.max(10, e.clientY));
+    const x = Math.min(window.innerWidth - 210, Math.max(10, e.clientX));
+    const y = Math.min(window.innerHeight - 280, Math.max(10, e.clientY));
     setContextMenuPos({ x, y });
   };
 
-  // Copy Message Text (Without author headers if secret/forward restricted)
+  // Copy Message Text
   const handleCopyText = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const content = message.text || message.attachment?.url || '';
@@ -360,7 +350,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div
         className={`relative flex flex-col mb-1.5 max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } ${isDissolving ? 'animate-dissolve opacity-0 scale-95 transition-all duration-500' : 'animate-fade-in'} font-sans`}
+        } animate-fade-in font-sans`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -373,7 +363,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </span>
         )}
 
-        {/* Hover Action Toolbar (Desktop) */}
+        {/* Hover Action Toolbar (Desktop only) */}
         <div
           className={`absolute -top-9 ${
             isMe ? 'right-0' : 'left-0'
@@ -442,8 +432,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               e.stopPropagation();
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               setContextMenuPos({
-                x: Math.min(window.innerWidth - 190, rect.left),
-                y: Math.min(window.innerHeight - 230, rect.bottom + 5),
+                x: Math.min(window.innerWidth - 210, rect.left),
+                y: Math.min(window.innerHeight - 280, rect.bottom + 5),
               });
             }}
             className="p-1 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
@@ -453,7 +443,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </button>
         </div>
 
-        {/* Swipe-to-Reply Neon Arrow Indicator Reveal */}
+        {/* Mobile Swipe-to-Reply Neon Arrow Indicator Reveal */}
         {swipeOffset < 0 && (
           <div
             className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-transform duration-75"
@@ -468,10 +458,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         )}
 
-        {/* Main Message Bubble with Swipe Physics */}
+        {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`group/bubble relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm cursor-pointer select-none transition-transform ${
-            isSwiping ? '' : 'duration-200 ease-out'
+          className={`group/bubble relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
+            isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             isMe
               ? 'bg-ez-sent text-white border border-neon-green/15 rounded-br-sm telegram-bubble-out'
@@ -492,7 +482,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Quoted Message */}
           {message.replyTo && (
             <div
-              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate ${
+              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none ${
                 isMe ? 'bg-black/20 border-neon-green' : 'bg-black/25 border-neon-green'
               }`}
             >
@@ -503,7 +493,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Interactive Voice Waveform Player */}
           {message.attachment?.type === 'audio' && (
-            <div className="flex items-center space-x-3 py-1.5 pr-2 min-w-[240px] sm:min-w-[270px]">
+            <div className="flex items-center space-x-3 py-1.5 pr-2 min-w-[240px] sm:min-w-[270px] select-none">
               <button
                 type="button"
                 onClick={togglePlayAudio}
@@ -563,7 +553,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Fluid Image Preview */}
           {message.attachment && message.attachment.type === 'image' && (
-            <div className="mb-1 rounded-xl overflow-hidden">
+            <div className="mb-1 rounded-xl overflow-hidden select-none">
               <div
                 onClick={handleMediaClick}
                 className="relative cursor-pointer rounded-xl overflow-hidden bg-black/20 group/media"
@@ -581,7 +571,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {message.attachment && message.attachment.type === 'file' && (
             <div
               onClick={handleMediaClick}
-              className="flex items-center justify-between space-x-2.5 p-2 rounded-xl cursor-pointer bg-black/20 hover:bg-black/30 mb-1 border border-white/5 transition-colors duration-150"
+              className="flex items-center justify-between space-x-2.5 p-2 rounded-xl cursor-pointer bg-black/20 hover:bg-black/30 mb-1 border border-white/5 transition-colors duration-150 select-none"
             >
               <div className="flex items-center space-x-2 min-w-0">
                 <div className="p-1.5 rounded-lg bg-neon-green/15 text-neon-green">
@@ -598,7 +588,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Call Event */}
           {message.callInfo && (
-            <div className="flex items-center space-x-2.5 py-1 min-w-[180px]">
+            <div className="flex items-center space-x-2.5 py-1 min-w-[180px] select-none">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                   message.callInfo.type === 'missed' || message.callInfo.type === 'declined'
@@ -635,29 +625,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Text Content */}
+          {/* Text Content with Native Selection */}
           {message.text && (
             <p className="whitespace-pre-wrap break-words word-break-all select-text selection:bg-neon-green selection:text-black">
               {message.text}
             </p>
           )}
 
-          {/* Bubble Meta Footer: Time + TTL Ring + Checkmarks */}
+          {/* Bubble Meta Footer: Time + Checkmarks */}
           <div className="flex items-center justify-end space-x-1.5 text-[10px] font-mono select-none mt-0.5 text-ez-muted">
-            {/* TTL Countdown Ring */}
-            {ttlRemaining !== null && ttlRemaining > 0 && (
-              <div
-                className="flex items-center space-x-1 text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-bold font-mono animate-pulse"
-                title={`Self-destructs in ${ttlRemaining} seconds`}
-              >
-                <Flame className="w-3 h-3 text-amber-400" />
-                <span>{ttlRemaining}s</span>
-              </div>
-            )}
-
             {/* Secret / Forward Protected Lock Icon */}
             {(message.forwardRestricted || message.isSecret) && (
-              <span title="Secret / Forward Restricted">
+              <span title="Forward Restricted">
                 <Lock className="w-2.5 h-2.5 text-neon-green" />
               </span>
             )}
@@ -681,50 +660,68 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
 
-        {/* Floating Context Menu */}
+        {/* Floating Context Menu (Right-Click & Mobile Long-Press) */}
         {contextMenuPos && (
           <div
-            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-50 animate-scale-up text-xs space-y-0.5 w-44 select-none"
+            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-52 select-none"
             style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={triggerReply}
-              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              <CornerUpLeft className="w-3.5 h-3.5 text-neon-green" />
-              <span>Reply</span>
-            </button>
+            {/* Quick Reactions Bar in Context Menu */}
+            <div className="flex items-center justify-between px-1 py-1 bg-white/[0.04] rounded-xl border border-white/5 mb-1">
+              {EMOJI_OPTIONS.slice(0, 6).map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleReaction) onToggleReaction(message.id, emoji);
+                    setContextMenuPos(null);
+                  }}
+                  className="p-1 hover:scale-125 transition-transform duration-100 text-base cursor-pointer"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
 
             <button
               type="button"
-              onClick={handleCopyText}
-              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              onClick={triggerReply}
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-neon-green" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+              <CornerUpLeft className="w-4 h-4 text-neon-green" />
+              <span className="font-medium">Reply</span>
             </button>
 
             {!message.forwardRestricted && !message.isSecret && (
               <button
                 type="button"
                 onClick={triggerForward}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               >
-                <CornerUpRight className="w-3.5 h-3.5 text-neon-green" />
-                <span>Forward</span>
+                <CornerUpRight className="w-4 h-4 text-neon-green" />
+                <span className="font-medium">Forward</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={handleCopyText}
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
+              <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
+            </button>
 
             {isMe && message.text && (
               <button
                 type="button"
                 onClick={triggerEdit}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               >
-                <Edit2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Edit</span>
+                <Edit2 className="w-4 h-4 text-amber-400" />
+                <span className="font-medium">Edit</span>
               </button>
             )}
 
@@ -733,10 +730,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <button
               type="button"
               onClick={triggerDelete}
-              className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete</span>
+              <Trash2 className="w-4 h-4" />
+              <span className="font-medium">Delete Message</span>
             </button>
           </div>
         )}

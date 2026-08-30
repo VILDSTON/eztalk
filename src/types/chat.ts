@@ -77,11 +77,9 @@ export interface Message {
   isDeleted?: boolean;
   isForwarded?: boolean;
   forwardedFrom?: string;
-  ttlSeconds?: number; // Burn-on-read TTL in seconds (e.g. 5, 10, 60)
   isSecret?: boolean;
   forwardRestricted?: boolean;
   readAt?: string;
-  expiresAt?: string;
   createdAt?: string;
 }
 
@@ -120,5 +118,4 @@ export interface ChatState {
   mutedUsers: Record<string, boolean>;
   blockedUsers: string[];
   drafts?: Record<string, string>;
-  activeTtls?: Record<string, number>;
 }

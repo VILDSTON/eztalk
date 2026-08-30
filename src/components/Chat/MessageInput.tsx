@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3, Flame, Lock } from 'lucide-react';
+import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3 } from 'lucide-react';
 import { Attachment, QuotedMessage } from '../../types/chat';
 
 interface MessageInputProps {
@@ -7,15 +7,12 @@ interface MessageInputProps {
   replyingTo?: QuotedMessage | null;
   editingMessage?: { id: string; text: string } | null;
   enterToSend?: boolean;
-  activeTtl?: number;
   initialDraft?: string;
   onDraftChange?: (text: string) => void;
   onSendMessage: (
     text: string,
     attachment?: Attachment,
-    replyTo?: QuotedMessage,
-    ttlSeconds?: number,
-    isSecret?: boolean
+    replyTo?: QuotedMessage
   ) => void;
   onSaveEdit?: (id: string, newText: string) => void;
   onCancelReply?: () => void;
@@ -27,7 +24,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   replyingTo,
   editingMessage,
   enterToSend = true,
-  activeTtl,
   initialDraft = '',
   onDraftChange,
   onSendMessage,
@@ -105,9 +101,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     onSendMessage(
       inputText.trim(),
       currentAttachment || undefined,
-      replyingTo || undefined,
-      activeTtl || undefined,
-      Boolean(activeTtl)
+      replyingTo || undefined
     );
 
     setInputText('');
@@ -291,9 +285,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onSendMessage(
             '',
             audioAttachment,
-            replyingTo || undefined,
-            activeTtl || undefined,
-            Boolean(activeTtl)
+            replyingTo || undefined
           );
           if (onCancelReply) onCancelReply();
         }
@@ -378,14 +370,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             >
               <X className="w-3.5 h-3.5" />
             </button>
-          </div>
-        )}
-
-        {/* Active TTL Secret Notice */}
-        {activeTtl && (
-          <div className="mb-2 flex items-center space-x-1.5 text-[11px] font-mono text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
-            <Flame className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-            <span>Self-destruct timer: <strong className="text-white">{activeTtl}s</strong> (burns after reading)</span>
           </div>
         )}
 

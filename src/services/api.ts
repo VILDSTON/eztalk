@@ -163,7 +163,6 @@ export class ApiService {
     id?: string,
     isForwarded?: boolean,
     forwardedFrom?: string,
-    ttlSeconds?: number,
     isSecret?: boolean,
     forwardRestricted?: boolean
   ): Promise<Message> {
@@ -178,7 +177,6 @@ export class ApiService {
       callInfo,
       isForwarded,
       forwardedFrom,
-      ttlSeconds,
       isSecret,
       forwardRestricted,
       timestamp: 'Sent PM',
@@ -204,7 +202,6 @@ export class ApiService {
         callInfo,
         isForwarded,
         forwardedFrom,
-        ttlSeconds,
         isSecret,
         forwardRestricted,
         status: 'sent',

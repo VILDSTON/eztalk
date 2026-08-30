@@ -60,7 +60,6 @@ export default function App() {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [activeTtls, setActiveTtls] = useState<Record<string, number>>({});
 
   // Voice Call State
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
@@ -663,13 +662,11 @@ export default function App() {
     }));
   };
 
-  // Send Message (Direct or Group, with Reply, Forwarding, TTL & Optimistic UI)
+  // Send Message (Direct or Group, with Reply, Forwarding & Optimistic UI)
   const handleSendMessage = async (
     text: string,
     attachment?: Attachment,
     replyTo?: QuotedMessage,
-    ttlSeconds?: number,
-    isSecret?: boolean,
     overrideRecipientHandle?: string,
     overrideGroupId?: string,
     isForwarded?: boolean,
@@ -685,8 +682,6 @@ export default function App() {
       ? `group__${targetGroupId}`
       : getConversationKey(currentUser.handle, targetRecipient!);
 
-    const activeTtlSec = ttlSeconds !== undefined ? ttlSeconds : activeTtls[convKey];
-
     const tempMsg: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       conversationKey: convKey,
@@ -700,9 +695,6 @@ export default function App() {
       reactions: {},
       isForwarded: Boolean(isForwarded),
       forwardedFrom: forwardedFrom || undefined,
-      ttlSeconds: activeTtlSec ? Number(activeTtlSec) : undefined,
-      isSecret: isSecret || Boolean(activeTtlSec),
-      forwardRestricted: isSecret || Boolean(activeTtlSec),
       status: 'sending',
       timestamp: 'Sent PM',
       createdAt: new Date().toISOString(),
@@ -740,10 +732,7 @@ export default function App() {
         undefined,
         tempMsg.id,
         isForwarded,
-        forwardedFrom,
-        activeTtlSec,
-        Boolean(activeTtlSec),
-        Boolean(activeTtlSec)
+        forwardedFrom
       );
 
       // Update status to 'sent'
@@ -761,7 +750,6 @@ export default function App() {
   // Forward Message to User or Group
   const handleForwardMessage = async (message: Message, targetUser?: User, targetGroup?: Group) => {
     if (!currentUser) return;
-    const isTargetGroup = Boolean(targetGroup);
     const targetHandle = targetGroup ? null : (targetUser ? targetUser.handle : null);
     const targetGroupId = targetGroup ? targetGroup.id : undefined;
 
@@ -775,8 +763,6 @@ export default function App() {
       forwardedText,
       forwardedAttachment,
       undefined,
-      undefined,
-      false,
       targetHandle || undefined,
       targetGroupId,
       true,
@@ -1133,13 +1119,6 @@ export default function App() {
               isBlocked={Boolean(selectedUser && blockedUsers.includes(normalizeHandle(selectedUser.handle)))}
               isOnline={Boolean(selectedUser && onlineHandles.some(h => normalizeHandle(h).toLowerCase() === normalizeHandle(selectedUser.handle).toLowerCase()))}
               isSavedMessages={isSavedMessages}
-              activeTtl={
-                selectedGroupId
-                  ? activeTtls[`group__${selectedGroupId}`]
-                  : selectedUser
-                  ? activeTtls[getConversationKey(currentUser.handle, selectedUser.handle)]
-                  : undefined
-              }
               draftText={
                 selectedGroupId
                   ? drafts[`group__${selectedGroupId}`] || ChatStorageService.getDraft(`group__${selectedGroupId}`)
@@ -1148,16 +1127,6 @@ export default function App() {
                     ChatStorageService.getDraft(getConversationKey(currentUser.handle, selectedUser.handle))
                   : ''
               }
-              onSetTtl={(ttl) => {
-                const key = selectedGroupId
-                  ? `group__${selectedGroupId}`
-                  : selectedUser
-                  ? getConversationKey(currentUser.handle, selectedUser.handle)
-                  : '';
-                if (key) {
-                  setActiveTtls((prev) => ({ ...prev, [key]: ttl || 0 }));
-                }
-              }}
               onDraftChange={(text) => {
                 const key = selectedGroupId
                   ? `group__${selectedGroupId}`

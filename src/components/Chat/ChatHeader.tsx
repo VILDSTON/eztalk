@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, MoreVertical, Search, BellOff, Users, Trash2, ArrowLeft, Bookmark, X, Flame } from 'lucide-react';
+import { Phone, MoreVertical, Search, BellOff, Users, Trash2, ArrowLeft, Bookmark, X } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
@@ -14,12 +14,10 @@ interface ChatHeaderProps {
   isOnline?: boolean;
   isTyping?: boolean;
   isSavedMessages?: boolean;
-  activeTtl?: number;
   onBack?: () => void;
   onSearchChange?: (query: string) => void;
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
-  onSetTtl?: (ttl: number | undefined) => void;
   onClearChat?: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
@@ -37,12 +35,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isOnline = false,
   isTyping = false,
   isSavedMessages = false,
-  activeTtl,
   onBack,
   onSearchChange,
   onToggleMute,
   onToggleBlock,
-  onSetTtl,
   onClearChat,
   onRemoveFriend,
   onAddFriend,
@@ -263,15 +259,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
                   {user.name || user.handle || 'User'}
                 </span>
-                {activeTtl ? (
-                  <span
-                    className="flex items-center space-x-0.5 text-[9px] font-mono font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-full"
-                    title={`Self-destruct timer: ${activeTtl}s`}
-                  >
-                    <Flame className="w-2.5 h-2.5 animate-pulse" />
-                    <span>{activeTtl >= 60 ? `${activeTtl / 60}m` : `${activeTtl}s`}</span>
-                  </span>
-                ) : null}
                 {isMuted && (
                   <span title="Notifications muted">
                     <BellOff className="w-3.5 h-3.5 text-ez-muted" />
@@ -333,10 +320,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             isMuted={isMuted}
             isFriend={isFriend}
             isBlocked={isBlocked}
-            activeTtl={activeTtl}
-            onSetTtl={(ttl) => {
-              if (onSetTtl) onSetTtl(ttl);
-            }}
             onToggleMute={() => {
               if (onToggleMute) onToggleMute();
               setIsMenuOpen(false);
