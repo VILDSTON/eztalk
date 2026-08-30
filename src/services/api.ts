@@ -160,7 +160,9 @@ export class ApiService {
     replyTo?: QuotedMessage,
     groupId?: string,
     callInfo?: { type: 'incoming' | 'outgoing' | 'missed' | 'declined' | 'canceled'; duration?: number },
-    id?: string
+    id?: string,
+    isForwarded?: boolean,
+    forwardedFrom?: string
   ): Promise<Message> {
     const payload = {
       id,
@@ -171,6 +173,8 @@ export class ApiService {
       attachment,
       replyTo,
       callInfo,
+      isForwarded,
+      forwardedFrom,
       timestamp: 'Sent PM',
     };
     try {
@@ -192,6 +196,8 @@ export class ApiService {
         attachment,
         replyTo,
         callInfo,
+        isForwarded,
+        forwardedFrom,
         timestamp: 'Sent PM',
       };
     }

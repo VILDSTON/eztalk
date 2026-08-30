@@ -3,6 +3,7 @@ import { User, Group, Message, Attachment, QuotedMessage } from '../../types/cha
 import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
 import { MessageInput } from './MessageInput';
+import { ForwardModal } from './ForwardModal';
 import { UserPlus, X, Ban } from 'lucide-react';
 
 interface ChatWindowProps {
@@ -11,6 +12,10 @@ interface ChatWindowProps {
   messages: Message[];
   currentUserId?: string;
   currentUserHandle?: string;
+  currentUser?: User | null;
+  allUsers?: User[];
+  allGroups?: Group[];
+  onlineHandles?: string[];
   isMuted?: boolean;
   isTyping?: boolean;
   isFriend?: boolean;
@@ -21,6 +26,7 @@ interface ChatWindowProps {
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
   onSendMessage: (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => void;
+  onForwardMessage?: (message: Message, targetUser?: User, targetGroup?: Group) => void;
   onEditMessage?: (id: string, newText: string) => void;
   onDeleteMessage?: (id: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -37,6 +43,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   messages,
   currentUserId,
   currentUserHandle,
+  currentUser,
+  allUsers = [],
+  allGroups = [],
+  onlineHandles = [],
   isMuted = false,
   isTyping = false,
   isFriend = true,
@@ -47,6 +57,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onToggleMute,
   onToggleBlock,
   onSendMessage,
+  onForwardMessage,
   onEditMessage,
   onDeleteMessage,
   onToggleReaction,
@@ -58,6 +69,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 }) => {
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [showAddBanner, setShowAddBanner] = useState(true);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
 
@@ -160,10 +172,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isTyping={isTyping}
         recipientHandle={recipientLabel}
         onReply={(msg) => setReplyingTo(msg)}
+        onForward={(msg) => setForwardingMessage(msg)}
         onEdit={(msg: Message) => setEditingMessage({ id: msg.id, text: msg.text })}
         onDelete={onDeleteMessage}
         onToggleReaction={onToggleReaction}
       />
+
+      {/* Forward Message Modal */}
+      {forwardingMessage && currentUser && (
+        <ForwardModal
+          isOpen={Boolean(forwardingMessage)}
+          message={forwardingMessage}
+          currentUser={currentUser}
+          contacts={allUsers}
+          groups={allGroups}
+          onlineHandles={onlineHandles}
+          onClose={() => setForwardingMessage(null)}
+          onForward={(msg, targetUser, targetGroup) => {
+            if (onForwardMessage) {
+              onForwardMessage(msg, targetUser, targetGroup);
+            }
+            setForwardingMessage(null);
+          }}
+        />
+      )}
 
       {/* Input Bar or Blocked Action */}
       {isBlocked ? (

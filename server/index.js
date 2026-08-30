@@ -721,7 +721,7 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 // Post New Message
 app.post('/api/messages', async (req, res) => {
   try {
-    const { id, senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, timestamp } = req.body;
+    const { id, senderHandle, recipientHandle, groupId, text, attachment, replyTo, callInfo, isForwarded, forwardedFrom, timestamp } = req.body;
     const sHandle = normalizeHandle(senderHandle);
     let key;
     let rHandle = null;
@@ -745,6 +745,8 @@ app.post('/api/messages', async (req, res) => {
       callInfo: callInfo || null,
       reactions: {},
       isEdited: false,
+      isForwarded: Boolean(isForwarded),
+      forwardedFrom: forwardedFrom || null,
       timestamp: timestamp || 'Sent PM',
       createdAt: new Date().toISOString(),
     };

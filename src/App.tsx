@@ -628,48 +628,106 @@ export default function App() {
     }));
   };
 
-  // Send Message (Direct or Group, with Reply)
-  const handleSendMessage = async (text: string, attachment?: Attachment, replyTo?: QuotedMessage) => {
+  // Send Message (Direct or Group, with Reply & Forwarding)
+  const handleSendMessage = async (
+    text: string,
+    attachment?: Attachment,
+    replyTo?: QuotedMessage,
+    overrideRecipientHandle?: string,
+    overrideGroupId?: string,
+    isForwarded?: boolean,
+    forwardedFrom?: string
+  ) => {
     if (!currentUser) return;
-    if (!selectedUser && !selectedGroupId) return;
+    const targetGroupId = overrideGroupId || selectedGroupId;
+    const targetRecipient = overrideRecipientHandle || (selectedUser ? selectedUser.handle : undefined);
+
+    if (!targetRecipient && !targetGroupId) return;
+
+    const convKey = targetGroupId
+      ? `group__${targetGroupId}`
+      : getConversationKey(currentUser.handle, targetRecipient!);
 
     const tempMsg: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      conversationKey: selectedGroupId
-        ? `group__${selectedGroupId}`
-        : getConversationKey(currentUser.handle, selectedUser!.handle),
-      groupId: selectedGroupId || undefined,
+      conversationKey: convKey,
+      groupId: targetGroupId || undefined,
       senderId: currentUser.id,
       senderHandle: currentUser.handle,
-      recipientHandle: selectedGroupId ? undefined : selectedUser!.handle,
+      recipientHandle: targetGroupId ? undefined : targetRecipient,
       text,
       attachment,
       replyTo,
       reactions: {},
+      isForwarded: Boolean(isForwarded),
+      forwardedFrom: forwardedFrom || undefined,
       timestamp: 'Sent PM',
       createdAt: new Date().toISOString(),
     };
 
-    // Optimistic UI update
-    setMessages((prev) => [...prev, tempMsg]);
+    // If currently viewing the target conversation, update active messages optimistically
+    const currentConvKey = selectedGroupId
+      ? `group__${selectedGroupId}`
+      : (selectedUser ? getConversationKey(currentUser.handle, selectedUser.handle) : '');
+
+    if (convKey === currentConvKey) {
+      setMessages((prev) => [...prev, tempMsg]);
+    }
+
+    if (targetRecipient) {
+      setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(targetRecipient)])]);
+    }
 
     // Send to Backend API
     try {
       await ApiService.sendMessage(
         currentUser.handle,
-        selectedGroupId ? null : selectedUser!.handle,
+        targetGroupId ? null : targetRecipient!,
         text,
         attachment,
         replyTo,
-        selectedGroupId || undefined,
+        targetGroupId || undefined,
         undefined,
-        tempMsg.id
+        tempMsg.id,
+        isForwarded,
+        forwardedFrom
       );
     } catch {
-      if (!selectedGroupId && selectedUser) {
-        ChatStorageService.addMessage(currentUser.handle, selectedUser.handle, tempMsg);
+      if (!targetGroupId && targetRecipient) {
+        ChatStorageService.addMessage(currentUser.handle, targetRecipient, tempMsg);
       }
     }
+  };
+
+  // Forward Message to User or Group
+  const handleForwardMessage = async (message: Message, targetUser?: User, targetGroup?: Group) => {
+    if (!currentUser) return;
+    const isTargetGroup = Boolean(targetGroup);
+    const targetHandle = targetGroup ? null : (targetUser ? targetUser.handle : null);
+    const targetGroupId = targetGroup ? targetGroup.id : undefined;
+
+    if (!targetHandle && !targetGroupId) return;
+
+    const originalSender = message.senderHandle || 'Unknown';
+    const forwardedText = message.text || '';
+    const forwardedAttachment = message.attachment;
+
+    await handleSendMessage(
+      forwardedText,
+      forwardedAttachment,
+      undefined,
+      targetHandle || undefined,
+      targetGroupId,
+      true,
+      originalSender
+    );
+
+    setToast({
+      senderHandle: targetGroup ? targetGroup.name : (targetUser?.handle || 'Recipient'),
+      senderAvatar: targetGroup ? targetGroup.avatar : (targetUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'),
+      text: `↪ Forwarded message from ${originalSender}`,
+      groupId: targetGroupId,
+    });
   };
 
   // Edit Message
@@ -1002,6 +1060,10 @@ export default function App() {
               messages={messages}
               currentUserId={currentUser.id}
               currentUserHandle={currentUser.handle}
+              currentUser={currentUser}
+              allUsers={allUsers}
+              allGroups={userGroups}
+              onlineHandles={onlineHandles}
               isMuted={isSelectedUserMuted}
               isTyping={isCurrentContactTyping}
               isFriend={isSelectedUserInFriends}
@@ -1026,6 +1088,7 @@ export default function App() {
               }}
               onToggleBlock={() => selectedUser && handleToggleBlock(selectedUser.handle)}
               onSendMessage={handleSendMessage}
+              onForwardMessage={handleForwardMessage}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
               onToggleReaction={handleToggleReaction}

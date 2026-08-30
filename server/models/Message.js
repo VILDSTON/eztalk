@@ -59,6 +59,14 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isForwarded: {
+      type: Boolean,
+      default: false,
+    },
+    forwardedFrom: {
+      type: String,
+      default: null,
+    },
     timestamp: {
       type: String,
       default: 'Sent PM',

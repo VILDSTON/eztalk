@@ -57,6 +57,8 @@ export interface Message {
   reactions?: Record<string, string[]>; // emoji -> array of handles
   isEdited?: boolean;
   isDeleted?: boolean;
+  isForwarded?: boolean;
+  forwardedFrom?: string;
   createdAt?: string;
 }
 

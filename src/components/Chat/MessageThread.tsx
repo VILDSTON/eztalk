@@ -12,6 +12,7 @@ interface MessageThreadProps {
   isTyping?: boolean;
   recipientHandle?: string;
   onReply?: (quoted: QuotedMessage) => void;
+  onForward?: (message: Message) => void;
   onEdit?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -65,6 +66,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   isTyping = false,
   recipientHandle,
   onReply,
+  onForward,
   onEdit,
   onDelete,
   onToggleReaction,
@@ -162,6 +164,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                     currentUserHandle={currentUserHandle}
                     isGroupChat={isGroupChat}
                     onReply={onReply}
+                    onForward={onForward}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onToggleReaction={onToggleReaction}
