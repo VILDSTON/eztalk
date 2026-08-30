@@ -10,6 +10,7 @@ interface ChatMenuDropdownProps {
   onViewProfile: () => void;
   onToggleMute?: () => void;
   onToggleBlock?: () => void;
+  onExportChat?: () => void;
   onClearChat: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
@@ -24,6 +25,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   onViewProfile,
   onToggleMute,
   onToggleBlock,
+  onExportChat,
   onClearChat,
   onRemoveFriend,
   onAddFriend,
@@ -86,10 +88,13 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
 
       <button
         type="button"
-        onClick={onClose}
+        onClick={() => {
+          if (onExportChat) onExportChat();
+          onClose();
+        }}
         className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
       >
-        <Download className="w-4 h-4 text-ez-muted" />
+        <Download className="w-4 h-4 text-neon-green" />
         <span>Export Chat History</span>
       </button>
 

@@ -12,6 +12,7 @@ interface ChatHeaderProps {
   isFriend?: boolean;
   isBlocked?: boolean;
   isOnline?: boolean;
+  isTyping?: boolean;
   isSavedMessages?: boolean;
   onBack?: () => void;
   onSearchChange?: (query: string) => void;
@@ -32,6 +33,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isFriend = true,
   isBlocked = false,
   isOnline = false,
+  isTyping = false,
   isSavedMessages = false,
   onBack,
   onSearchChange,
@@ -47,6 +49,38 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleExportChat = () => {
+    if (!messages || messages.length === 0) {
+      alert('No messages to export.');
+      return;
+    }
+    const lines = [
+      `=== EzTalk Chat History: ${user ? user.name || user.handle : group ? group.name : 'Chat'} ===`,
+      `Exported at: ${new Date().toLocaleString()}`,
+      `Total Messages: ${messages.length}`,
+      '-------------------------------------------------------',
+      '',
+    ];
+    messages.forEach((m) => {
+      const time = m.createdAt ? new Date(m.createdAt).toLocaleString() : m.timestamp || 'Just now';
+      const sender = m.senderHandle || 'User';
+      const text = m.text || '';
+      const att = m.attachment ? ` [Attachment: ${m.attachment.name} (${m.attachment.type})]` : '';
+      const reply = m.replyTo ? ` (Replying to: "${m.replyTo.text}")` : '';
+      lines.push(`[${time}] ${sender}${reply}: ${text}${att}`);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filename = user ? `eztalk_chat_${user.handle.replace('@', '')}_${Date.now()}.txt` : `eztalk_chat_${Date.now()}.txt`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
@@ -235,12 +269,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className={`text-[11px] font-mono leading-tight ${
                   isBlocked
                     ? 'text-rose-400 font-semibold'
+                    : isTyping
+                    ? 'text-neon-green font-bold animate-pulse'
                     : isOnline
                     ? 'text-neon-green font-medium'
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? 'blocked' : isOnline ? 'online' : 'offline'}
+                {isBlocked ? 'blocked' : isTyping ? 'typing...' : isOnline ? 'online' : 'offline'}
               </span>
             </div>
           </div>
@@ -292,6 +328,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               if (onToggleBlock) onToggleBlock();
               setIsMenuOpen(false);
             }}
+            onExportChat={handleExportChat}
             onClearChat={() => {
               if (onClearChat) onClearChat();
               setIsMenuOpen(false);

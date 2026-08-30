@@ -291,6 +291,14 @@ export default function App() {
 
       if (!isForGroup && !isForMe) return;
 
+      // Ensure active chats list includes this direct conversation
+      if (!isForGroup) {
+        const otherHandle = sHandle === myHandle ? rHandle : sHandle;
+        if (otherHandle) {
+          setActiveChatHandles((prev) => [...new Set([...prev, otherHandle])]);
+        }
+      }
+
       // Update unread count if message is not sent by current user and chat is not open
       const isCurrentChatOpen = isForGroup
         ? selectedGroupIdRef.current === newMsg.groupId

@@ -97,6 +97,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isFriend={isFriend}
         isBlocked={isBlocked}
         isOnline={isOnline}
+        isTyping={isTyping}
         isSavedMessages={isSavedMessages}
         onBack={onBack}
         onSearchChange={(q) => setInChatSearchQuery(q)}

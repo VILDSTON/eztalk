@@ -496,6 +496,26 @@ export const CallModal: React.FC<CallModalProps> = ({
     socketService.endCall(currentUser.handle, user.handle);
     setCallState('ended');
 
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
     const info: CallInfo = {
       type: isInitiator ? 'outgoing' : 'incoming',
       duration: durationRef.current,

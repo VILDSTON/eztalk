@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Online', 'Offline'],
+      enum: ['Online', 'Offline', 'Away', 'Busy'],
       default: 'Online',
     },
     statusEmoji: {
@@ -50,15 +50,39 @@ const userSchema = new mongoose.Schema(
     },
     accentColor: {
       type: String,
-      default: '#00ff73',
+      default: '#10B981',
     },
     theme: {
       type: String,
-      default: 'dark',
+      default: 'neon',
     },
     soundNotifications: {
       type: Boolean,
       default: true,
+    },
+    desktopNotifications: {
+      type: Boolean,
+      default: true,
+    },
+    floatingToasts: {
+      type: Boolean,
+      default: true,
+    },
+    callRingtones: {
+      type: Boolean,
+      default: true,
+    },
+    enterToSend: {
+      type: Boolean,
+      default: true,
+    },
+    compactMode: {
+      type: Boolean,
+      default: false,
+    },
+    settings: {
+      type: Object,
+      default: {},
     },
     bio: {
       type: String,

@@ -127,7 +127,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       };
 
       return () => {
+        audio.ontimeupdate = null;
+        audio.onended = null;
+        audio.onerror = null;
         audio.pause();
+        audio.src = '';
         audioRef.current = null;
       };
     }
