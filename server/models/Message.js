@@ -67,6 +67,7 @@ const messageSchema = new mongoose.Schema(
     forwardedFrom: {
       type: String,
       default: null,
+    },
     isSecret: {
       type: Boolean,
       default: false,
