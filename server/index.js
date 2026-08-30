@@ -476,7 +476,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
       const updated = await UserModel.findOneAndUpdate(
         query,
         { $set: updateData },
-        { new: true, upsert: true }
+        { returnDocument: 'after', upsert: true }
       ).lean();
 
       const formatted = formatUser(updated);
@@ -818,7 +818,7 @@ app.put('/api/messages/:id', async (req, res) => {
       const updated = await MessageModel.findOneAndUpdate(
         { id },
         { $set: { text: encryptedText, isEdited: true } },
-        { new: true }
+        { returnDocument: 'after' }
       ).lean();
       io.emit('message_edited', { id, text, isEdited: true });
       res.json({ message: formatMessage(updated) });
