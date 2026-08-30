@@ -165,7 +165,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="w-screen h-screen bg-ez-base flex items-center justify-center p-4 relative overflow-y-auto select-none font-sans custom-scrollbar">
+    <div className="w-full min-h-[100dvh] h-[100dvh] bg-ez-base flex items-center justify-center p-4 relative overflow-y-auto select-none font-sans custom-scrollbar">
       {/* Hidden file input for custom avatar */}
       <input
         type="file"

@@ -62,7 +62,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   // ─── Group Header ───
   if (group) {
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
         <div className="flex items-center space-x-3 cursor-pointer min-w-0">
           {onBack && (
             <button
@@ -110,7 +110,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   // ─── Saved Messages Header ───
   if (isSavedMessages) {
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
         <div className="flex items-center space-x-3 min-w-0">
           {onBack && (
             <button
@@ -135,7 +135,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   if (!user) {
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
         <div className="flex items-center space-x-3 cursor-pointer min-w-0">
           {onBack && (
             <button
@@ -160,7 +160,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   return (
     <>
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none relative z-20 font-sans shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
         {showSearch ? (
           <div className="flex-1 flex items-center space-x-2 mr-2 animate-fade-in">
             <Search className="w-4 h-4 text-ez-muted shrink-0" />

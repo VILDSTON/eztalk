@@ -164,7 +164,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         </div>
 
         {/* ─── Chat & Contact Stream ─── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-0.5">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 pb-28 space-y-0.5">
           {/* Saved Messages */}
           {activeTab === 'all' && !searchQuery && currentUser && (
             <div
@@ -347,7 +347,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         </div>
 
         {/* ─── FAB Button ─── */}
-        <div className="absolute bottom-6 right-5 sm:bottom-5 sm:right-5 z-30">
+        <div className="absolute bottom-8 right-5 sm:bottom-6 sm:right-6 pb-[env(safe-area-inset-bottom,0px)] z-40">
           {showFabMenu && (
             <div className="absolute bottom-16 right-0 bg-ez-elevated border border-ez-border p-2 rounded-2xl shadow-glass-lg space-y-1 w-44 animate-scale-up">
               <button

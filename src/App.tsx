@@ -794,7 +794,7 @@ export default function App() {
   }
 
   return (
-    <div className="w-full h-screen h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
+    <div className="w-full h-full min-h-[100dvh] h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
       {/* Top Right In-App Notification Toast */}
       {toast && (
         <div
