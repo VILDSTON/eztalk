@@ -3,50 +3,42 @@
 class CallSoundService {
   private activeCtx: AudioContext | null = null;
   private activeGain: GainNode | null = null;
-  private activeOscillators: OscillatorNode[] = [];
   private ringInterval: ReturnType<typeof setInterval> | null = null;
-  private ringTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  private getContext(): AudioContext {
-    if (!this.activeCtx || this.activeCtx.state === 'closed') {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.activeCtx = new AudioCtx();
-    }
-    if (this.activeCtx.state === 'suspended') {
-      this.activeCtx.resume().catch(() => {});
-    }
-    return this.activeCtx;
-  }
 
   // Play incoming phone ringing tone (440Hz + 480Hz dual cadence)
   public playIncoming() {
     this.stopAll();
     try {
-      const playBeep = () => {
-        try {
-          const ctx = this.getContext();
-          const now = ctx.currentTime;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      this.activeCtx = ctx;
 
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+      this.activeGain = masterGain;
+
+      const playBeep = () => {
+        if (!this.activeCtx || this.activeCtx.state === 'closed' || !this.activeGain) return;
+        try {
+          const now = ctx.currentTime;
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          this.activeGain = gain;
-          this.activeOscillators = [osc1, osc2];
+          const beepGain = ctx.createGain();
 
           osc1.type = 'sine';
           osc2.type = 'sine';
           osc1.frequency.setValueAtTime(440, now);
           osc2.frequency.setValueAtTime(480, now);
 
-          gain.gain.setValueAtTime(0.08, now);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+          beepGain.gain.setValueAtTime(1.0, now);
+          beepGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(ctx.destination);
+          osc1.connect(beepGain);
+          osc2.connect(beepGain);
+          beepGain.connect(masterGain);
 
           osc1.start(now);
           osc2.start(now);
@@ -68,29 +60,36 @@ class CallSoundService {
   public playOutgoing() {
     this.stopAll();
     try {
-      const playRing = () => {
-        try {
-          const ctx = this.getContext();
-          const now = ctx.currentTime;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      this.activeCtx = ctx;
 
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+      this.activeGain = masterGain;
+
+      const playRing = () => {
+        if (!this.activeCtx || this.activeCtx.state === 'closed' || !this.activeGain) return;
+        try {
+          const now = ctx.currentTime;
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          this.activeGain = gain;
-          this.activeOscillators = [osc1, osc2];
+          const ringGain = ctx.createGain();
 
           osc1.type = 'sine';
           osc2.type = 'sine';
           osc1.frequency.setValueAtTime(440, now);
           osc2.frequency.setValueAtTime(480, now);
 
-          gain.gain.setValueAtTime(0.08, now);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+          ringGain.gain.setValueAtTime(1.0, now);
+          ringGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(ctx.destination);
+          osc1.connect(ringGain);
+          osc2.connect(ringGain);
+          ringGain.connect(masterGain);
 
           osc1.start(now);
           osc2.start(now);
@@ -116,35 +115,20 @@ class CallSoundService {
     this.stopAll();
   }
 
-  // Instantly cut all sound, stop all oscillators, mute gain to 0, clear timers, and close context
+  // Instantly cut all sound, mute master gain to 0, clear timers, suspend, and close context
   public stopAll() {
     if (this.ringInterval) {
       clearInterval(this.ringInterval);
       this.ringInterval = null;
     }
-    if (this.ringTimeout) {
-      clearTimeout(this.ringTimeout);
-      this.ringTimeout = null;
-    }
-
-    // Stop active oscillators immediately
-    if (this.activeOscillators.length > 0) {
-      this.activeOscillators.forEach((osc) => {
-        try {
-          osc.stop();
-          osc.disconnect();
-        } catch {
-          // already stopped
-        }
-      });
-      this.activeOscillators = [];
-    }
 
     // Cut gain instantly to 0 and disconnect
     if (this.activeGain) {
       try {
+        const ctx = this.activeCtx;
+        const now = ctx ? ctx.currentTime : 0;
         this.activeGain.gain.cancelScheduledValues(0);
-        this.activeGain.gain.setValueAtTime(0, 0);
+        this.activeGain.gain.setValueAtTime(0, now);
         this.activeGain.disconnect();
       } catch {
         // ignore
@@ -154,14 +138,16 @@ class CallSoundService {
 
     // Close AudioContext completely to ensure zero audio leaks
     if (this.activeCtx) {
+      const ctx = this.activeCtx;
+      this.activeCtx = null;
       try {
-        if (this.activeCtx.state !== 'closed') {
-          this.activeCtx.close().catch(() => {});
+        ctx.suspend().catch(() => {});
+        if (ctx.state !== 'closed') {
+          ctx.close().catch(() => {});
         }
       } catch {
         // ignore
       }
-      this.activeCtx = null;
     }
   }
 }

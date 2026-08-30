@@ -328,6 +328,8 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (isInitiator) {
         callSoundService.playOutgoing();
         socketService.sendCall(currentUser, user.handle);
+      } else {
+        callSoundService.stopAll();
       }
     } catch {
       alert('Could not access microphone for voice call. Note: Microphones require HTTPS or localhost in modern browsers.');
@@ -337,6 +339,10 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+
+    if (!isInitiator) {
+      callSoundService.stopAll();
+    }
 
     startCall();
 
@@ -543,7 +549,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           {callState === 'calling' ? (
             <span className="text-xs font-bold text-gray-400 animate-pulse flex items-center space-x-1.5">
               <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
-              <span>Calling...</span>
+              <span>{isInitiator ? 'Calling...' : 'Connecting...'}</span>
             </span>
           ) : callState === 'connected' ? (
             <div className="flex flex-col items-center space-y-2">
