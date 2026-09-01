@@ -400,7 +400,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <>
       <div
-        className={`relative flex flex-col mb-1.5 max-w-full ${
+        className={`group/bubble relative flex flex-col mb-1.5 max-w-full ${
           isMe ? 'items-end' : 'items-start'
         } animate-fade-in font-sans`}
         onContextMenu={handleContextMenu}
@@ -477,6 +477,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </button>
           )}
 
+          {/* Quick Edit */}
+          {isMe && message.text && (
+            <button
+              type="button"
+              onClick={triggerEdit}
+              className="p-1 rounded-full text-ez-muted hover:text-amber-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+              title="Edit"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Quick Delete */}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={triggerDelete}
+              className="p-1 rounded-full text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 cursor-pointer"
+              title="Delete"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {/* More Options */}
           <button
             type="button"
@@ -528,7 +552,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`group/bubble relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             isMe
