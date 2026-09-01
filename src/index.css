@@ -234,3 +234,25 @@ html, body, #root {
   pointer-events: none;
 }
 
+/* ─── Mobile Bottom Sheet Animation & Safe Inset ─── */
+@keyframes slideUpBottomSheet {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-sheet {
+  animation: slideUpBottomSheet 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+}
+
+

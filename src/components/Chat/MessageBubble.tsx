@@ -22,6 +22,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { MobileMessageActionSheet } from './MobileMessageActionSheet';
 
 interface MessageBubbleProps {
   message: Message;
@@ -69,6 +70,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Mobile Bottom Sheet State (< 640px)
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+
   // Mobile Swipe-to-Reply Gesture State (Touch Only)
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -76,7 +80,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isHorizontalSwipeRef = useRef(false);
   const hasHaptickedRef = useRef(false);
 
-  // Context Menu State (Desktop Right-Click & Mobile Long-Press)
+  // Desktop Context Menu State (>= 640px)
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,21 +101,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const timeString = formatTelegramTime(message.createdAt, message.timestamp);
 
-  // Close context menu on outside click or scroll
+  // Close context menu on outside click, scroll, or Escape
   useEffect(() => {
     const handleClose = () => {
       setContextMenuPos(null);
       setShowEmojiMenu(false);
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
     if (contextMenuPos) {
       window.addEventListener('click', handleClose);
       window.addEventListener('scroll', handleClose, true);
+      window.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       window.removeEventListener('click', handleClose);
       window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [contextMenuPos]);
+
 
   // Audio Playback Lifecycle
   useEffect(() => {
@@ -221,9 +233,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           navigator.vibrate(20);
         } catch {}
       }
-      const x = Math.min(window.innerWidth - 210, Math.max(10, touch.clientX));
-      const y = Math.min(window.innerHeight - 280, Math.max(10, touch.clientY));
-      setContextMenuPos({ x, y });
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setIsMobileSheetOpen(true);
+      } else {
+        const menuWidth = 220;
+        const menuHeight = 280;
+        let x = touch.clientX;
+        let y = touch.clientY;
+        if (x + menuWidth > window.innerWidth - 12) {
+          x = Math.max(12, window.innerWidth - menuWidth - 12);
+        } else {
+          x = Math.max(12, x);
+        }
+        if (y + menuHeight > window.innerHeight - 12) {
+          y = Math.max(12, y - menuHeight);
+        } else {
+          y = Math.max(12, y);
+        }
+        setContextMenuPos({ x, y });
+      }
     }, 450);
   };
 
@@ -286,21 +315,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const x = Math.min(window.innerWidth - 210, Math.max(10, e.clientX));
-    const y = Math.min(window.innerHeight - 280, Math.max(10, e.clientY));
-    setContextMenuPos({ x, y });
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      setIsMobileSheetOpen(true);
+    } else {
+      const menuWidth = 220;
+      const menuHeight = 280;
+      let x = e.clientX;
+      let y = e.clientY;
+      if (x + menuWidth > window.innerWidth - 12) {
+        x = Math.max(12, window.innerWidth - menuWidth - 12);
+      } else {
+        x = Math.max(12, x);
+      }
+      if (y + menuHeight > window.innerHeight - 12) {
+        y = Math.max(12, y - menuHeight);
+      } else {
+        y = Math.max(12, y);
+      }
+      setContextMenuPos({ x, y });
+    }
   };
 
   // Copy Message Text
   const handleCopyText = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const content = message.text || message.attachment?.url || '';
+    const content = message.text || message.attachment?.url || message.attachment?.name || '';
     if (content) {
       navigator.clipboard.writeText(content).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     }
     setContextMenuPos(null);
+    setIsMobileSheetOpen(false);
   };
 
   const triggerReply = (e?: React.MouseEvent) => {
@@ -313,6 +360,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       });
     }
     setContextMenuPos(null);
+    setIsMobileSheetOpen(false);
   };
 
   const triggerForward = (e?: React.MouseEvent) => {
@@ -320,19 +368,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (message.forwardRestricted || message.isSecret) return;
     if (onForward) onForward(message);
     setContextMenuPos(null);
+    setIsMobileSheetOpen(false);
   };
 
   const triggerEdit = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (onEdit) onEdit(message);
     setContextMenuPos(null);
+    setIsMobileSheetOpen(false);
   };
 
   const triggerDelete = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (onDelete) onDelete(message.id);
     setContextMenuPos(null);
+    setIsMobileSheetOpen(false);
   };
+
 
   const handleMediaClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -430,11 +482,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setContextMenuPos({
-                x: Math.min(window.innerWidth - 210, rect.left),
-                y: Math.min(window.innerHeight - 280, rect.bottom + 5),
-              });
+              const isMobile = window.innerWidth < 640;
+              if (isMobile) {
+                setIsMobileSheetOpen(true);
+              } else {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const menuWidth = 220;
+                const menuHeight = 280;
+                let x = rect.left;
+                let y = rect.bottom + 5;
+                if (x + menuWidth > window.innerWidth - 12) {
+                  x = Math.max(12, window.innerWidth - menuWidth - 12);
+                } else {
+                  x = Math.max(12, x);
+                }
+                if (y + menuHeight > window.innerHeight - 12) {
+                  y = Math.max(12, rect.top - menuHeight - 5);
+                } else {
+                  y = Math.max(12, y);
+                }
+                setContextMenuPos({ x, y });
+              }
             }}
             className="p-1 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
             title="More actions"
@@ -660,25 +728,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
 
-        {/* Floating Context Menu (Right-Click & Mobile Long-Press) */}
+        {/* Floating Context Menu (Desktop Right-Click >= 640px) */}
         {contextMenuPos && (
           <div
-            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-52 select-none"
+            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-56 select-none"
             style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Quick Reactions Bar in Context Menu */}
             <div className="flex items-center justify-between px-1 py-1 bg-white/[0.04] rounded-xl border border-white/5 mb-1">
-              {EMOJI_OPTIONS.slice(0, 6).map((emoji) => (
+              {EMOJI_OPTIONS.slice(0, 7).map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if ('vibrate' in navigator) {
+                      try {
+                        navigator.vibrate(15);
+                      } catch {}
+                    }
                     if (onToggleReaction) onToggleReaction(message.id, emoji);
                     setContextMenuPos(null);
                   }}
-                  className="p-1 hover:scale-125 transition-transform duration-100 text-base cursor-pointer"
+                  className="p-1 hover:scale-125 active:scale-130 transition-transform duration-100 text-base cursor-pointer rounded-lg hover:bg-white/10"
                 >
                   {emoji}
                 </button>
@@ -688,7 +761,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <button
               type="button"
               onClick={triggerReply}
-              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
             >
               <CornerUpLeft className="w-4 h-4 text-neon-green" />
               <span className="font-medium">Reply</span>
@@ -698,46 +771,66 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <button
                 type="button"
                 onClick={triggerForward}
-                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
               >
                 <CornerUpRight className="w-4 h-4 text-neon-green" />
                 <span className="font-medium">Forward</span>
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={handleCopyText}
-              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
-              <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
-            </button>
+            {(message.text || message.attachment?.url || message.attachment?.name) && (
+              <button
+                type="button"
+                onClick={handleCopyText}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
+              >
+                {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
+                <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
+              </button>
+            )}
 
             {isMe && message.text && (
               <button
                 type="button"
                 onClick={triggerEdit}
-                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
               >
                 <Edit2 className="w-4 h-4 text-amber-400" />
                 <span className="font-medium">Edit</span>
               </button>
             )}
 
-            <div className="h-px bg-ez-border/50 my-1" />
-
-            <button
-              type="button"
-              onClick={triggerDelete}
-              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="font-medium">Delete Message</span>
-            </button>
+            {onDelete && (
+              <>
+                <div className="h-px bg-ez-border/50 my-1" />
+                <button
+                  type="button"
+                  onClick={triggerDelete}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="font-medium">Delete Message</span>
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Mobile Bottom Sheet (< 640px) */}
+      <MobileMessageActionSheet
+        isOpen={isMobileSheetOpen}
+        message={message}
+        isMe={isMe}
+        copied={copied}
+        onClose={() => setIsMobileSheetOpen(false)}
+        onReply={() => triggerReply()}
+        onForward={!message.forwardRestricted && !message.isSecret ? () => triggerForward() : undefined}
+        onCopy={() => handleCopyText()}
+        onEdit={isMe && Boolean(message.text) ? () => triggerEdit() : undefined}
+        onDelete={onDelete ? () => triggerDelete() : undefined}
+        onToggleReaction={onToggleReaction ? (emoji) => onToggleReaction(message.id, emoji) : undefined}
+      />
     </>
   );
 };
