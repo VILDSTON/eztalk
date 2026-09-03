@@ -23,6 +23,26 @@ export function normalizeUser(user: any): User {
   };
 }
 
+// Хелпер для безопасного парсинга JSON и обработки 502/504/CORS ошибок
+async function handleResponse(res: Response, fallbackError: string) {
+  let data: any = {};
+  try {
+    data = await res.json();
+  } catch {
+    data = { error: `Server error (${res.status})` };
+  }
+  if (!res.ok) throw new Error(data.error || fallbackError);
+  return data;
+}
+
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('eztalk_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export class ApiService {
   // Login with identifier and password
   static async login(identifier: string, password?: string): Promise<User> {
@@ -31,9 +51,15 @@ export class ApiService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
-    return normalizeUser(data.user);
+    const data = await handleResponse(res, 'Login failed');
+    if (data.token) {
+      localStorage.setItem('eztalk_token', data.token);
+    }
+    const user = normalizeUser(data.user);
+    if (data.token && user) {
+      (user as any).token = data.token;
+    }
+    return user;
   }
 
   // Register new user with password
@@ -43,15 +69,23 @@ export class ApiService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
-    return normalizeUser(data.user);
+    const data = await handleResponse(res, 'Registration failed');
+    if (data.token) {
+      localStorage.setItem('eztalk_token', data.token);
+    }
+    const newUser = normalizeUser(data.user);
+    if (data.token && newUser) {
+      (newUser as any).token = data.token;
+    }
+    return newUser;
   }
 
   // Fetch all registered users
   static async getUsers(): Promise<User[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/users`);
+      const res = await fetch(`${API_BASE_URL}/users`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return (data.users || []).map(normalizeUser);
     } catch {
@@ -63,7 +97,9 @@ export class ApiService {
   static async getUserByHandle(handle: string): Promise<User | null> {
     try {
       const clean = encodeURIComponent(handle.trim().toLowerCase());
-      const res = await fetch(`${API_BASE_URL}/users/by-handle/${clean}`);
+      const res = await fetch(`${API_BASE_URL}/users/by-handle/${clean}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.user ? normalizeUser(data.user) : null;
     } catch {
@@ -75,7 +111,9 @@ export class ApiService {
   static async getProfile(handleOrId: string): Promise<User | null> {
     try {
       const clean = encodeURIComponent(handleOrId.trim());
-      const res = await fetch(`${API_BASE_URL}/users/profile?handle=${clean}`);
+      const res = await fetch(`${API_BASE_URL}/users/profile?handle=${clean}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.user ? normalizeUser(data.user) : null;
     } catch {
@@ -87,21 +125,24 @@ export class ApiService {
   static async updateProfile(user: User, oldHandle?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/users/profile`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ ...user, oldHandle: oldHandle || user.handle }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+    const data = await handleResponse(res, 'Failed to update profile');
     return normalizeUser(data.user || user);
   }
 
   // Block / Unblock user
-  static async toggleBlockUser(userHandle: string, targetHandle: string, action: 'block' | 'unblock' | 'toggle' = 'toggle'): Promise<string[]> {
+  static async toggleBlockUser(
+    userHandle: string,
+    targetHandle: string,
+    action: 'block' | 'unblock' | 'toggle' = 'toggle'
+  ): Promise<string[]> {
     try {
       const cleanU = encodeURIComponent(userHandle.trim().toLowerCase());
       const res = await fetch(`${API_BASE_URL}/users/${cleanU}/block`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ targetHandle, action }),
       });
       const data = await res.json();
@@ -111,13 +152,17 @@ export class ApiService {
     }
   }
 
-  // Add / Remove / Toggle Friend (Persisted across devices)
-  static async toggleFriend(userHandle: string, targetHandle: string, action: 'add' | 'remove' | 'toggle' = 'toggle'): Promise<string[]> {
+  // Add / Remove / Toggle Friend
+  static async toggleFriend(
+    userHandle: string,
+    targetHandle: string,
+    action: 'add' | 'remove' | 'toggle' = 'toggle'
+  ): Promise<string[]> {
     try {
       const cleanU = encodeURIComponent(userHandle.trim().toLowerCase());
       const res = await fetch(`${API_BASE_URL}/users/${cleanU}/friends`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ targetHandle, action }),
       });
       const data = await res.json();
@@ -132,7 +177,9 @@ export class ApiService {
     try {
       const cleanH1 = encodeURIComponent(handle1.trim().toLowerCase());
       const cleanH2 = encodeURIComponent(handle2.trim().toLowerCase());
-      const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}`);
+      const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.messages || [];
     } catch {
@@ -144,7 +191,9 @@ export class ApiService {
   static async getRecentConversations(handle: string): Promise<Record<string, Message>> {
     try {
       const clean = encodeURIComponent(handle.trim().toLowerCase());
-      const res = await fetch(`${API_BASE_URL}/conversations/recent/${clean}`);
+      const res = await fetch(`${API_BASE_URL}/conversations/recent/${clean}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.recent || {};
     } catch {
@@ -155,7 +204,9 @@ export class ApiService {
   // Fetch messages for a group
   static async getGroupMessages(groupId: string): Promise<Message[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/groups/${groupId}/messages`);
+      const res = await fetch(`${API_BASE_URL}/groups/${groupId}/messages`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.messages || [];
     } catch {
@@ -178,8 +229,9 @@ export class ApiService {
     isSecret?: boolean,
     forwardRestricted?: boolean
   ): Promise<Message> {
+    const nowIso = new Date().toISOString();
     const payload = {
-      id,
+      id: id || `msg_${Date.now()}`,
       senderHandle,
       recipientHandle,
       groupId,
@@ -191,34 +243,25 @@ export class ApiService {
       forwardedFrom,
       isSecret,
       forwardRestricted,
-      timestamp: 'Sent PM',
+      createdAt: nowIso,
     };
+
     try {
       const res = await fetch(`${API_BASE_URL}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await handleResponse(res, 'Failed to send message');
       return data.message;
-    } catch {
+    } catch (err) {
+      // Возвращаем объект со статусом 'failed', чтобы UI мог показать иконку повтора
       return {
-        id: id || `msg_${Date.now()}`,
+        ...payload,
         senderId: senderHandle,
-        senderHandle,
         recipientHandle: recipientHandle || undefined,
-        groupId,
-        text,
-        attachment,
-        replyTo,
-        callInfo,
-        isForwarded,
-        forwardedFrom,
-        isSecret,
-        forwardRestricted,
-        status: 'sent',
-        timestamp: 'Sent PM',
-      };
+        status: 'failed',
+      } as Message;
     }
   }
 
@@ -227,7 +270,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/messages/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ text }),
       });
       const data = await res.json();
@@ -242,6 +285,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/messages/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       return res.ok;
     } catch {
@@ -254,7 +298,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/messages/${id}/reaction`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ emoji, userHandle }),
       });
       const data = await res.json();
@@ -267,7 +311,9 @@ export class ApiService {
   // Get all groups
   static async getGroups(): Promise<Group[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/groups`);
+      const res = await fetch(`${API_BASE_URL}/groups`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       return data.groups || [];
     } catch {
@@ -279,11 +325,10 @@ export class ApiService {
   static async createGroup(name: string, avatar: string, creatorHandle: string, memberHandles: string[]): Promise<Group> {
     const res = await fetch(`${API_BASE_URL}/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ name, avatar, creatorHandle, memberHandles }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to create group');
+    const data = await handleResponse(res, 'Failed to create group');
     return data.group;
   }
 
@@ -292,6 +337,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       return res.ok;
     } catch {
@@ -304,7 +350,7 @@ export class ApiService {
     try {
       const res = await fetch(`${API_BASE_URL}/messages/clear`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ handle1, handle2, groupId }),
       });
       return res.ok;

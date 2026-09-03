@@ -13,6 +13,9 @@ import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
 import { encryptMessage, decryptMessage } from './utils/crypto.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
 
 // Force Google Public DNS for reliable MongoDB Atlas SRV resolution
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -282,7 +285,12 @@ app.post('/api/auth/login', async (req, res) => {
       }
     }
 
-    return res.json({ user: formatUser(user) });
+    const token = jwt.sign(
+      { id: user.id || user._id, handle: user.handle },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+    return res.json({ user: formatUser(user), token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -316,7 +324,12 @@ app.post('/api/auth/register', async (req, res) => {
       });
       const formatted = formatUser(user);
       io.emit('user_registered', formatted);
-      return res.json({ user: formatted });
+      const token = jwt.sign(
+        { id: user.id || user._id, handle: user.handle },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      return res.json({ user: formatted, token });
     } else {
       const db = readLocalDB();
       const existing = db.users.find((u) => u.handle.toLowerCase() === cleanHandle);
@@ -338,7 +351,12 @@ app.post('/api/auth/register', async (req, res) => {
       writeLocalDB(db);
       const formatted = formatUser(user);
       io.emit('user_registered', formatted);
-      return res.json({ user: formatted });
+      const token = jwt.sign(
+        { id: user.id || user._id, handle: user.handle },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      return res.json({ user: formatted, token });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
