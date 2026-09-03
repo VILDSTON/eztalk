@@ -69,17 +69,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   const [customStatusText, setCustomStatusText] = useState(currentUser.customStatusText || '');
 
   // Notifications State
-  const [soundEnabled, setSoundEnabled] = useState(currentUser.soundNotifications !== false);
+  const [soundEnabled, setSoundEnabled] = useState(currentUser.settings?.soundNotifications !== false);
   const [desktopNotificationsEnabled, setDesktopNotificationsEnabled] = useState(
-    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && currentUser.desktopNotifications !== false
+    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && currentUser.settings?.desktopNotifications !== false
   );
-  const [floatingToastsEnabled, setFloatingToastsEnabled] = useState(currentUser.floatingToasts !== false);
-  const [callRingtoneEnabled, setCallRingtoneEnabled] = useState(currentUser.callRingtones !== false);
+  const [floatingToastsEnabled, setFloatingToastsEnabled] = useState(currentUser.settings?.floatingToasts !== false);
+  const [callRingtoneEnabled, setCallRingtoneEnabled] = useState(currentUser.settings?.callRingtones !== false);
 
   // Appearance State
-  const [selectedAccent, setSelectedAccent] = useState(currentUser.theme || 'neon');
-  const [compactMode, setCompactMode] = useState(Boolean(currentUser.compactMode));
-  const [enterToSend, setEnterToSend] = useState(currentUser.enterToSend !== false);
+  const [selectedAccent, setSelectedAccent] = useState(currentUser.theme || currentUser.settings?.theme || 'neon');
+  const [compactMode, setCompactMode] = useState(Boolean(currentUser.settings?.compactMode));
+  const [enterToSend, setEnterToSend] = useState(currentUser.settings?.enterToSend !== false);
 
   // Storage & Cache State
   const [usedStorageMB, setUsedStorageMB] = useState('0.00');
@@ -121,16 +121,16 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       setStatusEmoji(currentUser.statusEmoji || '🚀');
       setCustomStatusText(currentUser.customStatusText || '');
 
-      setSoundEnabled(currentUser.soundNotifications !== false);
+      setSoundEnabled(currentUser.settings?.soundNotifications !== false);
       const isGranted = typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
-      setDesktopNotificationsEnabled(isGranted && currentUser.desktopNotifications !== false);
-      setFloatingToastsEnabled(currentUser.floatingToasts !== false);
-      setCallRingtoneEnabled(currentUser.callRingtones !== false);
+      setDesktopNotificationsEnabled(isGranted && currentUser.settings?.desktopNotifications !== false);
+      setFloatingToastsEnabled(currentUser.settings?.floatingToasts !== false);
+      setCallRingtoneEnabled(currentUser.settings?.callRingtones !== false);
 
-      const themeId = currentUser.theme || 'neon';
+      const themeId = currentUser.theme || currentUser.settings?.theme || 'neon';
       setSelectedAccent(themeId);
-      setCompactMode(Boolean(currentUser.compactMode));
-      setEnterToSend(currentUser.enterToSend !== false);
+      setCompactMode(Boolean(currentUser.settings?.compactMode));
+      setEnterToSend(currentUser.settings?.enterToSend !== false);
 
       setSavedSuccess(false);
       calculateStorage();
@@ -176,12 +176,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       customStatusText: customStatusText.trim(),
       accentColor: selectedColor,
       theme: selectedAccent,
-      soundNotifications: soundEnabled,
-      desktopNotifications: desktopNotificationsEnabled,
-      floatingToasts: floatingToastsEnabled,
-      callRingtones: callRingtoneEnabled,
-      enterToSend,
-      compactMode,
       settings: {
         soundNotifications: soundEnabled,
         desktopNotifications: desktopNotificationsEnabled,

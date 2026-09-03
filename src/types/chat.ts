@@ -25,12 +25,6 @@ export interface User {
   email?: string;
   bio?: string;
   theme?: string;
-  soundNotifications?: boolean;
-  desktopNotifications?: boolean;
-  floatingToasts?: boolean;
-  callRingtones?: boolean;
-  enterToSend?: boolean;
-  compactMode?: boolean;
   settings?: UserSettings;
   lastSeen?: string;
   friends?: string[];
@@ -40,7 +34,7 @@ export interface User {
 export interface Attachment {
   id: string;
   name: string;
-  type: 'image' | 'file' | 'audio';
+  type: 'image' | 'video' | 'file' | 'audio';
   url: string;
   size?: string;
   duration?: number;
@@ -58,6 +52,12 @@ export interface CallInfo {
   duration?: number;
 }
 
+export interface ReactionItem {
+  emoji: string;
+  count: number;
+  users: string[]; // array of handles
+}
+
 export interface Message {
   id: string;
   conversationKey?: string;
@@ -66,13 +66,13 @@ export interface Message {
   senderHandle?: string; // e.g. "@AlexR"
   recipientHandle?: string; // e.g. "@User_A"
   text: string;
-  timestamp: string; // e.g. "Sent PM", "Received"
-  status?: 'sending' | 'sent' | 'delivered' | 'read';
+  timestamp: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   timeFormatted?: string;
   attachment?: Attachment;
   replyTo?: QuotedMessage;
   callInfo?: CallInfo;
-  reactions?: Record<string, string[]>; // emoji -> array of handles
+  reactions?: ReactionItem[] | Record<string, string[]>; // Поддерживает массив ReactionItem[] и legacy Record
   isEdited?: boolean;
   isDeleted?: boolean;
   isForwarded?: boolean;
@@ -97,14 +97,12 @@ export interface Conversation {
   messages: Message[];
 }
 
-export type ActiveTab = 'eztalk' | 'google';
-
 export interface AuthState {
   isAuthenticated: boolean;
   currentUser: User | null;
 }
 
-/** Unified chat application state (documentation type) */
+/** Unified chat application state */
 export interface ChatState {
   currentUser: User | null;
   allUsers: User[];

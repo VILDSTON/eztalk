@@ -279,15 +279,15 @@ export default function App() {
   // Apply user theme and density settings
   useEffect(() => {
     if (currentUser) {
-      applyTheme(currentUser.theme || 'neon');
-      applyCompactMode(Boolean(currentUser.compactMode));
+      applyTheme(currentUser.theme || currentUser.settings?.theme || 'neon');
+      applyCompactMode(Boolean(currentUser.settings?.compactMode));
     } else {
       const savedTheme = localStorage.getItem('eztalk_theme') || 'neon';
       const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
       applyTheme(savedTheme);
       applyCompactMode(savedCompact);
     }
-  }, [currentUser?.theme, currentUser?.compactMode]);
+  }, [currentUser?.theme, currentUser?.settings?.compactMode, currentUser?.settings?.theme]);
 
   useEffect(() => {
     refreshUsersAndGroups();
@@ -405,7 +405,7 @@ export default function App() {
       // If message is from someone else and NOT muted, handle sound, desktop notifications, and floating toasts
       if (sHandle !== myHandle && !isMuted) {
         // 1. Audible Chimes: Trigger chime if enabled and chat not focused or app in background
-        if (currentUserRef.current?.soundNotifications !== false) {
+        if (currentUserRef.current?.settings?.soundNotifications !== false) {
           if (!isCurrentChatOpen || document.hidden) {
             playMessageChime();
           }
@@ -417,7 +417,7 @@ export default function App() {
         const senderId = sender?.id || sHandle;
 
         // 2. In-App Floating Toasts: Render animated floating toast if enabled and chat is NOT open
-        if (currentUserRef.current?.floatingToasts !== false && !isCurrentChatOpen) {
+        if (currentUserRef.current?.settings?.floatingToasts !== false && !isCurrentChatOpen) {
           setToast({
             id: `toast_${Date.now()}`,
             senderName: isForGroup ? `Group message` : senderName,
@@ -431,7 +431,7 @@ export default function App() {
 
         // 3. Browser Desktop Notifications: Show system toast when enabled and app in background
         if (
-          currentUserRef.current?.desktopNotifications !== false &&
+          currentUserRef.current?.settings?.desktopNotifications !== false &&
           'Notification' in window &&
           Notification.permission === 'granted' &&
           document.hidden
@@ -1372,7 +1372,7 @@ export default function App() {
         <IncomingCallModal
           caller={incomingCall.caller}
           isOpen={Boolean(incomingCall)}
-          callRingtonesEnabled={currentUser?.callRingtones !== false}
+          callRingtonesEnabled={currentUser?.settings?.callRingtones !== false}
           onAccept={() => {
             callSoundService.stopAll();
             if (currentUser) {

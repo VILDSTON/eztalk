@@ -242,7 +242,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       ) : (
         <MessageInput
-          enterToSend={currentUser?.enterToSend !== false}
+          enterToSend={currentUser?.settings?.enterToSend !== false}
           initialDraft={draftText}
           onDraftChange={onDraftChange}
           onSendMessage={(text, attachment, replyTo) => {
