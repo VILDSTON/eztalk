@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ISO Timestamps & Message Status**: Fixed legacy timestamp strings in `sendMessage` with valid ISO timestamps and proper `failed` message status on network interruptions.
 - **Sidebar FAB Placement**: Tucked the green new-chat FAB button strictly inside the sidebar container (`bottom-4 right-4`) preventing it from overflowing into the conversation canvas.
 - **Chat Types & Settings Deduplication**: Structured user preferences strictly inside `User.settings`, added `'video'` attachment type, harmonized `ReactionItem[]` with bubble rendering, and removed obsolete active tab artifacts.
+- **Web Audio & Chime Stability**: Added Safari/iOS autoplay unlock via `ctx.resume()`, shared `AudioContext` for message chimes to prevent browser resource exhaustion, and smooth 25ms gain ramp eliminating pops/clicks on cutoff.
+- **Cross-Tab Synchronization**: Hardened `liveSync.ts` with standalone `BroadcastChannel` and `localStorage` storage-event fallback for production, along with deterministic event ID deduplication.
 - **Input Bar Baseline**: Aligned attachment paperclip, input pill, emoji picker, and send/mic buttons along a shared horizontal baseline with clear `text-sm text-white` typography.
 
 ### Removed
