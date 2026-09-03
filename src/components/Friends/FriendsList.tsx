@@ -43,27 +43,27 @@ function renderMessagePreview(msg: Message, currentHandle?: string) {
   if (msg.callInfo) {
     const isMissed = msg.callInfo.type === 'missed' || msg.callInfo.type === 'declined' || msg.callInfo.type === 'canceled';
     contentNode = (
-      <span className={isMissed ? 'text-rose-400 font-medium' : 'text-gray-300'}>
+      <span className={isMissed ? 'text-rose-400 font-medium' : 'text-ez-muted'}>
         📞 {isMissed ? 'Canceled call' : 'Voice call'}
       </span>
     );
   } else if (msg.attachment) {
     if (msg.attachment.type === 'audio') {
-      contentNode = <span className="text-neon-green font-medium">🎤 Voice note</span>;
+      contentNode = <span className="text-ez-muted">🎤 Voice note</span>;
     } else if (msg.attachment.type === 'image') {
-      contentNode = <span className="text-gray-300">📷 Photo</span>;
+      contentNode = <span className="text-ez-muted">📷 Photo</span>;
     } else {
-      contentNode = <span className="text-gray-300 truncate">📄 {msg.attachment.name || 'File'}</span>;
+      contentNode = <span className="text-ez-muted truncate">📄 {msg.attachment.name || 'File'}</span>;
     }
   } else if (msg.text) {
-    contentNode = <span className="text-gray-300 truncate">{msg.text}</span>;
+    contentNode = <span className="text-ez-muted truncate">{msg.text}</span>;
   } else {
     contentNode = <span className="text-ez-muted italic">Message</span>;
   }
 
   return (
     <span className="flex items-center text-[12px] text-ez-muted truncate min-w-0">
-      {isMe && <span className="text-neon-green font-medium mr-1 shrink-0">You:</span>}
+      {isMe && <span className="text-ez-muted mr-1 shrink-0">You:</span>}
       {contentNode}
     </span>
   );
@@ -268,7 +268,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         {savedLastMsg ? (
                           renderMessagePreview(savedLastMsg, currentUser.handle)
                         ) : (
-                          <span className="text-neon-green font-mono text-[11px]">Cloud Storage</span>
+                          <span className="text-ez-muted text-[12px]">Cloud Storage</span>
                         )}
                       </div>
                     </div>
