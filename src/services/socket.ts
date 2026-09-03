@@ -2,34 +2,44 @@ import { io, Socket } from 'socket.io-client';
 import { User, Message, Group } from '../types/chat';
 import { normalizeHandle } from '../utils/chatStorage';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '') : window.location.origin;
+const SOCKET_URL = import.meta.env.VITE_API_URL
+  ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '')
+  : window.location.origin;
 
 class SocketService {
   private socket: Socket | null = null;
   private currentHandle: string | null = null;
 
-  public connect(userHandle?: string) {
+  public connect(userHandle?: string): Socket {
+    if (userHandle) {
+      this.currentHandle = normalizeHandle(userHandle);
+    }
+
     if (!this.socket) {
+      const token = localStorage.getItem('eztalk_token');
+
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 15,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        auth: {
+          token: token || undefined,
+        },
       });
 
-      this.socket.on('connect', () => {
-        if (this.currentHandle) {
-          this.socket?.emit('join', normalizeHandle(this.currentHandle));
+      // Переподключение комнаты при первичном коннекте и при восстановлении сети
+      const handleJoin = () => {
+        if (this.currentHandle && this.socket?.connected) {
+          this.socket.emit('join', normalizeHandle(this.currentHandle));
         }
-      });
-    }
+      };
 
-    if (userHandle) {
-      const cleanHandle = normalizeHandle(userHandle);
-      this.currentHandle = cleanHandle;
-      if (this.socket.connected) {
-        this.socket.emit('join', cleanHandle);
-      }
+      this.socket.on('connect', handleJoin);
+      this.socket.io.on('reconnect', handleJoin);
+    } else if (this.socket.connected && this.currentHandle) {
+      this.socket.emit('join', normalizeHandle(this.currentHandle));
     }
 
     return this.socket;
@@ -269,8 +279,12 @@ class SocketService {
   }
 
   public disconnect() {
-    this.socket?.disconnect();
-    this.socket = null;
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    this.currentHandle = null;
   }
 }
 

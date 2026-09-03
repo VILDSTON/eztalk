@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Real-Time Presence**: Fixed bug where `UserProfileModal` displayed offline users as online by connecting dynamic socket `isOnline` presence.
 - **Network & Parsing Resiliency**: Wrapped API calls in safe JSON parsing preventing crashes on HTML 502/504/CORS errors.
 - **JWT Authentication**: Added JWT token generation on login/registration and automatic `Authorization: Bearer <token>` request headers across all endpoints.
+- **Socket Handshake & Reconnect Stability**: Added JWT handshake authentication in `socket.ts`, exponential reconnect backoff, and automatic room rejoin on `connect` and `reconnect` events.
 - **ISO Timestamps & Message Status**: Fixed legacy timestamp strings in `sendMessage` with valid ISO timestamps and proper `failed` message status on network interruptions.
 - **Sidebar FAB Placement**: Tucked the green new-chat FAB button strictly inside the sidebar container (`bottom-4 right-4`) preventing it from overflowing into the conversation canvas.
 - **Input Bar Baseline**: Aligned attachment paperclip, input pill, emoji picker, and send/mic buttons along a shared horizontal baseline with clear `text-sm text-white` typography.
