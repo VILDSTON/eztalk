@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Chat Types & Settings Deduplication**: Structured user preferences strictly inside `User.settings`, added `'video'` attachment type, harmonized `ReactionItem[]` with bubble rendering, and removed obsolete active tab artifacts.
 - **Web Audio & Chime Stability**: Added Safari/iOS autoplay unlock via `ctx.resume()`, shared `AudioContext` for message chimes to prevent browser resource exhaustion, and smooth 25ms gain ramp eliminating pops/clicks on cutoff.
 - **Cross-Tab Synchronization**: Hardened `liveSync.ts` with standalone `BroadcastChannel` and `localStorage` storage-event fallback for production, along with deterministic event ID deduplication.
+- **Instant Theme Bootstrapping**: Added `initThemeEngine()` executed before React mount in `main.tsx` to restore saved themes and compact mode instantly without screen flash, and stabilized dynamic alpha glow calculations.
 - **Input Bar Baseline**: Aligned attachment paperclip, input pill, emoji picker, and send/mic buttons along a shared horizontal baseline with clear `text-sm text-white` typography.
 
 ### Removed

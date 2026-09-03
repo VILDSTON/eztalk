@@ -6,7 +6,7 @@ export interface ThemeOption {
   color: string;
   glow: string;
   sentColor: string;
-  badge: string;
+  badge?: string;
 }
 
 export const THEME_OPTIONS: ThemeOption[] = [
@@ -16,7 +16,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
     color: '#10B981',
     glow: '#00FF66',
     sentColor: '#0D3B2E',
-    badge: 'shadow-[0_0_12px_rgba(16,185,129,0.45)]',
   },
   {
     id: 'cyan',
@@ -24,7 +23,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
     color: '#38BDF8',
     glow: '#0EA5E9',
     sentColor: '#0C3B5E',
-    badge: 'shadow-[0_0_12px_rgba(56,189,248,0.45)]',
   },
   {
     id: 'purple',
@@ -32,7 +30,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
     color: '#C084FC',
     glow: '#A855F7',
     sentColor: '#381E54',
-    badge: 'shadow-[0_0_12px_rgba(192,132,252,0.45)]',
   },
   {
     id: 'amber',
@@ -40,7 +37,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
     color: '#FBBF24',
     glow: '#F59E0B',
     sentColor: '#4D380D',
-    badge: 'shadow-[0_0_12px_rgba(251,191,36,0.45)]',
   },
   {
     id: 'rose',
@@ -48,7 +44,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
     color: '#FB7185',
     glow: '#F43F5E',
     sentColor: '#4D1224',
-    badge: 'shadow-[0_0_12px_rgba(251,113,133,0.45)]',
   },
 ];
 
@@ -56,16 +51,17 @@ export function applyTheme(themeId: string = 'neon') {
   if (typeof document === 'undefined') return;
   const theme = THEME_OPTIONS.find((t) => t.id === themeId) || THEME_OPTIONS[0];
 
-  document.documentElement.setAttribute('data-theme', theme.id);
-  document.documentElement.style.setProperty('--ez-accent', theme.color);
-  document.documentElement.style.setProperty('--ez-glow', theme.glow);
-  document.documentElement.style.setProperty('--ez-sent', theme.sentColor);
-  document.documentElement.style.setProperty('--ez-accent-glow', `${theme.color}66`);
+  const root = document.documentElement;
+  root.setAttribute('data-theme', theme.id);
+  root.style.setProperty('--ez-accent', theme.color);
+  root.style.setProperty('--ez-glow', theme.glow);
+  root.style.setProperty('--ez-sent', theme.sentColor);
+  root.style.setProperty('--ez-accent-glow', `${theme.glow}40`);
 
   try {
     localStorage.setItem('eztalk_theme', theme.id);
   } catch {
-    // ignore
+    // ignore quota/privacy errors
   }
 }
 
@@ -81,5 +77,20 @@ export function applyCompactMode(compact: boolean) {
     localStorage.setItem('eztalk_compact_mode', compact ? 'true' : 'false');
   } catch {
     // ignore
+  }
+}
+
+// Вызывай один раз в index.html или App.tsx для мгновенного применения сохраненных настроек без мигания экрана
+export function initThemeEngine() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const savedTheme = localStorage.getItem('eztalk_theme') || 'neon';
+    applyTheme(savedTheme);
+
+    const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
+    applyCompactMode(savedCompact);
+  } catch {
+    applyTheme('neon');
   }
 }

@@ -637,7 +637,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           : 'border-ez-border bg-ez-elevated hover:bg-white/5'
                       }`}
                     >
-                      <div className={`w-7 h-7 rounded-full ${th.badge}`} style={{ backgroundColor: th.color }} />
+                      <div className="w-7 h-7 rounded-full transition-transform duration-150" style={{ backgroundColor: th.color, boxShadow: `0 0 12px ${th.glow}70` }} />
                       <span className="text-xs font-bold text-white truncate">{th.name}</span>
                     </button>
                   ))}
