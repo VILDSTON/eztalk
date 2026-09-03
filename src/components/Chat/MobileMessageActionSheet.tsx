@@ -198,10 +198,18 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               {message.senderHandle || (isMe ? 'You' : 'Friend')}
             </span>
             <span className="text-gray-300 truncate block text-xs">
-              {message.text ||
-                (message.attachment?.type === 'audio'
-                  ? 'Voice message'
-                  : message.attachment?.name || 'Media attachment')}
+              {message.callInfo || (message.text && (message.text.includes('Call') || message.text.includes('📞') || message.text.includes('📵')))
+                ? message.callInfo?.type === 'declined' || message.text?.includes('Declined')
+                  ? 'Declined Call'
+                  : message.callInfo?.type === 'canceled' || message.text?.includes('Canceled')
+                  ? isMe ? 'Canceled Call' : 'Missed Call'
+                  : message.callInfo?.type === 'missed' || message.text?.includes('Missed')
+                  ? 'Missed Call'
+                  : 'Voice Call'
+                : message.text ||
+                  (message.attachment?.type === 'audio'
+                    ? 'Voice message'
+                    : message.attachment?.name || 'Media attachment')}
             </span>
           </div>
           {(message.forwardRestricted || message.isSecret) && (

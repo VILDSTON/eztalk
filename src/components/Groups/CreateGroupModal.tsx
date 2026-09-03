@@ -100,16 +100,16 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="flex-1 flex flex-col p-4 sm:p-5 space-y-3.5 overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 space-y-4">
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-center space-x-2 text-xs text-rose-400 shrink-0">
+              <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-center space-x-2 text-xs text-rose-400">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {/* Group Name */}
-            <div className="shrink-0">
+            <div>
               <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider mb-1.5">
                 Group Name
               </label>
@@ -126,7 +126,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             </div>
 
             {/* Group Avatar Previews */}
-            <div className="shrink-0">
+            <div>
               <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider mb-1.5">
                 Group Avatar
               </label>
@@ -136,11 +136,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     key={idx}
                     type="button"
                     onClick={() => setSelectedAvatar(avatar)}
-                    className={`relative w-12 h-12 rounded-full overflow-hidden border-2 transition-transform duration-150 shrink-0 cursor-pointer ${
-                      selectedAvatar === avatar
-                        ? 'border-neon-green scale-105 shadow-neon-sm'
-                        : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
+                    className={`relative w-12 h-12 rounded-full overflow-hidden border-2 transition-transform duration-150 shrink-0 cursor-pointer ${selectedAvatar === avatar
+                      ? 'border-neon-green scale-105 shadow-neon-sm'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
                   >
                     <img src={avatar} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
                   </button>
@@ -148,9 +147,9 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               </div>
             </div>
 
-            {/* Member Selection - Fills remaining height seamlessly */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-1.5 shrink-0">
+            {/* Member Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider">
                   Select Members
                 </label>
@@ -160,22 +159,21 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               </div>
 
               {memberCandidates.length === 0 ? (
-                <div className="p-4 bg-ez-base/50 rounded-2xl border border-ez-border/40 text-center text-xs text-ez-muted flex-1 flex items-center justify-center">
+                <div className="p-4 bg-ez-base/50 rounded-2xl border border-ez-border/40 text-center text-xs text-ez-muted">
                   No friends available to add yet.
                 </div>
               ) : (
-                <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-0.5">
+                <div className="space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar">
                   {memberCandidates.map((user) => {
                     const isSelected = selectedMembers.includes(normalizeHandle(user.handle));
                     return (
                       <div
                         key={user.id || user.handle}
                         onClick={() => toggleMember(user.handle)}
-                        className={`flex items-center justify-between p-2.5 rounded-2xl border cursor-pointer transition-colors duration-150 ${
-                          isSelected
-                            ? 'bg-neon-green/10 border-neon-green/40 text-white'
-                            : 'bg-ez-base/60 border-ez-border/40 text-gray-300 hover:bg-white/5'
-                        }`}
+                        className={`flex items-center justify-between p-2.5 rounded-2xl border cursor-pointer transition-colors duration-150 ${isSelected
+                          ? 'bg-neon-green/10 border-neon-green/40 text-white'
+                          : 'bg-ez-base/60 border-ez-border/40 text-gray-300 hover:bg-white/5'
+                          }`}
                       >
                         <div className="flex items-center space-x-2.5 min-w-0">
                           <img
@@ -192,9 +190,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                         </div>
 
                         <div
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-colors duration-150 shrink-0 ${
-                            isSelected ? 'bg-neon-green border-neon-green text-black' : 'border-gray-600 bg-transparent'
-                          }`}
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-colors duration-150 shrink-0 ${isSelected ? 'bg-neon-green border-neon-green text-black' : 'border-gray-600 bg-transparent'
+                            }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>

@@ -192,6 +192,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onDelete={onDeleteMessage}
         onToggleReaction={onToggleReaction}
         onOpenMedia={(m) => setLightboxMedia(m)}
+        onCallBack={onStartCall}
       />
 
       {/* Fluid Media Lightbox Viewer */}
@@ -245,13 +246,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           initialDraft={draftText}
           onDraftChange={onDraftChange}
           onSendMessage={(text, attachment, replyTo) => {
-            if (editingMessage && onEditMessage) {
-              onEditMessage(editingMessage.id, text);
-              setEditingMessage(null);
-            } else {
-              onSendMessage(text, attachment, replyTo);
-              setReplyingTo(null);
+            onSendMessage(text, attachment, replyTo);
+            setReplyingTo(null);
+          }}
+          onSaveEdit={(id, newText) => {
+            if (onEditMessage) {
+              onEditMessage(id, newText);
             }
+            setEditingMessage(null);
           }}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}

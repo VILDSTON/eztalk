@@ -1320,13 +1320,27 @@ export default function App() {
               socketService.endCall(currentUser.handle, activeLiveCall.user.handle);
               // If caller, send the call event message so it appears in the chat on both sides
               if (activeLiveCall.isInitiator && callInfo) {
+                const resolvedType: 'outgoing' | 'canceled' | 'declined' | 'missed' =
+                  callInfo.duration && callInfo.duration > 0
+                    ? 'outgoing'
+                    : callInfo.type === 'declined'
+                    ? 'declined'
+                    : callInfo.type === 'missed'
+                    ? 'missed'
+                    : 'canceled';
+
+                const finalCallInfo = {
+                  type: resolvedType,
+                  duration: callInfo.duration || 0,
+                };
+
                 const text = callInfo.duration
                   ? `📞 Voice Call (${Math.floor(callInfo.duration / 60)}:${(callInfo.duration % 60)
                       .toString()
                       .padStart(2, '0')})`
-                  : callInfo.type === 'missed'
+                  : resolvedType === 'missed'
                   ? '📵 Missed Voice Call'
-                  : callInfo.type === 'declined'
+                  : resolvedType === 'declined'
                   ? '📞 Declined Call'
                   : '📞 Canceled Call';
 
@@ -1337,7 +1351,7 @@ export default function App() {
                   undefined,
                   undefined,
                   undefined,
-                  callInfo
+                  finalCallInfo
                 ).then((msg) => {
                   setMessages((prev) => [...prev, msg]);
                   ChatStorageService.addMessage(currentUser.handle, activeLiveCall.user.handle, msg);

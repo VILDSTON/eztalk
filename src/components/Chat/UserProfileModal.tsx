@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Phone,
@@ -15,6 +15,7 @@ import { User, Message, Attachment } from '../../types/chat';
 interface UserProfileModalProps {
   user: User;
   isOpen: boolean;
+  isOnline?: boolean;
   isMuted?: boolean;
   isFriend?: boolean;
   isBlocked?: boolean;
@@ -30,6 +31,7 @@ interface UserProfileModalProps {
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   user,
   isOpen,
+  isOnline = false,
   isMuted = false,
   isFriend = true,
   isBlocked = false,
@@ -42,6 +44,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onAddFriend,
 }) => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+
+  // Закрытие по клавише Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewAttachment) {
+          setPreviewAttachment(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, previewAttachment, onClose]);
+
+  const isUserOnline = Boolean(!isBlocked && isOnline);
 
   if (!isOpen) return null;
 
@@ -86,35 +109,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-0 sm:p-4 font-sans">
-      <div className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-md shadow-none sm:shadow-glass-lg relative overflow-hidden sm:max-h-[85vh] flex flex-col">
-        {/* Sticky Top Bar for Responsive Design */}
-        <div className="sticky top-0 z-40 px-4 sm:px-6 py-3 bg-ez-elevated/95 backdrop-blur-md border-b border-ez-border/40 flex items-center justify-between shrink-0 shadow-xs">
-          <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neon-green/40 bg-ez-surface shrink-0">
-              <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
-              <div
-                className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-ez-elevated ${
-                  user.status === 'Online' ? 'bg-neon-green' : 'bg-ez-muted'
-                }`}
-              />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <h3 className="text-sm font-bold text-white truncate leading-tight">{user.name || user.handle}</h3>
-              <p className="text-[11px] font-mono text-neon-green truncate">{user.handle}</p>
-            </div>
-          </div>
+  const handleDirectDownload = async (fileUrl: string, fileName?: string) => {
+    try {
+      const res = await fetch(fileUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(fileUrl, '_blank');
+    }
+  };
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close user profile"
-            className="text-white/80 hover:text-white p-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors duration-150 shrink-0 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+  return (
+    <div
+      className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-0 sm:p-4 font-sans"
+      onClick={onClose}
+    >
+      <div
+        className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-md shadow-none sm:shadow-glass-lg relative overflow-hidden sm:max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Floating Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close user profile"
+          className="absolute top-3 right-3 z-30 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md transition-all duration-150 cursor-pointer shadow-glass border border-white/10 hover:scale-105"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
           {/* Banner */}
@@ -131,7 +160,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           {/* Profile Body */}
           <div className="px-6 pb-6 pt-0 flex-1 flex flex-col">
-            {/* Avatar */}
             <div className="flex flex-col items-center text-center -mt-12 mb-4 relative z-20">
               <div className="relative mb-2 shrink-0">
                 <div className="w-20 h-20 min-w-[80px] min-h-[80px] rounded-full overflow-hidden border-4 border-ez-elevated bg-ez-surface shadow-glass shrink-0">
@@ -139,16 +167,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
                 <div
                   className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${
-                    user.status === 'Online'
+                    isBlocked
+                      ? 'bg-rose-500'
+                      : isUserOnline
                       ? 'bg-neon-green-glow shadow-neon-dot'
                       : 'bg-ez-muted'
                   }`}
-                  title={user.status}
+                  title={isBlocked ? 'Blocked' : isUserOnline ? 'Online' : 'Offline'}
                 />
               </div>
 
               <h3 className="text-lg font-bold text-white tracking-tight leading-tight">{user.name || user.handle}</h3>
               <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
+
+              <span
+                className={`text-[11px] font-mono mt-1 ${
+                  isBlocked
+                    ? 'text-rose-400 font-semibold'
+                    : isUserOnline
+                    ? 'text-neon-green font-medium'
+                    : 'text-ez-muted'
+                }`}
+              >
+                {isBlocked ? 'blocked' : isUserOnline ? 'online' : 'offline'}
+              </span>
 
               {user.bio && (
                 <p className="text-xs text-gray-300 mt-2 px-3 py-1.5 bg-white/5 rounded-xl border border-ez-border/50 max-w-xs leading-relaxed">
@@ -171,11 +213,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <button
                 type="button"
                 onClick={onToggleNotifications}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors duration-150 cursor-pointer ${
-                  isMuted
-                    ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
-                    : 'bg-ez-surface hover:bg-ez-hover border-ez-border/50 text-gray-200'
-                }`}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors duration-150 cursor-pointer ${isMuted
+                  ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                  : 'bg-ez-surface hover:bg-ez-hover border-ez-border/50 text-gray-200'
+                  }`}
               >
                 {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-neon-green mb-1" />}
                 <span className="text-[11px] font-semibold">{isMuted ? 'Muted' : 'Mute'}</span>
@@ -228,11 +269,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <button
                   type="button"
                   onClick={onToggleBlock}
-                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${
-                    isBlocked
-                      ? 'bg-neon-green/10 text-neon-green border border-neon-green/25'
-                      : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-transparent hover:border-rose-500/25'
-                  }`}
+                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${isBlocked
+                    ? 'bg-neon-green/10 text-neon-green border border-neon-green/25'
+                    : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-transparent hover:border-rose-500/25'
+                    }`}
                 >
                   <Ban className="w-4 h-4" />
                   <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
@@ -266,7 +306,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Image Preview Lightbox Overlay */}
+        {/* Lightbox Modal */}
         {previewAttachment && (
           <div
             className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 animate-fade-in"
@@ -287,16 +327,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               />
               <div className="mt-3 flex items-center space-x-3 bg-ez-surface/90 px-4 py-2 rounded-xl border border-ez-border/50">
                 <span className="text-xs font-medium text-white truncate max-w-xs">{previewAttachment.name}</span>
-                <a
-                  href={previewAttachment.url}
-                  download={previewAttachment.name}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center space-x-1 text-xs text-neon-green font-bold hover:underline"
+                <button
+                  type="button"
+                  onClick={() => handleDirectDownload(previewAttachment.url, previewAttachment.name)}
+                  className="flex items-center space-x-1 text-xs text-neon-green font-bold hover:underline cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download</span>
-                </a>
+                </button>
               </div>
             </div>
           </div>

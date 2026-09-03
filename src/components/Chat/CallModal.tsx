@@ -390,7 +390,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         }
         endCallTimerRef.current = setTimeout(() => {
           onClose({
-            type: isInitiator ? 'outgoing' : 'incoming',
+            type: 'declined',
             duration: 0,
           });
         }, 800);
@@ -413,7 +413,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         }
         endCallTimerRef.current = setTimeout(() => {
           onClose({
-            type: isInitiator ? 'outgoing' : 'incoming',
+            type: durationRef.current > 0 ? (isInitiator ? 'outgoing' : 'incoming') : (isInitiator ? 'canceled' : 'missed'),
             duration: durationRef.current,
           });
         }, 800);
@@ -517,7 +517,7 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
 
     const info: CallInfo = {
-      type: isInitiator ? 'outgoing' : 'incoming',
+      type: durationRef.current > 0 ? (isInitiator ? 'outgoing' : 'incoming') : (isInitiator ? 'canceled' : 'missed'),
       duration: durationRef.current,
     };
     onClose(info);

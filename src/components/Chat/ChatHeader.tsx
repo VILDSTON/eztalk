@@ -354,6 +354,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       <UserProfileModal
         user={user}
         isOpen={isProfileOpen}
+        isOnline={isOnline}
         isMuted={isMuted}
         isFriend={isFriend}
         isBlocked={isBlocked}

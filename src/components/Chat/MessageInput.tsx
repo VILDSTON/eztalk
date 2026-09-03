@@ -88,8 +88,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (e) e.preventDefault();
 
     if (editingMessage) {
-      if (inputText.trim() && onSaveEdit) {
-        onSaveEdit(editingMessage.id, inputText.trim());
+      if (inputText.trim()) {
+        if (onSaveEdit) {
+          onSaveEdit(editingMessage.id, inputText.trim());
+        } else {
+          onSendMessage(inputText.trim());
+        }
       }
       setInputText('');
       if (onCancelEdit) onCancelEdit();
@@ -326,7 +330,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[env(safe-area-inset-bottom,0px)]">
-      <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 py-2 sm:py-2.5 relative min-w-0">
+      <div className="w-full px-4 sm:px-6 py-2.5 sm:py-3 relative min-w-0">
         {/* Hidden File Input */}
         <input
           type="file"
@@ -462,19 +466,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         ) : (
           /* Standard Input Bar */
-          <form onSubmit={handleSend} className="flex items-center space-x-1.5 sm:space-x-2 w-full min-w-0">
-            {/* Attachment */}
+          <form onSubmit={handleSend} className="flex items-center space-x-2 w-full min-w-0">
+            {/* Attachment Button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-2 sm:p-2.5 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0"
               title="Attach Media or File"
             >
-              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Paperclip className="w-5 h-5" />
             </button>
 
-            {/* Input Container */}
-            <div className="flex-1 min-w-0 flex items-center bg-ez-input rounded-xl sm:rounded-2xl px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent focus-within:border-neon-green/25 transition-colors duration-150">
+            {/* Input Pill Container */}
+            <div className="flex-1 min-w-0 h-10 sm:h-11 flex items-center bg-ez-input rounded-2xl px-3.5 sm:px-4 border border-ez-border/60 focus-within:border-neon-green/40 transition-colors duration-150 shadow-inner">
               <input
                 ref={inputRef}
                 type="text"
@@ -482,34 +486,35 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={editingMessage ? 'Edit message...' : 'Write a message...'}
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-xs sm:text-sm text-gray-100 placeholder-ez-muted font-sans"
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-white placeholder-ez-muted font-sans leading-normal"
               />
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="text-ez-muted hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer ml-1 shrink-0"
+                className="w-8 h-8 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 ml-1"
+                title="Choose Emoji"
               >
-                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Smile className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Send / Mic */}
+            {/* Send / Mic Button */}
             {inputText.trim() || currentAttachment || editingMessage ? (
               <button
                 type="submit"
-                className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] rounded-full bg-neon-green hover:bg-neon-green-light text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-neon-green hover:bg-neon-green-light text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 shrink-0"
                 title={editingMessage ? 'Save edit' : 'Send'}
               >
-                {editingMessage ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" />}
+                {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5 ml-0.5" />}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={startRecording}
-                className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
                 title="Record Voice Note"
               >
-                <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Mic className="w-5 h-5" />
               </button>
             )}
           </form>

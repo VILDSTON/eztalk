@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Message, QuotedMessage } from '../../types/chat';
 import {
   FileText,
@@ -17,6 +18,7 @@ import {
   PhoneOutgoing,
   PhoneMissed,
   PhoneOff,
+  Phone,
   Check,
   Lock,
   Clock,
@@ -35,6 +37,7 @@ interface MessageBubbleProps {
   onDelete?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
+  onCallBack?: () => void;
 }
 
 function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
@@ -66,8 +69,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onDelete,
   onToggleReaction,
   onOpenMedia,
+  onCallBack,
 }) => {
-  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Mobile Bottom Sheet State (< 640px)
@@ -101,11 +104,121 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const timeString = formatTelegramTime(message.createdAt, message.timestamp);
 
+  // Normalize reactions into an array of { emoji, count, hasReacted }
+  const formattedReactions = useMemo(() => {
+    if (!message.reactions) return [];
+    if (Array.isArray(message.reactions)) {
+      return (message.reactions as any[]).map((r) => {
+        const users: string[] = Array.isArray(r.users) ? r.users : [];
+        const hasReacted = Boolean(
+          (currentUserHandle && users.some((u) => normalizeHandle(u).toLowerCase() === normalizeHandle(currentUserHandle).toLowerCase())) ||
+          (currentUserId && users.includes(currentUserId))
+        );
+        return {
+          emoji: r.emoji,
+          count: r.count || users.length || 1,
+          hasReacted,
+        };
+      });
+    }
+    return Object.entries(message.reactions)
+      .filter(([_, handles]) => Array.isArray(handles) && handles.length > 0)
+      .map(([emoji, handles]) => {
+        const hasReacted = Boolean(
+          (currentUserHandle && handles.some((h) => normalizeHandle(h).toLowerCase() === normalizeHandle(currentUserHandle).toLowerCase())) ||
+          (currentUserId && handles.includes(currentUserId))
+        );
+        return {
+          emoji,
+          count: handles.length,
+          hasReacted,
+        };
+      });
+  }, [message.reactions, currentUserHandle, currentUserId]);
+
+  // Check if message is a call event (structured callInfo or fallback text pattern)
+  const callData = useMemo(() => {
+    if (message.callInfo) {
+      let type = message.callInfo.type;
+      const duration = message.callInfo.duration || 0;
+      if (duration === 0 && (type === 'outgoing' || type === 'incoming')) {
+        type = isMe ? 'canceled' : 'missed';
+      }
+      return { type, duration };
+    }
+    if (!message.text) return null;
+    if (message.text.includes('Canceled Call')) {
+      return { type: (isMe ? 'canceled' : 'missed') as 'canceled' | 'missed', duration: 0 };
+    }
+    if (message.text.includes('Missed Voice Call') || message.text.includes('Missed Call')) {
+      return { type: 'missed' as const, duration: 0 };
+    }
+    if (message.text.includes('Declined Call')) {
+      return { type: 'declined' as const, duration: 0 };
+    }
+    const match = message.text.match(/Voice Call \((\d+):(\d+)\)/);
+    if (match) {
+      const mins = parseInt(match[1], 10) || 0;
+      const secs = parseInt(match[2], 10) || 0;
+      return { type: (isMe ? 'outgoing' : 'incoming') as 'outgoing' | 'incoming', duration: mins * 60 + secs };
+    }
+    if (message.text.startsWith('📞 Voice Call')) {
+      return { type: (isMe ? 'outgoing' : 'incoming') as 'outgoing' | 'incoming', duration: 0 };
+    }
+    return null;
+  }, [message.callInfo, message.text, isMe]);
+
+  const callPresentation = useMemo(() => {
+    if (!callData) return null;
+
+    const { type, duration } = callData;
+    const hasDuration = duration > 0;
+    const formattedDuration = `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
+
+    if (hasDuration) {
+      return {
+        title: isMe ? 'Outgoing Call' : 'Incoming Call',
+        subtitle: `${formattedDuration} duration`,
+        statusColor: 'bg-neon-green/15 text-neon-green border-neon-green/25',
+        Icon: isMe ? PhoneOutgoing : PhoneIncoming,
+        isNegative: false,
+      };
+    }
+
+    if (type === 'declined') {
+      return {
+        title: 'Declined Call',
+        subtitle: isMe ? 'Call was declined' : 'Declined voice call',
+        statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
+        Icon: PhoneOff,
+        isNegative: true,
+      };
+    }
+
+    if (type === 'missed') {
+      return {
+        title: 'Missed Call',
+        subtitle: isMe ? 'No answer' : 'Missed voice call',
+        statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
+        Icon: PhoneMissed,
+        isNegative: true,
+      };
+    }
+
+    // Default for canceled
+    return {
+      title: isMe ? 'Canceled Call' : 'Missed Call',
+      subtitle: isMe ? 'Call canceled' : 'Missed voice call',
+      statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
+      Icon: isMe ? PhoneOff : PhoneMissed,
+      isNegative: true,
+    };
+  }, [callData, isMe]);
+
   // Close context menu on outside click, scroll, or Escape
   useEffect(() => {
     const handleClose = () => {
       setContextMenuPos(null);
-      setShowEmojiMenu(false);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -340,7 +453,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // Copy Message Text
   const handleCopyText = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const content = message.text || message.attachment?.url || message.attachment?.name || '';
+    const content = callPresentation
+      ? `${callPresentation.title} (${callPresentation.subtitle})`
+      : message.text || message.attachment?.url || message.attachment?.name || '';
     if (content) {
       navigator.clipboard.writeText(content).catch(() => {});
       setCopied(true);
@@ -400,7 +515,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <>
       <div
-        className={`group/bubble relative flex flex-col mb-1.5 max-w-full ${
+        className={`group/bubble relative flex flex-col ${
+          formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
+        } max-w-full ${
           isMe ? 'items-end' : 'items-start'
         } animate-fade-in font-sans`}
         onContextMenu={handleContextMenu}
@@ -415,125 +532,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </span>
         )}
 
-        {/* Hover Action Toolbar (Desktop only) */}
-        <div
-          className={`absolute -top-9 ${
-            isMe ? 'right-0' : 'left-0'
-          } hidden group-hover/bubble:flex items-center space-x-0.5 bg-ez-elevated/95 backdrop-blur-md border border-ez-border/80 p-0.5 rounded-full shadow-glass z-30 animate-fade-in`}
-        >
-          {/* Reaction Picker */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowEmojiMenu(!showEmojiMenu);
-              }}
-              className="p-1 rounded-full text-ez-muted hover:text-amber-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title="React"
-            >
-              <Smile className="w-3.5 h-3.5" />
-            </button>
 
-            {showEmojiMenu && (
-              <div className="absolute bottom-8 left-0 flex items-center space-x-0.5 bg-ez-elevated/95 backdrop-blur-md border border-ez-border p-1.5 rounded-full shadow-glass-lg z-40 animate-scale-up">
-                {EMOJI_OPTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onToggleReaction) onToggleReaction(message.id, emoji);
-                      setShowEmojiMenu(false);
-                    }}
-                    className="p-1 hover:scale-125 transition-transform duration-100 text-sm cursor-pointer"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Reply */}
-          <button
-            type="button"
-            onClick={triggerReply}
-            className="p-1 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-            title="Reply"
-          >
-            <CornerUpLeft className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Forward (Hidden if secret / forwardRestricted) */}
-          {!message.forwardRestricted && !message.isSecret && (
-            <button
-              type="button"
-              onClick={triggerForward}
-              className="p-1 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title="Forward"
-            >
-              <CornerUpRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Quick Edit */}
-          {isMe && message.text && (
-            <button
-              type="button"
-              onClick={triggerEdit}
-              className="p-1 rounded-full text-ez-muted hover:text-amber-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title="Edit"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Quick Delete */}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={triggerDelete}
-              className="p-1 rounded-full text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 cursor-pointer"
-              title="Delete"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* More Options */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const isMobile = window.innerWidth < 640;
-              if (isMobile) {
-                setIsMobileSheetOpen(true);
-              } else {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const menuWidth = 220;
-                const menuHeight = 280;
-                let x = rect.left;
-                let y = rect.bottom + 5;
-                if (x + menuWidth > window.innerWidth - 12) {
-                  x = Math.max(12, window.innerWidth - menuWidth - 12);
-                } else {
-                  x = Math.max(12, x);
-                }
-                if (y + menuHeight > window.innerHeight - 12) {
-                  y = Math.max(12, rect.top - menuHeight - 5);
-                } else {
-                  y = Math.max(12, y);
-                }
-                setContextMenuPos({ x, y });
-              }
-            }}
-            className="p-1 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-            title="More actions"
-          >
-            <MoreHorizontal className="w-3.5 h-3.5" />
-          </button>
-        </div>
 
         {/* Mobile Swipe-to-Reply Neon Arrow Indicator Reveal */}
         {swipeOffset < 0 && (
@@ -678,47 +677,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Call Event */}
-          {message.callInfo && (
-            <div className="flex items-center space-x-2.5 py-1 min-w-[180px] select-none">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                  message.callInfo.type === 'missed' || message.callInfo.type === 'declined'
-                    ? 'bg-rose-500/15 text-rose-400'
-                    : 'bg-neon-green/15 text-neon-green'
-                }`}
-              >
-                {message.callInfo.type === 'missed' ? (
-                  <PhoneMissed className="w-4 h-4" />
-                ) : message.callInfo.type === 'declined' || message.callInfo.type === 'canceled' ? (
-                  <PhoneOff className="w-4 h-4" />
-                ) : isMe ? (
-                  <PhoneOutgoing className="w-4 h-4" />
-                ) : (
-                  <PhoneIncoming className="w-4 h-4" />
-                )}
+          {/* Call Event Card */}
+          {callPresentation && (
+            <div className="flex items-center justify-between space-x-3.5 py-1 min-w-[210px] select-none">
+              <div className="flex items-center space-x-3 min-w-0">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${callPresentation.statusColor} shadow-xs`}
+                >
+                  <callPresentation.Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-xs text-white block truncate tracking-tight">
+                    {callPresentation.title}
+                  </span>
+                  <span className="text-[11px] text-ez-muted block font-mono mt-0.5">
+                    {callPresentation.subtitle}
+                  </span>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="font-bold text-xs block text-white truncate">
-                  {message.callInfo.type === 'missed'
-                    ? 'Missed Call'
-                    : message.callInfo.type === 'declined'
-                    ? 'Declined Call'
-                    : 'Voice Call'}
-                </span>
-                <span className="text-[10px] text-ez-muted block font-mono">
-                  {message.callInfo.duration
-                    ? `${Math.floor(message.callInfo.duration / 60)}:${(message.callInfo.duration % 60)
-                        .toString()
-                        .padStart(2, '0')}`
-                    : 'Voice call'}
-                </span>
-              </div>
+
+              {onCallBack && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCallBack();
+                  }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all duration-150 cursor-pointer shadow-xs shrink-0 group/callbtn ml-2"
+                  title="Call back"
+                >
+                  <Phone className="w-3.5 h-3.5 transition-transform duration-150 group-hover/callbtn:scale-110" />
+                </button>
+              )}
             </div>
           )}
 
-          {/* Text Content with Native Selection */}
-          {message.text && (
+          {/* Text Content with Native Selection (Suppressed for call events to prevent duplicate raw text) */}
+          {!callPresentation && message.text && (
             <p className="whitespace-pre-wrap break-words word-break-all select-text selection:bg-neon-green selection:text-black">
               {message.text}
             </p>
@@ -750,95 +745,156 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </span>
             )}
           </div>
-        </div>
 
-        {/* Floating Context Menu (Desktop Right-Click >= 640px) */}
-        {contextMenuPos && (
-          <div
-            className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-56 select-none"
-            style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Quick Reactions Bar in Context Menu */}
-            <div className="flex items-center justify-between px-1 py-1 bg-white/[0.04] rounded-xl border border-white/5 mb-1">
-              {EMOJI_OPTIONS.slice(0, 7).map((emoji) => (
+          {/* Floating Reaction Badges (attached cleanly to the bottom edge of the bubble) */}
+          {formattedReactions.length > 0 && (
+            <div
+              className={`absolute -bottom-2 ${
+                isMe ? 'right-2' : 'left-2'
+              } flex items-center gap-1 z-20 select-none`}
+            >
+              {formattedReactions.map((reaction, idx) => (
                 <button
-                  key={emoji}
+                  key={idx}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if ('vibrate' in navigator) {
-                      try {
-                        navigator.vibrate(15);
-                      } catch {}
-                    }
-                    if (onToggleReaction) onToggleReaction(message.id, emoji);
-                    setContextMenuPos(null);
+                    if (onToggleReaction) onToggleReaction(message.id, reaction.emoji);
                   }}
-                  className="p-1 hover:scale-125 active:scale-130 transition-transform duration-100 text-base cursor-pointer rounded-lg hover:bg-white/10"
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${
+                    reaction.hasReacted
+                      ? 'bg-[#0F141C] border-neon-green/40 text-neon-green font-semibold shadow-xs'
+                      : 'bg-[#131B26] border-white/10 text-gray-200 hover:bg-[#1A2332] hover:border-white/20'
+                  }`}
                 >
-                  {emoji}
+                  <span className="text-[13px] leading-none">{reaction.emoji}</span>
+                  {reaction.count > 1 && (
+                    <span className="text-[10px] font-bold font-mono ml-0.5">
+                      {reaction.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
+          )}
+        </div>
 
-            <button
-              type="button"
-              onClick={triggerReply}
-              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
-            >
-              <CornerUpLeft className="w-4 h-4 text-neon-green" />
-              <span className="font-medium">Reply</span>
-            </button>
-
-            {!message.forwardRestricted && !message.isSecret && (
-              <button
-                type="button"
-                onClick={triggerForward}
-                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
+        {/* Floating Context Menu (Desktop Right-Click >= 640px) rendered via Portal */}
+        {contextMenuPos &&
+          createPortal(
+            <>
+              <div
+                className="fixed inset-0 z-50 bg-transparent"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContextMenuPos(null);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenuPos(null);
+                }}
+              />
+              <div
+                className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-56 select-none"
+                style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <CornerUpRight className="w-4 h-4 text-neon-green" />
-                <span className="font-medium">Forward</span>
-              </button>
-            )}
+                {/* Quick Reactions Bar in Context Menu */}
+                <div className="flex items-center justify-between px-1 py-1 bg-white/[0.04] rounded-xl border border-white/5 mb-1">
+                  {EMOJI_OPTIONS.slice(0, 7).map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if ('vibrate' in navigator) {
+                          try {
+                            navigator.vibrate(15);
+                          } catch {}
+                        }
+                        if (onToggleReaction) onToggleReaction(message.id, emoji);
+                        setContextMenuPos(null);
+                      }}
+                      className="p-1 hover:scale-125 active:scale-130 transition-transform duration-100 text-base cursor-pointer rounded-lg hover:bg-white/10"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
 
-            {(message.text || message.attachment?.url || message.attachment?.name) && (
-              <button
-                type="button"
-                onClick={handleCopyText}
-                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
-              >
-                {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
-                <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
-              </button>
-            )}
-
-            {isMe && message.text && (
-              <button
-                type="button"
-                onClick={triggerEdit}
-                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
-              >
-                <Edit2 className="w-4 h-4 text-amber-400" />
-                <span className="font-medium">Edit</span>
-              </button>
-            )}
-
-            {onDelete && (
-              <>
-                <div className="h-px bg-ez-border/50 my-1" />
                 <button
                   type="button"
-                  onClick={triggerDelete}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
+                  onClick={triggerReply}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="font-medium">Delete Message</span>
+                  <CornerUpLeft className="w-4 h-4 text-neon-green" />
+                  <span className="font-medium">Reply</span>
                 </button>
-              </>
-            )}
-          </div>
-        )}
+
+                {!message.forwardRestricted && !message.isSecret && (
+                  <button
+                    type="button"
+                    onClick={triggerForward}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
+                  >
+                    <CornerUpRight className="w-4 h-4 text-neon-green" />
+                    <span className="font-medium">Forward</span>
+                  </button>
+                )}
+
+                {(Boolean(message.text) || Boolean(callPresentation)) && (
+                  <button
+                    type="button"
+                    onClick={handleCopyText}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
+                    <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
+                  </button>
+                )}
+
+                {isMe && message.text && !callPresentation && (
+                  <button
+                    type="button"
+                    onClick={triggerEdit}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
+                  >
+                    <Edit2 className="w-4 h-4 text-amber-400" />
+                    <span className="font-medium">Edit</span>
+                  </button>
+                )}
+
+                {callPresentation && onCallBack && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContextMenuPos(null);
+                      onCallBack();
+                    }}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-neon-green hover:text-white hover:bg-neon-green/10 transition-colors cursor-pointer text-left"
+                  >
+                    <Phone className="w-4 h-4 text-neon-green" />
+                    <span className="font-medium">Call Back</span>
+                  </button>
+                )}
+
+                {onDelete && (
+                  <>
+                    <div className="h-px bg-ez-border/50 my-1" />
+                    <button
+                      type="button"
+                      onClick={triggerDelete}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="font-medium">Delete Message</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </>,
+            document.body
+          )}
       </div>
 
       {/* Mobile Bottom Sheet (< 640px) */}
@@ -850,8 +906,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onClose={() => setIsMobileSheetOpen(false)}
         onReply={() => triggerReply()}
         onForward={!message.forwardRestricted && !message.isSecret ? () => triggerForward() : undefined}
-        onCopy={() => handleCopyText()}
-        onEdit={isMe && Boolean(message.text) ? () => triggerEdit() : undefined}
+        onCopy={Boolean(message.text) || Boolean(callPresentation) ? () => handleCopyText() : undefined}
+        onEdit={isMe && Boolean(message.text) && !callPresentation ? () => triggerEdit() : undefined}
         onDelete={onDelete ? () => triggerDelete() : undefined}
         onToggleReaction={onToggleReaction ? (emoji) => onToggleReaction(message.id, emoji) : undefined}
       />

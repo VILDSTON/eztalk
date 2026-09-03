@@ -17,6 +17,7 @@ interface MessageThreadProps {
   onDelete?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
+  onCallBack?: () => void;
 }
 
 function formatMessageDateDivider(createdAt?: string, timestamp?: string): string {
@@ -72,6 +73,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   onDelete,
   onToggleReaction,
   onOpenMedia,
+  onCallBack,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -131,8 +133,8 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-4"
       >
-        {/* Message Canvas */}
-        <div className="w-full max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-col flex-1">
+        {/* Message Canvas (Full width) */}
+        <div className="w-full px-4 sm:px-6 flex flex-col flex-1">
           {/* Top spacer */}
           <div className="flex-1 min-h-4" />
 
@@ -171,6 +173,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                     onDelete={onDelete}
                     onToggleReaction={onToggleReaction}
                     onOpenMedia={onOpenMedia}
+                    onCallBack={onCallBack}
                   />
                 </React.Fragment>
               );
