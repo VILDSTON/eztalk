@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reaction Badges**: Telegram-style floating reaction capsules anchored to message bubbles with deep contrast backgrounds (`#0F141C` / `#131B26`), count badges, and interactive toggling.
 - **Portal Rendering**: Desktop context menu is now rendered via `createPortal(..., document.body)` to eliminate CSS transform and containing-block clipping issues.
 - **User Profile Modal**: Added floating Telegram-style close button, Escape key dismissal, backdrop click to close, and direct media downloading.
+- **Chat List Previews**: Replaced static user bio/about with live latest message previews (text, voice notes, photos, files, calls with "You:" tag and timestamp).
 
 ### Fixed
 - **Message Editing**: Resolved missing `onSaveEdit` callback prop wiring between `ChatWindow` and `MessageInput`, restoring real-time message editing.

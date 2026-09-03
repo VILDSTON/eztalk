@@ -10,10 +10,64 @@ import {
   MessageSquare,
   Bookmark,
 } from 'lucide-react';
-import { User, Group } from '../../types/chat';
+import { User, Group, Message } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
 import { normalizeHandle } from '../../utils/chatStorage';
+
+function formatChatListTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  }
+  if (d.getFullYear() === now.getFullYear()) {
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+  return d.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
+
+function renderMessagePreview(msg: Message, currentHandle?: string) {
+  const isMe = normalizeHandle(msg.senderHandle).toLowerCase() === normalizeHandle(currentHandle || '').toLowerCase();
+
+  let contentNode: React.ReactNode = null;
+
+  if (msg.callInfo) {
+    const isMissed = msg.callInfo.type === 'missed' || msg.callInfo.type === 'declined' || msg.callInfo.type === 'canceled';
+    contentNode = (
+      <span className={isMissed ? 'text-rose-400 font-medium' : 'text-gray-300'}>
+        📞 {isMissed ? 'Canceled call' : 'Voice call'}
+      </span>
+    );
+  } else if (msg.attachment) {
+    if (msg.attachment.type === 'audio') {
+      contentNode = <span className="text-neon-green font-medium">🎤 Voice note</span>;
+    } else if (msg.attachment.type === 'image') {
+      contentNode = <span className="text-gray-300">📷 Photo</span>;
+    } else {
+      contentNode = <span className="text-gray-300 truncate">📄 {msg.attachment.name || 'File'}</span>;
+    }
+  } else if (msg.text) {
+    contentNode = <span className="text-gray-300 truncate">{msg.text}</span>;
+  } else {
+    contentNode = <span className="text-ez-muted italic">Message</span>;
+  }
+
+  return (
+    <span className="flex items-center text-[12px] text-ez-muted truncate min-w-0">
+      {isMe && <span className="text-neon-green font-medium mr-1 shrink-0">You:</span>}
+      {contentNode}
+    </span>
+  );
+}
 
 interface FriendsListProps {
   currentUser?: User | null;
@@ -23,6 +77,7 @@ interface FriendsListProps {
   unreadCounts?: Record<string, number>;
   onlineHandles?: string[];
   blockedUsers?: string[];
+  lastMessages?: Record<string, Message>;
   selectedUserId: string;
   selectedGroupId?: string | null;
   onOpenMenu?: () => void;
@@ -40,6 +95,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   unreadCounts = {},
   onlineHandles = [],
   blockedUsers = [],
+  lastMessages = {},
   selectedUserId,
   selectedGroupId,
   onOpenMenu,
@@ -70,7 +126,16 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       (u.bio && u.bio.toLowerCase().includes(cleanQuery))
     );
   });
-  const filteredUsers = cleanQuery ? matchedUsers.slice(0, 8) : matchedUsers;
+  const baseFilteredUsers = cleanQuery ? matchedUsers.slice(0, 8) : matchedUsers;
+  const filteredUsers = baseFilteredUsers.slice().sort((a, b) => {
+    const handleA = normalizeHandle(a.handle).toLowerCase();
+    const handleB = normalizeHandle(b.handle).toLowerCase();
+    const msgA = lastMessages[handleA] || lastMessages[normalizeHandle(a.handle)] || (a.id ? lastMessages[a.id] : undefined);
+    const msgB = lastMessages[handleB] || lastMessages[normalizeHandle(b.handle)] || (b.id ? lastMessages[b.id] : undefined);
+    const timeA = msgA ? new Date(msgA.createdAt || msgA.timestamp || 0).getTime() : 0;
+    const timeB = msgB ? new Date(msgB.createdAt || msgB.timestamp || 0).getTime() : 0;
+    return timeB - timeA;
+  });
 
   // Filter groups
   const matchedGroups = groups.filter((g) => {
@@ -165,26 +230,52 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
         {/* ─── Chat & Contact Stream ─── */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-2 pb-28 space-y-0.5">
-          {/* Saved Messages */}
-          {activeTab === 'all' && !searchQuery && currentUser && (
-            <div
-              onClick={() => onSelectUser(currentUser)}
-              className={`contain-content flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
-                Boolean(currentUser?.id && selectedUserId && (selectedUserId === currentUser.id || normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle))) && !selectedGroupId
-                  ? 'bg-neon-green/10 border border-neon-green/30'
-                  : 'hover:bg-white/[0.03] border border-transparent'
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0 pr-2">
-                <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-neon-green/15 border border-neon-green/30 flex items-center justify-center text-neon-green shrink-0">
-                  <Bookmark className="w-4 h-4" />
+          {/* Saved Messages (Telegram-style Personal Cloud) */}
+          {(activeTab === 'all' || activeTab === 'direct') && currentUser && !cleanQuery && (
+            (() => {
+              const savedLastMsg = lastMessages['saved_messages'] || lastMessages[normalizeHandle(currentUser.handle).toLowerCase()];
+              const isSelected = Boolean(currentUser?.id && selectedUserId && (selectedUserId === currentUser.id || normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle))) && !selectedGroupId;
+
+              return (
+                <div
+                  onClick={() =>
+                    currentUser &&
+                    onSelectUser({
+                      ...currentUser,
+                      id: currentUser.id || currentUser.handle,
+                    })
+                  }
+                  className={`contain-content flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
+                    isSelected
+                      ? 'bg-neon-green/10 border border-neon-green/30'
+                      : 'hover:bg-white/[0.03] border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-neon-green/15 border border-neon-green/30 flex items-center justify-center text-neon-green shrink-0">
+                      <Bookmark className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-white tracking-tight">Saved Messages</span>
+                        {savedLastMsg && (
+                          <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
+                            {formatChatListTime(savedLastMsg.createdAt || savedLastMsg.timestamp)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] truncate">
+                        {savedLastMsg ? (
+                          renderMessagePreview(savedLastMsg, currentUser.handle)
+                        ) : (
+                          <span className="text-neon-green font-mono text-[11px]">Cloud Storage</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[13px] font-bold text-white tracking-tight">Saved Messages</span>
-                  <span className="text-[11px] text-neon-green font-mono truncate">Cloud Storage</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()
           )}
 
           {/* Group Chats */}
@@ -192,6 +283,8 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             filteredGroups.map((group) => {
               const isSelected = selectedGroupId === group.id;
               const unread = unreadCounts[group.id] || 0;
+              const groupLastMsg = lastMessages[`group__${group.id}`] || lastMessages[group.id];
+
               return (
                 <div
                   key={group.id}
@@ -216,11 +309,24 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
-                      <span className="text-[11px] text-ez-muted font-mono truncate">
-                        {group.memberHandles.length} members
-                      </span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
+                        {groupLastMsg && (
+                          <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
+                            {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] truncate">
+                        {groupLastMsg ? (
+                          renderMessagePreview(groupLastMsg, currentUser?.handle)
+                        ) : (
+                          <span className="text-[11px] text-ez-muted font-mono truncate">
+                            {group.memberHandles.length} members
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -250,6 +356,11 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));
               const online = !isUserBlocked && isUserOnline(user.handle);
               const unread = unreadCounts[normalizeHandle(user.handle)] || unreadCounts[user.id] || 0;
+              const handleClean = normalizeHandle(user.handle).toLowerCase();
+              const lastMsg =
+                lastMessages[handleClean] ||
+                lastMessages[normalizeHandle(user.handle)] ||
+                (user.id ? lastMessages[user.id] : undefined);
 
               return (
                 <div
@@ -277,15 +388,28 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[13px] font-bold text-white truncate tracking-tight">
-                        {user.name || user.handle}
-                      </span>
-                      <span className={`text-[11px] truncate ${
-                        isUserBlocked ? 'text-rose-400 font-semibold' : online ? 'text-neon-green' : 'text-ez-muted'
-                      }`}>
-                        {isUserBlocked ? 'User is blocked' : user.bio || (online ? 'online' : 'offline')}
-                      </span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-white truncate tracking-tight">
+                          {user.name || user.handle}
+                        </span>
+                        {lastMsg && (
+                          <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
+                            {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] truncate">
+                        {isUserBlocked ? (
+                          <span className="text-rose-400 font-semibold text-[11px]">User is blocked</span>
+                        ) : lastMsg ? (
+                          renderMessagePreview(lastMsg, currentUser?.handle)
+                        ) : (
+                          <span className={`text-[11px] truncate ${online ? 'text-neon-green' : 'text-ez-muted'}`}>
+                            {user.bio || (online ? 'online' : 'offline')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

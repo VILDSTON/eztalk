@@ -41,6 +41,33 @@ export default function App() {
   );
   const [activeChatHandles, setActiveChatHandles] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [lastMessages, setLastMessages] = useState<Record<string, Message>>(() => {
+    const map: Record<string, Message> = {};
+    try {
+      const convs = ChatStorageService.getConversations();
+      const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
+      for (const [key, msgs] of Object.entries(convs)) {
+        if (Array.isArray(msgs) && msgs.length > 0) {
+          const last = msgs[msgs.length - 1];
+          map[key] = last;
+          if (key.startsWith('group__')) {
+            map[key.replace('group__', '')] = last;
+          } else {
+            const parts = key.split('__');
+            if (parts.length === 2) {
+              const other = parts[0] === myHandle ? parts[1] : parts[0];
+              map[other] = last;
+              map[`@${other}`] = last;
+              if (parts[0] === parts[1]) {
+                map['saved_messages'] = last;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+    return map;
+  });
 
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -100,6 +127,16 @@ export default function App() {
       Notification.requestPermission().catch(() => {});
     }
   }, []);
+
+  // Fetch latest message previews for chat list
+  useEffect(() => {
+    if (!currentUser?.handle) return;
+    ApiService.getRecentConversations(currentUser.handle).then((recent) => {
+      if (recent && Object.keys(recent).length > 0) {
+        setLastMessages((prev) => ({ ...prev, ...recent }));
+      }
+    });
+  }, [currentUser?.handle]);
 
   // Update dynamic document title with unread count
   useEffect(() => {
@@ -311,6 +348,26 @@ export default function App() {
         }
       }
 
+      // Update last message preview for the chat list
+      setLastMessages((prev) => {
+        const updated = { ...prev };
+        if (isForGroup) {
+          updated[newMsg.groupId!] = newMsg;
+          updated[`group__${newMsg.groupId!}`] = newMsg;
+        } else {
+          const otherHandle = sHandle === myHandle ? rHandle : sHandle;
+          if (otherHandle) {
+            const clean = normalizeHandle(otherHandle).toLowerCase();
+            updated[clean] = newMsg;
+            updated[normalizeHandle(otherHandle)] = newMsg;
+            if (sHandle === myHandle && rHandle === myHandle) {
+              updated['saved_messages'] = newMsg;
+            }
+          }
+        }
+        return updated;
+      });
+
       // Update unread count if message is not sent by current user and chat is not open
       const isCurrentChatOpen = isForGroup
         ? selectedGroupIdRef.current === newMsg.groupId
@@ -404,6 +461,17 @@ export default function App() {
     // Message edited event
     const unsubEdit = socketService.onMessageEdited(({ id, text, isEdited }) => {
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text, isEdited } : m)));
+      setLastMessages((prev) => {
+        const updated = { ...prev };
+        let changed = false;
+        for (const [k, m] of Object.entries(updated)) {
+          if (m.id === id) {
+            updated[k] = { ...m, text, isEdited };
+            changed = true;
+          }
+        }
+        return changed ? updated : prev;
+      });
     });
 
     // Message deleted event
@@ -712,6 +780,23 @@ export default function App() {
     // Save to local cache immediately
     ChatStorageService.saveConversation(convKey, [...messages, tempMsg]);
 
+    // Update last message preview for sidebar
+    setLastMessages((prev) => {
+      const updated = { ...prev };
+      if (targetGroupId) {
+        updated[targetGroupId] = tempMsg;
+        updated[`group__${targetGroupId}`] = tempMsg;
+      } else if (targetRecipient) {
+        const norm = normalizeHandle(targetRecipient);
+        updated[norm] = tempMsg;
+        updated[norm.toLowerCase()] = tempMsg;
+        if (norm.toLowerCase() === normalizeHandle(currentUser.handle).toLowerCase()) {
+          updated['saved_messages'] = tempMsg;
+        }
+      }
+      return updated;
+    });
+
     // Clear draft for this conversation
     ChatStorageService.saveDraft(convKey, '');
     setDrafts((prev) => ({ ...prev, [convKey]: '' }));
@@ -782,6 +867,17 @@ export default function App() {
   // Edit Message
   const handleEditMessage = async (id: string, newText: string) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text: newText, isEdited: true } : m)));
+    setLastMessages((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const [k, m] of Object.entries(updated)) {
+        if (m.id === id) {
+          updated[k] = { ...m, text: newText, isEdited: true };
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
     await ApiService.editMessage(id, newText);
   };
 
@@ -1076,6 +1172,7 @@ export default function App() {
             unreadCounts={unreadCounts}
             onlineHandles={onlineHandles}
             blockedUsers={blockedUsers}
+            lastMessages={lastMessages}
             selectedUserId={selectedUserId}
             selectedGroupId={selectedGroupId}
             onOpenMenu={() => setIsDrawerOpen(true)}

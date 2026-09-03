@@ -140,6 +140,18 @@ export class ApiService {
     }
   }
 
+  // Fetch recent messages for all conversations of a user
+  static async getRecentConversations(handle: string): Promise<Record<string, Message>> {
+    try {
+      const clean = encodeURIComponent(handle.trim().toLowerCase());
+      const res = await fetch(`${API_BASE_URL}/conversations/recent/${clean}`);
+      const data = await res.json();
+      return data.recent || {};
+    } catch {
+      return {};
+    }
+  }
+
   // Fetch messages for a group
   static async getGroupMessages(groupId: string): Promise<Message[]> {
     try {

@@ -734,6 +734,68 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
   }
 });
 
+// Get Last Messages for all conversations of a user (Decrypted on retrieval)
+app.get('/api/conversations/recent/:handle', async (req, res) => {
+  try {
+    const rawHandle = normalizeHandle(req.params.handle);
+    const handleClean = rawHandle.toLowerCase();
+
+    let allMessages = [];
+    if (isMongoConnected) {
+      allMessages = await MessageModel.find({
+        $or: [
+          { senderHandle: { $regex: new RegExp(`^${rawHandle.replace('@', '')}$`, 'i') } },
+          { recipientHandle: { $regex: new RegExp(`^${rawHandle.replace('@', '')}$`, 'i') } },
+          { senderHandle: { $regex: new RegExp(`^@${rawHandle.replace('@', '')}$`, 'i') } },
+          { recipientHandle: { $regex: new RegExp(`^@${rawHandle.replace('@', '')}$`, 'i') } },
+          { groupId: { $ne: null } },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    } else {
+      const db = readLocalDB();
+      allMessages = (db.messages || [])
+        .filter((m) => {
+          const s = normalizeHandle(m.senderHandle || '').toLowerCase();
+          const r = normalizeHandle(m.recipientHandle || '').toLowerCase();
+          return s === handleClean || r === handleClean || Boolean(m.groupId);
+        })
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
+    const recentMap = {};
+    for (const msg of allMessages) {
+      let chatKey = '';
+      if (msg.groupId) {
+        chatKey = `group__${msg.groupId}`;
+      } else {
+        const s = normalizeHandle(msg.senderHandle || '').toLowerCase();
+        const r = normalizeHandle(msg.recipientHandle || '').toLowerCase();
+        if (s === handleClean && r === handleClean) {
+          chatKey = 'saved_messages';
+        } else if (s === handleClean) {
+          chatKey = r;
+        } else {
+          chatKey = s;
+        }
+      }
+
+      if (chatKey && !recentMap[chatKey]) {
+        const formatted = formatMessage(msg);
+        recentMap[chatKey] = formatted;
+        if (chatKey.startsWith('group__')) {
+          recentMap[msg.groupId] = formatted;
+        }
+      }
+    }
+
+    res.json({ recent: recentMap });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get Messages between two users (Decrypted on retrieval)
 app.get('/api/messages/:handle1/:handle2', async (req, res) => {
   try {
