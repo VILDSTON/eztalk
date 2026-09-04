@@ -138,6 +138,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Strict 10MB limit validation
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_FILE_SIZE) {
+      alert('Файл слишком большой. Лимит — 10 МБ');
+      e.target.value = '';
+      return;
+    }
+
     const isImage = file.type.startsWith('image/');
     const isSvgOrGif = file.type.includes('svg') || file.type.includes('gif');
 
@@ -368,6 +376,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     mr.onstop = async () => {
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+      // Strict 10MB limit validation on voice recordings
+      if (audioBlob.size > 10 * 1024 * 1024) {
+        alert('Файл слишком большой. Лимит — 10 МБ');
+        return;
+      }
+
       setIsUploading(true);
       try {
         const audioName = `voice_${Date.now()}.webm`;

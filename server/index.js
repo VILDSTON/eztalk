@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import dns from 'dns';
 import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
+import { createClient } from '@supabase/supabase-js';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
@@ -87,34 +87,33 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Cloudinary Configuration (Strictly required on Render due to ephemeral filesystem)
-const hasCloudinary = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
-);
+// Supabase Storage Configuration (Strictly required on Render due to ephemeral filesystem)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseBucket = process.env.SUPABASE_BUCKET || 'chat-attachments';
 
-if (hasCloudinary) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true,
-  });
-  console.log('☁️ Cloudinary configured successfully.');
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log(`⚡ Supabase Storage configured successfully (Bucket: ${supabaseBucket}).`);
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err.message);
+  }
 } else {
   if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
     console.warn(
-      '⚠️ CRITICAL WARNING: CLOUDINARY credentials are NOT set! On Render, local uploads/ are ephemeral and will be wiped on restart/sleep. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in Render Environment variables.'
+      '⚠️ CRITICAL WARNING: SUPABASE credentials are NOT set! On Render, local uploads/ are ephemeral and will be wiped on restart/sleep. Set SUPABASE_URL and SUPABASE_KEY in Render Environment variables.'
     );
   } else {
-    console.log('ℹ️ Running local upload storage fallback in uploads/ folder (Cloudinary not configured).');
+    console.log('ℹ️ Running local upload storage fallback in uploads/ folder (Supabase Storage not configured).');
   }
 }
 
+// Strict 10MB limit to prevent storage overload and server OOM (Out Of Memory)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB strict limit
 });
 
 let isMongoConnected = false;
@@ -259,66 +258,79 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Upload Attachment File or Audio (Cloudinary on Render, uploads/ fallback on local PC)
-app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file provided' });
+// Upload Attachment File or Audio (Supabase Storage on Render, uploads/ fallback on local PC)
+app.post('/api/upload', authenticateToken, (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'Файл слишком большой. Лимит — 10 МБ' });
+      }
+      return res.status(400).json({ error: err.message });
+    } else if (err) {
+      return res.status(500).json({ error: err.message });
     }
 
-    const file = req.file;
-    const originalName = file.originalname || 'attachment';
-    const ext = path.extname(originalName) || '';
-    const mimeType = file.mimetype || 'application/octet-stream';
-    const isImage = mimeType.startsWith('image/');
-    const isAudio = mimeType.startsWith('audio/');
-    const fileType = isImage ? 'image' : isAudio ? 'audio' : 'file';
-    const sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+      }
 
-    if (hasCloudinary) {
-      const resourceType = isImage ? 'image' : isAudio ? 'video' : 'raw';
-      const cleanBase = path.parse(originalName).name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: resourceType,
-            folder: 'eztalk_uploads',
-            public_id: `${Date.now()}_${cleanBase}`,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(file.buffer);
-      });
+      const file = req.file;
+      const originalName = file.originalname || 'attachment';
+      const ext = path.extname(originalName) || '';
+      const mimeType = file.mimetype || 'application/octet-stream';
+      const isImage = mimeType.startsWith('image/');
+      const isAudio = mimeType.startsWith('audio/');
+      const fileType = isImage ? 'image' : isAudio ? 'audio' : 'file';
+      const sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
 
-      return res.json({
-        url: uploadResult.secure_url,
-        name: originalName,
-        type: fileType,
-        size: sizeStr,
-      });
-    } else {
-      const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
-      const targetPath = path.join(UPLOADS_DIR, safeName);
-      fs.writeFileSync(targetPath, file.buffer);
+      if (supabase) {
+        const cleanBase = path.parse(originalName).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `${Date.now()}_${cleanBase}${ext}`;
 
-      const host = req.get('host');
-      const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-      const fileUrl = host ? `${protocol}://${host}/uploads/${safeName}` : `/uploads/${safeName}`;
+        const { data, error } = await supabase.storage
+          .from(supabaseBucket)
+          .upload(fileName, file.buffer, {
+            contentType: mimeType,
+            upsert: false,
+          });
 
-      return res.json({
-        url: fileUrl,
-        name: originalName,
-        type: fileType,
-        size: sizeStr,
-      });
+        if (error) {
+          console.error('Supabase storage upload error:', error);
+          throw new Error(error.message || 'Supabase upload failed');
+        }
+
+        const { data: urlData } = supabase.storage
+          .from(supabaseBucket)
+          .getPublicUrl(fileName);
+
+        return res.json({
+          url: urlData.publicUrl,
+          name: originalName,
+          type: fileType,
+          size: sizeStr,
+        });
+      } else {
+        const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+        const targetPath = path.join(UPLOADS_DIR, safeName);
+        fs.writeFileSync(targetPath, file.buffer);
+
+        const host = req.get('host');
+        const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+        const fileUrl = host ? `${protocol}://${host}/uploads/${safeName}` : `/uploads/${safeName}`;
+
+        return res.json({
+          url: fileUrl,
+          name: originalName,
+          type: fileType,
+          size: sizeStr,
+        });
+      }
+    } catch (uploadErr) {
+      console.error('Upload error:', uploadErr);
+      res.status(500).json({ error: uploadErr.message || 'File upload failed' });
     }
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: err.message || 'File upload failed' });
-  }
+  });
 });
 
 // Helper to format user objects with guaranteed id and sensitive fields omitted
