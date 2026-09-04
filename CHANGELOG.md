@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cross-Tab Synchronization**: Hardened `liveSync.ts` with standalone `BroadcastChannel` and `localStorage` storage-event fallback for production, along with deterministic event ID deduplication.
 - **Instant Theme Bootstrapping**: Added `initThemeEngine()` executed before React mount in `main.tsx` to restore saved themes and compact mode instantly without screen flash, and stabilized dynamic alpha glow calculations.
 - **Crypto Key Caching & Tamper Protection**: Cached SHA256-derived AES-256-GCM encryption key once in process memory avoiding CPU bottlenecks on bulk fetches, enforced strict hex/length verification, and safely flagged corrupted/tampered ciphertexts.
+- **Backend Route & Socket JWT Security**: Added `authenticateToken` middleware across mutating REST endpoints, verified JWT tokens in Socket.io handshake (`io.use`) to prevent handle impersonation, switched group message delivery strictly to members, and eliminated presence leak by tracking active socket IDs with `Set` deduplication.
 - **Input Bar Baseline**: Aligned attachment paperclip, input pill, emoji picker, and send/mic buttons along a shared horizontal baseline with clear `text-sm text-white` typography.
 
 ### Removed

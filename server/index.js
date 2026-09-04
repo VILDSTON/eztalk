@@ -33,12 +33,26 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
-  pingTimeout: 10000,
-  pingInterval: 5000,
+  pingTimeout: 15000,
+  pingInterval: 10000,
 });
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Middleware проверки JWT для защищенных API роутов
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+}
 
 const PORT = process.env.PORT || 5050;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/eztalk_db';
@@ -424,7 +438,7 @@ app.get('/api/users/profile', async (req, res) => {
 });
 
 // Update Profile (Supports both PUT and PATCH for Cross-Device Persistence)
-app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) => {
+app.all(['/api/users/profile', '/api/users/settings'], authenticateToken, async (req, res, next) => {
   if (req.method !== 'PUT' && req.method !== 'PATCH') return next();
   try {
     const {
@@ -600,7 +614,7 @@ app.all(['/api/users/profile', '/api/users/settings'], async (req, res, next) =>
 });
 
 // Toggle / Set Block User
-app.post('/api/users/:handle/block', async (req, res) => {
+app.post('/api/users/:handle/block', authenticateToken, async (req, res) => {
   try {
     const userHandle = normalizeHandle(req.params.handle);
     const { targetHandle, action } = req.body;
@@ -643,7 +657,7 @@ app.post('/api/users/:handle/block', async (req, res) => {
 });
 
 // Toggle / Add / Remove Friend (Mutual cross-device persistence)
-app.post('/api/users/:handle/friends', async (req, res) => {
+app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
   try {
     const userHandle = normalizeHandle(req.params.handle);
     const { targetHandle, action } = req.body;
@@ -834,7 +848,7 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 });
 
 // Post New Message (Encrypted at rest with AES-256-GCM)
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', authenticateToken, async (req, res) => {
   try {
     const {
       id,
@@ -889,14 +903,32 @@ app.post('/api/messages', async (req, res) => {
     if (isMongoConnected) {
       const saved = await MessageModel.create(messageData);
       const formatted = formatMessage(saved);
-      io.emit('new_message', formatted);
+      if (groupId) {
+        let members = [];
+        const g = await GroupModel.findOne({ id: groupId }).lean();
+        if (g && Array.isArray(g.memberHandles)) members = g.memberHandles;
+        members.forEach((h) => io.to(normalizeHandle(h)).emit('new_message', formatted));
+        io.to(`group_${groupId}`).emit('new_message', formatted);
+      } else {
+        if (rHandle) io.to(rHandle).emit('new_message', formatted);
+        if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
+      }
       return res.json({ message: formatted });
     } else {
       const db = readLocalDB();
       db.messages.push(messageData);
       writeLocalDB(db);
       const formatted = formatMessage(messageData);
-      io.emit('new_message', formatted);
+      if (groupId) {
+        let members = [];
+        const g = (db.groups || []).find((x) => x.id === groupId);
+        if (g && Array.isArray(g.memberHandles)) members = g.memberHandles;
+        members.forEach((h) => io.to(normalizeHandle(h)).emit('new_message', formatted));
+        io.to(`group_${groupId}`).emit('new_message', formatted);
+      } else {
+        if (rHandle) io.to(rHandle).emit('new_message', formatted);
+        if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
+      }
       return res.json({ message: formatted });
     }
   } catch (err) {
@@ -905,7 +937,7 @@ app.post('/api/messages', async (req, res) => {
 });
 
 // Edit Message (Encrypted at rest with AES-256-GCM)
-app.put('/api/messages/:id', async (req, res) => {
+app.put('/api/messages/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { text } = req.body;
@@ -938,7 +970,7 @@ app.put('/api/messages/:id', async (req, res) => {
 });
 
 // Hard Delete Message (Permanently removed from MongoDB and Local DB)
-app.delete('/api/messages/:id', async (req, res) => {
+app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -964,7 +996,7 @@ app.delete('/api/messages/:id', async (req, res) => {
 });
 
 // Toggle Emoji Reaction on Message
-app.post('/api/messages/:id/reaction', async (req, res) => {
+app.post('/api/messages/:id/reaction', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { emoji, userHandle } = req.body;
@@ -1027,7 +1059,7 @@ app.get('/api/groups', async (req, res) => {
   }
 });
 
-app.post('/api/groups', async (req, res) => {
+app.post('/api/groups', authenticateToken, async (req, res) => {
   try {
     const { name, avatar, creatorHandle, memberHandles } = req.body;
     const cleanCreator = normalizeHandle(creatorHandle);
@@ -1048,14 +1080,20 @@ app.post('/api/groups', async (req, res) => {
 
     if (isMongoConnected) {
       const created = await GroupModel.create(groupData);
-      io.emit('new_group', created);
+      // Оповещаем только участников группы, чтобы не засорять эфир другим клиентам
+      cleanMembers.forEach((handle) => {
+        io.to(handle).emit('new_group', created);
+      });
       return res.json({ group: created });
     } else {
       const db = readLocalDB();
       if (!db.groups) db.groups = [];
       db.groups.push(groupData);
       writeLocalDB(db);
-      io.emit('new_group', groupData);
+      // Оповещаем только участников группы, чтобы не засорять эфир другим клиентам
+      cleanMembers.forEach((handle) => {
+        io.to(handle).emit('new_group', groupData);
+      });
       return res.json({ group: groupData });
     }
   } catch (err) {
@@ -1064,7 +1102,7 @@ app.post('/api/groups', async (req, res) => {
 });
 
 // Delete Group
-app.delete('/api/groups/:id', async (req, res) => {
+app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     let memberHandles = [];
@@ -1104,7 +1142,7 @@ app.delete('/api/groups/:id', async (req, res) => {
 });
 
 // Clear Messages
-app.post('/api/messages/clear', async (req, res) => {
+app.post('/api/messages/clear', authenticateToken, async (req, res) => {
   try {
     const { handle1, handle2, groupId } = req.body;
     let key;
@@ -1156,50 +1194,55 @@ app.post('/api/messages/clear', async (req, res) => {
   }
 });
 
-// --- SOCKET.IO REAL-TIME EVENTS & PRESENCE ---
+// --- SOCKET.IO SECURE PRESENCE & SIGNALING ---
 const socketHandleMap = new Map(); // socket.id -> handle
-const handleSocketCount = new Map(); // handle -> count
 
 function getOnlineHandles() {
-  return Array.from(handleSocketCount.keys()).filter((h) => (handleSocketCount.get(h) || 0) > 0);
+  return Array.from(new Set(socketHandleMap.values()));
 }
+
+// Socket Auth Middleware: проверяем JWT перед подключением
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (!err && decoded?.handle) {
+        socket.verifiedHandle = normalizeHandle(decoded.handle);
+      }
+    });
+  }
+  next();
+});
 
 io.on('connection', (socket) => {
   // Send current online users immediately on connection
   socket.emit('online_users', getOnlineHandles());
 
   socket.on('join', (userHandle) => {
-    if (userHandle) {
-      const handle = normalizeHandle(userHandle);
-      socket.join(handle);
+    const handle = socket.verifiedHandle || normalizeHandle(userHandle);
+    if (!handle) return;
 
-      // Track presence
-      socketHandleMap.set(socket.id, handle);
-      const prevCount = handleSocketCount.get(handle) || 0;
-      handleSocketCount.set(handle, prevCount + 1);
+    socket.join(handle);
+    socketHandleMap.set(socket.id, handle);
+    io.emit('online_users', getOnlineHandles());
+  });
 
-      // Broadcast updated online list
-      io.emit('online_users', getOnlineHandles());
+  socket.on('join_group', (groupId) => {
+    if (groupId) {
+      socket.join(`group_${groupId}`);
     }
   });
 
   socket.on('disconnect', () => {
-    const handle = socketHandleMap.get(socket.id);
-    if (handle) {
+    if (socketHandleMap.has(socket.id)) {
       socketHandleMap.delete(socket.id);
-      const count = (handleSocketCount.get(handle) || 1) - 1;
-      if (count <= 0) {
-        handleSocketCount.delete(handle);
-      } else {
-        handleSocketCount.set(handle, count);
-      }
       io.emit('online_users', getOnlineHandles());
     }
   });
 
   socket.on('typing', ({ senderHandle, recipientHandle, isTyping }) => {
     const rHandle = normalizeHandle(recipientHandle);
-    const sHandle = normalizeHandle(senderHandle);
+    const sHandle = socket.verifiedHandle || normalizeHandle(senderHandle);
     if (rHandle) {
       io.to(rHandle).emit('user_typing', {
         senderHandle: sHandle,
@@ -1210,7 +1253,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call_user', (data) => {
-    const caller = data.caller || data.from;
+    const caller = socket.verifiedHandle || data.caller || data.from;
     const recipientHandle = normalizeHandle(data.recipientHandle || data.to);
     if (recipientHandle) {
       io.to(recipientHandle).emit('incoming_call', {
@@ -1224,7 +1267,7 @@ io.on('connection', (socket) => {
 
   const handleAcceptCall = (data) => {
     const callerHandle = normalizeHandle(data.callerHandle || data.to);
-    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
     const recipient = data.recipient || (callerHandle ? { handle: recipientHandle } : null);
     if (callerHandle) {
       io.to(callerHandle).emit('call_accepted', {
@@ -1242,7 +1285,7 @@ io.on('connection', (socket) => {
 
   socket.on('decline_call', (data) => {
     const callerHandle = normalizeHandle(data.callerHandle || data.to);
-    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
     if (callerHandle) {
       io.to(callerHandle).emit('call_declined', { callerHandle, recipientHandle });
       io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
@@ -1255,13 +1298,13 @@ io.on('connection', (socket) => {
 
   socket.on('end_call', (data) => {
     const callerHandle = normalizeHandle(data.callerHandle || data.to);
-    const recipientHandle = normalizeHandle(data.recipientHandle || data.from);
+    const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
     if (callerHandle) io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
     if (recipientHandle && recipientHandle !== callerHandle) io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
   });
 
   socket.on('save_draft', ({ senderHandle, recipientHandle, text }) => {
-    const sHandle = normalizeHandle(senderHandle);
+    const sHandle = socket.verifiedHandle || normalizeHandle(senderHandle);
     const rHandle = normalizeHandle(recipientHandle);
     if (sHandle && rHandle) {
       // Echo draft to sender's other tabs/devices
@@ -1274,7 +1317,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('mark_read', async ({ messageId, readerHandle, conversationKey }) => {
-    const rHandle = normalizeHandle(readerHandle);
+    const rHandle = socket.verifiedHandle || normalizeHandle(readerHandle);
     const readAt = new Date().toISOString();
 
     if (messageId) {
@@ -1295,9 +1338,10 @@ io.on('connection', (socket) => {
 
   socket.on('webrtc_signal', (data) => {
     const target = normalizeHandle(data.toHandle || data.to);
-    const source = normalizeHandle(data.fromHandle || data.from);
+    const source = socket.verifiedHandle || normalizeHandle(data.fromHandle || data.from);
     if (target) {
       io.to(target).emit('webrtc_signal', {
+        ...data,
         toHandle: target,
         fromHandle: source,
         to: target,
