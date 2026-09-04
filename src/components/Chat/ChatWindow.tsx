@@ -42,6 +42,10 @@ interface ChatWindowProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onStartCall?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => Promise<void>;
+  onRetryMessage?: (message: Message) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -75,6 +79,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onAddFriend,
   onDeleteGroup,
   onStartCall,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
+  onRetryMessage,
 }) => {
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
@@ -186,6 +194,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isGroupChat={Boolean(group)}
         isTyping={isTyping}
         recipientHandle={recipientLabel}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={onLoadMore}
         onReply={(msg) => setReplyingTo(msg)}
         onForward={(msg) => setForwardingMessage(msg)}
         onEdit={(msg: Message) => setEditingMessage({ id: msg.id, text: msg.text })}
@@ -193,6 +204,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onToggleReaction={onToggleReaction}
         onOpenMedia={(m) => setLightboxMedia(m)}
         onCallBack={onStartCall}
+        onRetry={onRetryMessage}
       />
 
       {/* Fluid Media Lightbox Viewer */}

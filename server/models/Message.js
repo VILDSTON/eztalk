@@ -7,6 +7,10 @@ const messageSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    tempId: {
+      type: String,
+      default: null,
+    },
     conversationKey: {
       type: String,
       required: true,

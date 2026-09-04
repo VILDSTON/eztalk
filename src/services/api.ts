@@ -172,18 +172,52 @@ export class ApiService {
     }
   }
 
-  // Fetch conversation messages between two handles
-  static async getMessages(handle1: string, handle2: string): Promise<Message[]> {
+  // Upload attachment file (image, audio, document) to Cloudinary / server
+  static async uploadFile(
+    fileOrBlob: File | Blob,
+    fileName?: string
+  ): Promise<{ url: string; name: string; type: 'image' | 'file' | 'audio'; size: string }> {
+    const formData = new FormData();
+    const name = fileName || (fileOrBlob instanceof File ? fileOrBlob.name : `upload_${Date.now()}.bin`);
+    formData.append('file', fileOrBlob, name);
+
+    const token = localStorage.getItem('eztalk_token');
+    const res = await fetch(`${API_BASE_URL}/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await handleResponse(res, 'File upload failed');
+    return data;
+  }
+
+  // Fetch conversation messages between two handles with cursor pagination
+  static async getMessages(
+    handle1: string,
+    handle2: string,
+    cursor?: string,
+    limit: number = 30
+  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
     try {
       const cleanH1 = encodeURIComponent(handle1.trim().toLowerCase());
       const cleanH2 = encodeURIComponent(handle2.trim().toLowerCase());
-      const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}`, {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (cursor) params.append('cursor', cursor);
+
+      const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}?${params.toString()}`, {
         headers: getAuthHeaders(),
       });
       const data = await res.json();
-      return data.messages || [];
+      return {
+        messages: (data.messages || []).map((m: any) => ({ ...m, status: m.status || 'sent' })),
+        nextCursor: data.nextCursor || null,
+        hasMore: Boolean(data.hasMore),
+      };
     } catch {
-      return [];
+      return { messages: [], nextCursor: null, hasMore: false };
     }
   }
 
@@ -201,16 +235,27 @@ export class ApiService {
     }
   }
 
-  // Fetch messages for a group
-  static async getGroupMessages(groupId: string): Promise<Message[]> {
+  // Fetch messages for a group with cursor pagination
+  static async getGroupMessages(
+    groupId: string,
+    cursor?: string,
+    limit: number = 30
+  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
     try {
-      const res = await fetch(`${API_BASE_URL}/groups/${groupId}/messages`, {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (cursor) params.append('cursor', cursor);
+
+      const res = await fetch(`${API_BASE_URL}/groups/${groupId}/messages?${params.toString()}`, {
         headers: getAuthHeaders(),
       });
       const data = await res.json();
-      return data.messages || [];
+      return {
+        messages: (data.messages || []).map((m: any) => ({ ...m, status: m.status || 'sent' })),
+        nextCursor: data.nextCursor || null,
+        hasMore: Boolean(data.hasMore),
+      };
     } catch {
-      return [];
+      return { messages: [], nextCursor: null, hasMore: false };
     }
   }
 
@@ -227,11 +272,13 @@ export class ApiService {
     isForwarded?: boolean,
     forwardedFrom?: string,
     isSecret?: boolean,
-    forwardRestricted?: boolean
+    forwardRestricted?: boolean,
+    tempId?: string
   ): Promise<Message> {
     const nowIso = new Date().toISOString();
     const payload = {
       id: id || `msg_${Date.now()}`,
+      tempId: tempId || (id && id.startsWith('temp_') ? id : undefined),
       senderHandle,
       recipientHandle,
       groupId,

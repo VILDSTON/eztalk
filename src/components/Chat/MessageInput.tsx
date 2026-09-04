@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3 } from 'lucide-react';
+import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3, Loader2 } from 'lucide-react';
 import { Attachment, QuotedMessage } from '../../types/chat';
+import { ApiService } from '../../services/api';
 
 interface MessageInputProps {
   recipientHandle?: string;
@@ -34,6 +35,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [inputText, setInputText] = useState(initialDraft || '');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Voice recording & Web Audio Analyser peaks
   const [isRecording, setIsRecording] = useState(false);
@@ -132,87 +134,117 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     inputRef.current?.focus();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const isImage = file.type.startsWith('image/');
     const isSvgOrGif = file.type.includes('svg') || file.type.includes('gif');
 
-    // Оптимизация Base64 картинок: сжимаем на клиенте до 1280px перед отправкой, чтобы не забивать CPU и MongoDB
-    if (isImage && !isSvgOrGif) {
-      const imgReader = new FileReader();
-      imgReader.onload = () => {
-        if (typeof imgReader.result === 'string') {
-          const img = new Image();
-          img.onload = () => {
-            const maxDim = 1280;
-            let width = img.width;
-            let height = img.height;
-            if (width > maxDim || height > maxDim) {
-              if (width > height) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              } else {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const compressedUrl = canvas.toDataURL('image/jpeg', 0.82);
-              const approxKb = (compressedUrl.length * 0.75 / 1024).toFixed(1);
-              setCurrentAttachment({
-                id: `att_${Date.now()}`,
-                name: file.name,
-                type: 'image',
-                url: compressedUrl,
-                size: `${approxKb} KB`,
-              });
-              return;
-            }
-            setCurrentAttachment({
-              id: `att_${Date.now()}`,
-              name: file.name,
-              type: 'image',
-              url: imgReader.result as string,
-              size: `${(file.size / 1024).toFixed(1)} KB`,
-            });
-          };
-          img.onerror = () => {
-            setCurrentAttachment({
-              id: `att_${Date.now()}`,
-              name: file.name,
-              type: 'image',
-              url: imgReader.result as string,
-              size: `${(file.size / 1024).toFixed(1)} KB`,
-            });
-          };
-          img.src = imgReader.result;
-        }
-      };
-      imgReader.readAsDataURL(file);
-      e.target.value = '';
-      return;
-    }
+    setIsUploading(true);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
+    try {
+      if (isImage && !isSvgOrGif) {
+        // Pre-compress on client using canvas (max 1280px) to conserve mobile bandwidth and memory
+        const imgReader = new FileReader();
+        imgReader.onload = () => {
+          if (typeof imgReader.result === 'string') {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 1280;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                  async (blob) => {
+                    if (blob) {
+                      try {
+                        const cleanName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+                        const uploaded = await ApiService.uploadFile(blob, cleanName);
+                        setCurrentAttachment({
+                          id: `att_${Date.now()}`,
+                          name: file.name,
+                          type: 'image',
+                          url: uploaded.url,
+                          size: uploaded.size,
+                        });
+                      } catch (uploadErr: any) {
+                        alert('Image upload failed: ' + (uploadErr.message || 'Network error'));
+                      } finally {
+                        setIsUploading(false);
+                      }
+                    } else {
+                      setIsUploading(false);
+                    }
+                  },
+                  'image/jpeg',
+                  0.82
+                );
+                return;
+              }
+              // Canvas context fallback
+              ApiService.uploadFile(file, file.name)
+                .then((uploaded) => {
+                  setCurrentAttachment({
+                    id: `att_${Date.now()}`,
+                    name: file.name,
+                    type: 'image',
+                    url: uploaded.url,
+                    size: uploaded.size,
+                  });
+                })
+                .catch((err) => alert('Upload failed: ' + (err.message || 'Network error')))
+                .finally(() => setIsUploading(false));
+            };
+            img.onerror = () => {
+              ApiService.uploadFile(file, file.name)
+                .then((uploaded) => {
+                  setCurrentAttachment({
+                    id: `att_${Date.now()}`,
+                    name: file.name,
+                    type: 'image',
+                    url: uploaded.url,
+                    size: uploaded.size,
+                  });
+                })
+                .catch((err) => alert('Upload failed: ' + (err.message || 'Network error')))
+                .finally(() => setIsUploading(false));
+            };
+            img.src = imgReader.result;
+          }
+        };
+        imgReader.readAsDataURL(file);
+      } else {
+        // Direct file upload (svg, gif, pdf, documents, etc.)
+        const uploaded = await ApiService.uploadFile(file, file.name);
         setCurrentAttachment({
           id: `att_${Date.now()}`,
           name: file.name,
           type: isImage ? 'image' : 'file',
-          url: reader.result,
-          size: `${(file.size / 1024).toFixed(1)} KB`,
+          url: uploaded.url,
+          size: uploaded.size,
         });
+        setIsUploading(false);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert('Upload failed: ' + (err.message || 'Network error'));
+      setIsUploading(false);
+    }
+
     e.target.value = '';
   };
 
@@ -334,29 +366,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       mr.requestData();
     } catch {}
 
-    mr.onstop = () => {
+    mr.onstop = async () => {
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          const audioAttachment: Attachment = {
-            id: `att_voice_${Date.now()}`,
-            name: 'Voice message',
-            type: 'audio',
-            url: reader.result,
-            duration,
-            size: `${(audioBlob.size / 1024).toFixed(1)} KB`,
-            peaks: finalPeaks,
-          };
-          onSendMessage(
-            '',
-            audioAttachment,
-            replyingTo || undefined
-          );
-          if (onCancelReply) onCancelReply();
-        }
-      };
-      reader.readAsDataURL(audioBlob);
+      setIsUploading(true);
+      try {
+        const audioName = `voice_${Date.now()}.webm`;
+        const uploaded = await ApiService.uploadFile(audioBlob, audioName);
+        const audioAttachment: Attachment = {
+          id: `att_voice_${Date.now()}`,
+          name: 'Voice message',
+          type: 'audio',
+          url: uploaded.url,
+          duration,
+          size: uploaded.size,
+          peaks: finalPeaks,
+        };
+        onSendMessage(
+          '',
+          audioAttachment,
+          replyingTo || undefined
+        );
+        if (onCancelReply) onCancelReply();
+      } catch (err: any) {
+        alert('Failed to upload voice message: ' + (err.message || 'Network error'));
+      } finally {
+        setIsUploading(false);
+      }
     };
 
     mr.stop();
@@ -560,8 +595,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               </button>
             </div>
 
-            {/* Send / Mic Button */}
-            {inputText.trim() || currentAttachment || editingMessage ? (
+            {/* Send / Mic Button / Upload Spinner */}
+            {isUploading ? (
+              <div
+                className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-white/10 flex items-center justify-center shrink-0"
+                title="Uploading file..."
+              >
+                <Loader2 className="w-5 h-5 text-neon-green animate-spin" />
+              </div>
+            ) : inputText.trim() || currentAttachment || editingMessage ? (
               <button
                 type="submit"
                 className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-neon-green hover:bg-neon-green-light text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 shrink-0"

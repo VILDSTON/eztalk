@@ -22,6 +22,7 @@ import {
   Check,
   Lock,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
@@ -38,6 +39,7 @@ interface MessageBubbleProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
   onCallBack?: () => void;
+  onRetry?: (message: Message) => void;
 }
 
 function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
@@ -70,6 +72,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onToggleReaction,
   onOpenMedia,
   onCallBack,
+  onRetry,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -732,15 +735,34 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
             <span>{timeString}</span>
 
-            {/* Delivery / Sending Status */}
+            {/* Delivery / Sending / Retry Status */}
             {isMe && (
               <span className="ml-0.5">
                 {message.status === 'sending' ? (
-                  <Clock className="w-3 h-3 text-ez-muted animate-spin" />
+                  <span title="Sending...">
+                    <Clock className="w-3 h-3 text-ez-muted animate-spin" />
+                  </span>
+                ) : message.status === 'failed' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onRetry) onRetry(message);
+                    }}
+                    className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                    title="Failed to send. Click to retry."
+                  >
+                    <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
+                    <span className="text-[9px] font-sans font-bold underline">Retry</span>
+                  </button>
                 ) : message.status === 'read' ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
+                  <span title="Read">
+                    <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
+                  </span>
                 ) : (
-                  <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70" />
+                  <span title="Sent">
+                    <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70" />
+                  </span>
                 )}
               </span>
             )}

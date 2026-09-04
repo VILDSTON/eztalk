@@ -9,6 +9,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import dns from 'dns';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
@@ -77,6 +79,43 @@ const DB_FILE = path.join(DATA_DIR, 'local_database.json');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+
+// Local Fallback Uploads Directory (for offline PC development)
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Cloudinary Configuration (Strictly required on Render due to ephemeral filesystem)
+const hasCloudinary = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+  console.log('☁️ Cloudinary configured successfully.');
+} else {
+  if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    console.warn(
+      '⚠️ CRITICAL WARNING: CLOUDINARY credentials are NOT set! On Render, local uploads/ are ephemeral and will be wiped on restart/sleep. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in Render Environment variables.'
+    );
+  } else {
+    console.log('ℹ️ Running local upload storage fallback in uploads/ folder (Cloudinary not configured).');
+  }
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+});
 
 let isMongoConnected = false;
 
@@ -218,6 +257,68 @@ app.get('/api/health', (req, res) => {
     mongoError: isMongoConnected ? null : mongoConnectionError,
     timestamp: new Date().toISOString(),
   });
+});
+
+// Upload Attachment File or Audio (Cloudinary on Render, uploads/ fallback on local PC)
+app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const file = req.file;
+    const originalName = file.originalname || 'attachment';
+    const ext = path.extname(originalName) || '';
+    const mimeType = file.mimetype || 'application/octet-stream';
+    const isImage = mimeType.startsWith('image/');
+    const isAudio = mimeType.startsWith('audio/');
+    const fileType = isImage ? 'image' : isAudio ? 'audio' : 'file';
+    const sizeStr = `${(file.size / 1024).toFixed(1)} KB`;
+
+    if (hasCloudinary) {
+      const resourceType = isImage ? 'image' : isAudio ? 'video' : 'raw';
+      const cleanBase = path.parse(originalName).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: resourceType,
+            folder: 'eztalk_uploads',
+            public_id: `${Date.now()}_${cleanBase}`,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+
+      return res.json({
+        url: uploadResult.secure_url,
+        name: originalName,
+        type: fileType,
+        size: sizeStr,
+      });
+    } else {
+      const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+      const targetPath = path.join(UPLOADS_DIR, safeName);
+      fs.writeFileSync(targetPath, file.buffer);
+
+      const host = req.get('host');
+      const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const fileUrl = host ? `${protocol}://${host}/uploads/${safeName}` : `/uploads/${safeName}`;
+
+      return res.json({
+        url: fileUrl,
+        name: originalName,
+        type: fileType,
+        size: sizeStr,
+      });
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ error: err.message || 'File upload failed' });
+  }
 });
 
 // Helper to format user objects with guaranteed id and sensitive fields omitted
@@ -745,29 +846,61 @@ app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
   }
 });
 
-// Get Messages for a Group (Decrypted on retrieval, limited to recent messages)
+// Get Messages for a Group (Cursor pagination, Decrypted on retrieval)
 app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async (req, res) => {
   try {
     const { groupId } = req.params;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const cursor = req.query.cursor ? String(req.query.cursor) : null;
     const key = `group__${groupId}`;
 
     if (isMongoConnected) {
-      const messages = await MessageModel.find({
+      const query = {
         $or: [{ conversationKey: key }, { groupId }],
-      })
+      };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        if (!isNaN(cursorDate.getTime())) {
+          query.createdAt = { $lt: cursorDate };
+        }
+      }
+
+      // Query limit + 1 to check for next page
+      const messages = await MessageModel.find(query)
         .sort({ createdAt: -1 })
-        .limit(limit)
+        .limit(limit + 1)
         .lean();
-      res.json({ messages: messages.reverse().map(formatMessage) });
+
+      const hasMore = messages.length > limit;
+      const pageMessages = hasMore ? messages.slice(0, limit) : messages;
+      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
+
+      res.json({
+        messages: pageMessages.reverse().map(formatMessage),
+        nextCursor,
+        hasMore,
+      });
     } else {
       const db = readLocalDB();
-      const messages = (db.messages || [])
-        .filter((m) => m.conversationKey === key || m.groupId === groupId)
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, limit)
-        .reverse();
-      res.json({ messages: messages.map(formatMessage) });
+      let msgs = (db.messages || []).filter((m) => m.conversationKey === key || m.groupId === groupId);
+
+      if (cursor) {
+        const cursorTime = new Date(cursor).getTime();
+        if (!isNaN(cursorTime)) {
+          msgs = msgs.filter((m) => new Date(m.createdAt || 0).getTime() < cursorTime);
+        }
+      }
+
+      msgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      const hasMore = msgs.length > limit;
+      const pageMessages = hasMore ? msgs.slice(0, limit) : msgs;
+      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
+
+      res.json({
+        messages: pageMessages.reverse().map(formatMessage),
+        nextCursor,
+        hasMore,
+      });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -836,27 +969,59 @@ app.get('/api/conversations/recent/:handle', async (req, res) => {
   }
 });
 
-// Get Messages between two users (Decrypted on retrieval, limited to recent messages)
+// Get Messages between two users (Cursor pagination, Decrypted on retrieval)
 app.get('/api/messages/:handle1/:handle2', async (req, res) => {
   try {
     const { handle1, handle2 } = req.params;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const cursor = req.query.cursor ? String(req.query.cursor) : null;
     const key = getConversationKey(handle1, handle2);
 
     if (isMongoConnected) {
-      const messages = await MessageModel.find({ conversationKey: key })
+      const query = { conversationKey: key };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        if (!isNaN(cursorDate.getTime())) {
+          query.createdAt = { $lt: cursorDate };
+        }
+      }
+
+      // Query limit + 1 to check for next page
+      const messages = await MessageModel.find(query)
         .sort({ createdAt: -1 })
-        .limit(limit)
+        .limit(limit + 1)
         .lean();
-      res.json({ messages: messages.reverse().map(formatMessage) });
+
+      const hasMore = messages.length > limit;
+      const pageMessages = hasMore ? messages.slice(0, limit) : messages;
+      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
+
+      res.json({
+        messages: pageMessages.reverse().map(formatMessage),
+        nextCursor,
+        hasMore,
+      });
     } else {
       const db = readLocalDB();
-      const messages = (db.messages || [])
-        .filter((m) => m.conversationKey === key)
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, limit)
-        .reverse();
-      res.json({ messages: messages.map(formatMessage) });
+      let msgs = (db.messages || []).filter((m) => m.conversationKey === key);
+
+      if (cursor) {
+        const cursorTime = new Date(cursor).getTime();
+        if (!isNaN(cursorTime)) {
+          msgs = msgs.filter((m) => new Date(m.createdAt || 0).getTime() < cursorTime);
+        }
+      }
+
+      msgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      const hasMore = msgs.length > limit;
+      const pageMessages = hasMore ? msgs.slice(0, limit) : msgs;
+      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
+
+      res.json({
+        messages: pageMessages.reverse().map(formatMessage),
+        nextCursor,
+        hasMore,
+      });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -868,6 +1033,7 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
   try {
     const {
       id,
+      tempId,
       senderHandle,
       recipientHandle,
       groupId,
@@ -895,8 +1061,13 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
     const plainText = text || '';
     const encryptedText = encryptMessage(plainText);
 
+    // If id begins with temp_, generate real server id while preserving tempId for optimistic matching
+    const realId = (id && !id.startsWith('temp_')) ? id : `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const effectiveTempId = tempId || (id && id.startsWith('temp_') ? id : null);
+
     const messageData = {
-      id: id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: realId,
+      tempId: effectiveTempId,
       conversationKey: key,
       groupId: groupId || null,
       senderHandle: sHandle,

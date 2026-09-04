@@ -104,6 +104,11 @@ export default function App() {
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
+  // Message pagination & Infinite scroll states
+  const [hasMoreByChat, setHasMoreByChat] = useState<Record<string, boolean>>({});
+  const [nextCursorByChat, setNextCursorByChat] = useState<Record<string, string | null>>({});
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
 
@@ -263,13 +268,13 @@ export default function App() {
     if (selectedGroupId) {
       const convKey = `group__${selectedGroupId}`;
       try {
-        const groupMsgs = await ApiService.getGroupMessages(selectedGroupId);
-        if (groupMsgs && groupMsgs.length > 0) {
+        const res = await ApiService.getGroupMessages(selectedGroupId, undefined, 30);
+        if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
             const map = new Map<string, Message>();
             existing.forEach((m) => map.set(m.id, m));
-            groupMsgs.forEach((m) => map.set(m.id, m));
+            res.messages.forEach((m) => map.set(m.id, m));
             const merged = Array.from(map.values()).sort(
               (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
             );
@@ -277,19 +282,21 @@ export default function App() {
             return { ...prev, [convKey]: merged };
           });
         }
+        setHasMoreByChat((prev) => ({ ...prev, [convKey]: res.hasMore }));
+        setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
       }
     } else if (selectedUser) {
       const convKey = getConversationKey(cUser.handle, selectedUser.handle);
       try {
-        const serverMessages = await ApiService.getMessages(cUser.handle, selectedUser.handle);
-        if (serverMessages && serverMessages.length > 0) {
+        const res = await ApiService.getMessages(cUser.handle, selectedUser.handle, undefined, 30);
+        if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
             const map = new Map<string, Message>();
             existing.forEach((m) => map.set(m.id, m));
-            serverMessages.forEach((m) => map.set(m.id, m));
+            res.messages.forEach((m) => map.set(m.id, m));
             const merged = Array.from(map.values()).sort(
               (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
             );
@@ -297,11 +304,65 @@ export default function App() {
             return { ...prev, [convKey]: merged };
           });
         }
+        setHasMoreByChat((prev) => ({ ...prev, [convKey]: res.hasMore }));
+        setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
       }
     }
   }, [selectedUser, selectedGroupId]);
+
+  // Infinite scroll loader: fetch older message slices and prepend without scroll jumping
+  const handleLoadMoreMessages = useCallback(async () => {
+    const cUser = currentUserRef.current;
+    if (!cUser || isLoadingMore || !currentChatKey) return;
+    const hasMore = hasMoreByChat[currentChatKey];
+    const cursor = nextCursorByChat[currentChatKey];
+    if (!hasMore || !cursor) return;
+
+    setIsLoadingMore(true);
+    try {
+      if (selectedGroupId) {
+        const res = await ApiService.getGroupMessages(selectedGroupId, cursor, 30);
+        if (res.messages && res.messages.length > 0) {
+          setMessagesByChat((prev) => {
+            const existing = prev[currentChatKey] || [];
+            const map = new Map<string, Message>();
+            res.messages.forEach((m) => map.set(m.id, m));
+            existing.forEach((m) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+            );
+            ChatStorageService.saveConversation(currentChatKey, merged);
+            return { ...prev, [currentChatKey]: merged };
+          });
+        }
+        setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
+        setNextCursorByChat((prev) => ({ ...prev, [currentChatKey]: res.nextCursor }));
+      } else if (selectedUser) {
+        const res = await ApiService.getMessages(cUser.handle, selectedUser.handle, cursor, 30);
+        if (res.messages && res.messages.length > 0) {
+          setMessagesByChat((prev) => {
+            const existing = prev[currentChatKey] || [];
+            const map = new Map<string, Message>();
+            res.messages.forEach((m) => map.set(m.id, m));
+            existing.forEach((m) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+            );
+            ChatStorageService.saveConversation(currentChatKey, merged);
+            return { ...prev, [currentChatKey]: merged };
+          });
+        }
+        setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
+        setNextCursorByChat((prev) => ({ ...prev, [currentChatKey]: res.nextCursor }));
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, currentChatKey, hasMoreByChat, nextCursorByChat, selectedGroupId, selectedUser]);
 
   // Apply user theme and density settings
   useEffect(() => {
@@ -417,9 +478,44 @@ export default function App() {
 
       setMessagesByChat((prev) => {
         const existing = prev[targetConvKey] || ChatStorageService.getConversations()[targetConvKey] || [];
-        const index = existing.findIndex((m) => m.id === newMsg.id);
-        const updated = index >= 0 ? [...existing] : [...existing, newMsg];
-        if (index >= 0) updated[index] = newMsg;
+
+        // 1. Exact ID match
+        let matchIndex = existing.findIndex((m) => m.id === newMsg.id);
+
+        // 2. Race condition deduplication: If message is from current user, merge with matching optimistic temp message
+        if (matchIndex === -1 && sHandle === myHandle) {
+          matchIndex = existing.findIndex((m) => {
+            // Match by tempId if passed by backend
+            if ((newMsg as any).tempId && ((m as any).tempId === (newMsg as any).tempId || m.id === (newMsg as any).tempId)) {
+              return true;
+            }
+            // Match by pending optimistic state and matching content
+            if (m.id.startsWith('temp_') || m.status === 'sending') {
+              const sameText = (m.text || '').trim() === (newMsg.text || '').trim();
+              const sameAttachment =
+                (!m.attachment && !newMsg.attachment) ||
+                (Boolean(m.attachment) &&
+                  Boolean(newMsg.attachment) &&
+                  (m.attachment?.url === newMsg.attachment?.url || m.attachment?.name === newMsg.attachment?.name));
+              return sameText && sameAttachment;
+            }
+            return false;
+          });
+        }
+
+        let updated: Message[];
+        if (matchIndex >= 0) {
+          // Replace temp_* optimistic message in-place with confirmed server message (preventing duplicate bubbles)
+          updated = [...existing];
+          updated[matchIndex] = {
+            ...newMsg,
+            status: newMsg.status || 'sent',
+          };
+        } else {
+          // New message from remote sender
+          updated = [...existing, newMsg];
+        }
+
         ChatStorageService.saveConversation(targetConvKey, updated);
         return { ...prev, [targetConvKey]: updated };
       });
@@ -839,8 +935,10 @@ export default function App() {
       ? `group__${targetGroupId}`
       : getConversationKey(currentUser.handle, targetRecipient!);
 
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const tempMsg: Message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: tempId,
+      tempId,
       conversationKey: convKey,
       groupId: targetGroupId || undefined,
       senderId: currentUser.id,
@@ -857,7 +955,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to local cache & messagesByChat immediately
+    // Save to local cache & messagesByChat immediately (Optimistic Update)
     setMessagesByChat((prev) => {
       const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
       const updated = [...existing, tempMsg];
@@ -900,25 +998,100 @@ export default function App() {
         replyTo,
         targetGroupId || undefined,
         undefined,
-        tempMsg.id,
+        tempId,
         isForwarded,
-        forwardedFrom
+        forwardedFrom,
+        undefined,
+        undefined,
+        tempId
       );
 
-      // Update status to 'sent'
+      const isFailed = !serverMsg || serverMsg.status === 'failed';
+
+      // Update status in place (matching tempId or server id)
+      setMessagesByChat((prev) => {
+        const existing = prev[convKey] || [];
+        const updated: Message[] = existing.map((m) => {
+          if (m.id === tempId || (m as any).tempId === tempId || (serverMsg && m.id === serverMsg.id)) {
+            return {
+              ...m,
+              ...(serverMsg || {}),
+              status: isFailed ? ('failed' as const) : ('sent' as const),
+            } as Message;
+          }
+          return m;
+        });
+        ChatStorageService.saveConversation(convKey, updated);
+        return { ...prev, [convKey]: updated };
+      });
+    } catch {
+      // Mark as failed in UI so user can tap "Retry"
       setMessagesByChat((prev) => {
         const existing = prev[convKey] || [];
         const updated: Message[] = existing.map((m) =>
-          m.id === tempMsg.id ? ((serverMsg ? { ...m, ...serverMsg, status: 'sent' as const } : { ...m, status: 'sent' as const }) as Message) : m
+          m.id === tempId ? { ...m, status: 'failed' as const } : m
+        );
+        ChatStorageService.saveConversation(convKey, updated);
+        return { ...prev, [convKey]: updated };
+      });
+      ChatStorageService.addPendingMessage(tempMsg);
+    }
+  };
+
+  // Retry sending a failed message
+  const handleRetryMessage = async (failedMsg: Message) => {
+    if (!currentUser) return;
+    const convKey = failedMsg.conversationKey || currentChatKey;
+    if (!convKey) return;
+
+    // Reset status back to 'sending'
+    setMessagesByChat((prev) => {
+      const existing = prev[convKey] || [];
+      const updated = existing.map((m) => (m.id === failedMsg.id ? { ...m, status: 'sending' as const } : m));
+      ChatStorageService.saveConversation(convKey, updated);
+      return { ...prev, [convKey]: updated };
+    });
+
+    try {
+      const serverMsg = await ApiService.sendMessage(
+        currentUser.handle,
+        failedMsg.recipientHandle || null,
+        failedMsg.text,
+        failedMsg.attachment,
+        failedMsg.replyTo,
+        failedMsg.groupId,
+        failedMsg.callInfo,
+        failedMsg.id,
+        failedMsg.isForwarded,
+        failedMsg.forwardedFrom,
+        failedMsg.isSecret,
+        failedMsg.forwardRestricted,
+        (failedMsg as any).tempId || failedMsg.id
+      );
+
+      const isFailed = !serverMsg || serverMsg.status === 'failed';
+
+      setMessagesByChat((prev) => {
+        const existing = prev[convKey] || [];
+        const updated = existing.map((m) =>
+          m.id === failedMsg.id
+            ? ({
+                ...m,
+                ...(serverMsg || {}),
+                status: isFailed ? ('failed' as const) : ('sent' as const),
+              } as Message)
+            : m
         );
         ChatStorageService.saveConversation(convKey, updated);
         return { ...prev, [convKey]: updated };
       });
     } catch {
-      ChatStorageService.addPendingMessage(tempMsg);
-      if (!targetGroupId && targetRecipient) {
-        ChatStorageService.addMessage(currentUser.handle, targetRecipient, tempMsg);
-      }
+      setMessagesByChat((prev) => {
+        const existing = prev[convKey] || [];
+        const updated = existing.map((m) => (m.id === failedMsg.id ? { ...m, status: 'failed' as const } : m));
+        ChatStorageService.saveConversation(convKey, updated);
+        return { ...prev, [convKey]: updated };
+      });
     }
   };
 
@@ -1378,6 +1551,10 @@ export default function App() {
               onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
               onDeleteGroup={() => handleDeleteGroup()}
               onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
+              hasMore={Boolean(currentChatKey && hasMoreByChat[currentChatKey])}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={handleLoadMoreMessages}
+              onRetryMessage={handleRetryMessage}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none telegram-chat-bg relative overflow-hidden">

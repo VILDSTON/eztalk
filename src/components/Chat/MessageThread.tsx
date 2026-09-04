@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -11,6 +11,9 @@ interface MessageThreadProps {
   isGroupChat?: boolean;
   isTyping?: boolean;
   recipientHandle?: string;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => Promise<void>;
   onReply?: (quoted: QuotedMessage) => void;
   onForward?: (message: Message) => void;
   onEdit?: (message: Message) => void;
@@ -18,6 +21,7 @@ interface MessageThreadProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
   onCallBack?: () => void;
+  onRetry?: (message: Message) => void;
 }
 
 function formatMessageDateDivider(createdAt?: string, timestamp?: string): string {
@@ -67,6 +71,9 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   isGroupChat = false,
   isTyping = false,
   recipientHandle,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   onReply,
   onForward,
   onEdit,
@@ -74,12 +81,16 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   onToggleReaction,
   onOpenMedia,
   onCallBack,
+  onRetry,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   const prevMessagesLengthRef = useRef(messages.length);
+  const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const prevFirstMsgIdRef = useRef<string | null>(messages[0]?.id || null);
+  const isPrependRef = useRef(false);
 
   const handleScroll = () => {
     const el = containerRef.current;
@@ -90,10 +101,49 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
     if (!isUp) {
       setNewMessagesCount(0);
     }
+
+    // Infinite scroll trigger: when scrolled near the top (< 60px) and older messages exist
+    if (el.scrollTop < 60 && hasMore && !isLoadingMore && onLoadMore) {
+      scrollSnapshotRef.current = {
+        scrollHeight: el.scrollHeight,
+        scrollTop: el.scrollTop,
+      };
+      isPrependRef.current = true;
+      onLoadMore();
+    }
   };
+
+  // Asynchronous virtual DOM scroll restoration via useLayoutEffect
+  // Guarantees layout is measured AFTER React updates the DOM tree but BEFORE browser paints
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (scrollSnapshotRef.current) {
+      const { scrollHeight: prevScrollHeight, scrollTop: prevScrollTop } = scrollSnapshotRef.current;
+      const heightDelta = el.scrollHeight - prevScrollHeight;
+      if (heightDelta > 0) {
+        el.scrollTop = prevScrollTop + heightDelta;
+      }
+      scrollSnapshotRef.current = null;
+    }
+  }, [messages]);
 
   useEffect(() => {
     const isNewMessageAdded = messages.length > prevMessagesLengthRef.current;
+    const firstMsgId = messages[0]?.id || null;
+    const wasPrepended =
+      isPrependRef.current ||
+      (isNewMessageAdded && firstMsgId !== prevFirstMsgIdRef.current && prevFirstMsgIdRef.current !== null);
+    isPrependRef.current = false;
+    prevFirstMsgIdRef.current = firstMsgId;
+
+    // Skip auto-scrolling to bottom on history prepends
+    if (wasPrepended) {
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+
     const lastMsg = messages[messages.length - 1];
     const isMyMsg =
       lastMsg &&
@@ -135,8 +185,17 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
       >
         {/* Message Canvas (Full width) */}
         <div className="w-full px-4 sm:px-6 flex flex-col flex-1">
-          {/* Top spacer */}
-          <div className="flex-1 min-h-4" />
+          {/* Top spacer & Infinite Scroll Spinner */}
+          {isLoadingMore ? (
+            <div className="flex justify-center py-2.5 my-1 select-none">
+              <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
+                <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
+                <span className="text-[11px] font-mono text-ez-muted">Loading earlier messages...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-4" />
+          )}
 
           {messages.length === 0 ? (
             <div className="text-center py-20 text-ez-muted text-xs select-none flex flex-col items-center">
@@ -174,6 +233,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                     onToggleReaction={onToggleReaction}
                     onOpenMedia={onOpenMedia}
                     onCallBack={onCallBack}
+                    onRetry={onRetry}
                   />
                 </React.Fragment>
               );

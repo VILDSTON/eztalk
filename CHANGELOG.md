@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-09-04
+
+### Added
+- **Cloudinary Storage & Zero-Base64 Database**: Implemented `POST /api/upload` endpoint using `multer` memory storage streaming directly to Cloudinary (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`). All media attachments (compressed images, voice notes, documents) now store clean, lightweight HTTPS URLs in MongoDB instead of heavy Base64 strings.
+- **Render Production Safeguard & Offline Fallback**: Configured `uploads/` static directory fallback for offline local PC development, accompanied by an explicit server startup warning in production/Render if Cloudinary credentials are not configured (preventing 404s due to Render's ephemeral filesystem).
+- **Optimistic UI with 1-Tap Retry**: Instantaneous UI delivery for sent messages using unique `temp_${Date.now()}` IDs and spinning `status: 'sending'` indicator. Network or server failures immediately update status to `failed` and render a red alert badge with a 1-tap "Retry" button.
+- **Socket Race Condition Deduplication**: Hardened `socketService.onNewMessage` against race conditions where backend WebSocket broadcasts arrive before the HTTP `fetch()` promise resolves. Incoming socket messages from `currentUser.handle` are deduplicated and merged with pending optimistic messages in place, preventing duplicate bubbles and screen flickering.
+- **Cursor-Based Message Pagination**: Added `cursor` (`createdAt < cursor`) and `limit: 30` parameters to `GET /api/messages/:handle1/:handle2` and `GET /api/groups/:groupId/messages`, returning `{ messages, nextCursor, hasMore }`.
+- **DOM-Preserved Infinite Scroll**: Integrated asynchronous scroll restoration inside `useLayoutEffect` in `MessageThread`, compensating `scrollTop = scrollHeight - prevScrollHeight + prevScrollTop` after React reconciliation, guaranteeing zero jitter and exact viewport retention during history loading.
+
 ## [0.9.2] - 2026-09-04
 
 ### Added

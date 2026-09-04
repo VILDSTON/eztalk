@@ -60,6 +60,7 @@ export interface ReactionItem {
 
 export interface Message {
   id: string;
+  tempId?: string;
   conversationKey?: string;
   groupId?: string;
   senderId: string;
