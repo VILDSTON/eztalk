@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { LeftSidebar } from './components/Sidebar/LeftSidebar';
 import { FriendsList } from './components/Friends/FriendsList';
 import { ChatWindow } from './components/Chat/ChatWindow';
@@ -40,7 +40,10 @@ export default function App() {
       : (currentUser ? ChatStorageService.getAddedFriends(currentUser.handle) : [])
   );
   const [activeChatHandles, setActiveChatHandles] = useState<string[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Chat messages stored in memory dictionary by conversation key (0ms instant chat switching, no empty flicker)
+  const [messagesByChat, setMessagesByChat] = useState<Record<string, Message[]>>(() => {
+    return ChatStorageService.getConversations();
+  });
   const [lastMessages, setLastMessages] = useState<Record<string, Message>>(() => {
     const map: Record<string, Message> = {};
     try {
@@ -203,6 +206,18 @@ export default function App() {
     ? addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(selectedUser.handle))
     : true;
 
+  // Active conversation key and 0ms instantaneous message resolution
+  const currentChatKey = selectedGroupId
+    ? `group__${selectedGroupId}`
+    : selectedUser && currentUser
+    ? getConversationKey(currentUser.handle, selectedUser.handle)
+    : '';
+
+  const messages = useMemo(() => {
+    if (!currentChatKey) return [];
+    return messagesByChat[currentChatKey] || ChatStorageService.getConversations()[currentChatKey] || [];
+  }, [currentChatKey, messagesByChat]);
+
   // Fetch all users, groups, and current user profile from Backend API
   const refreshUsersAndGroups = useCallback(async () => {
     try {
@@ -240,38 +255,50 @@ export default function App() {
     }
   }, []);
 
-  // Fetch messages from Backend API with Local-First 0ms instant cache rendering
+  // Fetch messages from Backend API with Local-First 0ms instant cache rendering & smooth background merge
   const refreshMessages = useCallback(async () => {
     const cUser = currentUserRef.current;
     if (!cUser) return;
 
     if (selectedGroupId) {
       const convKey = `group__${selectedGroupId}`;
-      const local = ChatStorageService.getConversations()[convKey] || [];
-      if (local.length > 0) setMessages(local);
-
       try {
         const groupMsgs = await ApiService.getGroupMessages(selectedGroupId);
-        if (groupMsgs) {
-          setMessages(groupMsgs);
-          ChatStorageService.saveConversation(convKey, groupMsgs);
+        if (groupMsgs && groupMsgs.length > 0) {
+          setMessagesByChat((prev) => {
+            const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
+            const map = new Map<string, Message>();
+            existing.forEach((m) => map.set(m.id, m));
+            groupMsgs.forEach((m) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+            );
+            ChatStorageService.saveConversation(convKey, merged);
+            return { ...prev, [convKey]: merged };
+          });
         }
       } catch {
         // ignore
       }
     } else if (selectedUser) {
       const convKey = getConversationKey(cUser.handle, selectedUser.handle);
-      const local = ChatStorageService.getMessages(cUser.handle, selectedUser.handle);
-      if (local.length > 0) setMessages(local);
-
       try {
         const serverMessages = await ApiService.getMessages(cUser.handle, selectedUser.handle);
         if (serverMessages && serverMessages.length > 0) {
-          setMessages(serverMessages);
-          ChatStorageService.saveConversation(convKey, serverMessages);
+          setMessagesByChat((prev) => {
+            const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
+            const map = new Map<string, Message>();
+            existing.forEach((m) => map.set(m.id, m));
+            serverMessages.forEach((m) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+            );
+            ChatStorageService.saveConversation(convKey, merged);
+            return { ...prev, [convKey]: merged };
+          });
         }
       } catch {
-        if (local.length > 0) setMessages(local);
+        // ignore
       }
     }
   }, [selectedUser, selectedGroupId]);
@@ -383,18 +410,19 @@ export default function App() {
         });
       }
 
-      // Add to current message thread if active
-      if (isCurrentChatOpen) {
-        setMessages((prev) => {
-          const index = prev.findIndex((m) => m.id === newMsg.id);
-          if (index >= 0) {
-            const updated = [...prev];
-            updated[index] = newMsg;
-            return updated;
-          }
-          return [...prev, newMsg];
-        });
-      }
+      // Add to conversation cache immediately whether chat is active or not
+      const targetConvKey = isForGroup
+        ? `group__${newMsg.groupId}`
+        : getConversationKey(sHandle, rHandle);
+
+      setMessagesByChat((prev) => {
+        const existing = prev[targetConvKey] || ChatStorageService.getConversations()[targetConvKey] || [];
+        const index = existing.findIndex((m) => m.id === newMsg.id);
+        const updated = index >= 0 ? [...existing] : [...existing, newMsg];
+        if (index >= 0) updated[index] = newMsg;
+        ChatStorageService.saveConversation(targetConvKey, updated);
+        return { ...prev, [targetConvKey]: updated };
+      });
 
       // Check if notifications are muted for this sender or group
       const isMuted =
@@ -460,7 +488,21 @@ export default function App() {
 
     // Message edited event
     const unsubEdit = socketService.onMessageEdited(({ id, text, isEdited }) => {
-      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text, isEdited } : m)));
+      setMessagesByChat((prev) => {
+        const next = { ...prev };
+        let modified = false;
+        for (const [convKey, msgList] of Object.entries(next)) {
+          const idx = msgList.findIndex((m) => m.id === id);
+          if (idx >= 0) {
+            const updated = [...msgList];
+            updated[idx] = { ...updated[idx], text, isEdited };
+            next[convKey] = updated;
+            ChatStorageService.saveConversation(convKey, updated);
+            modified = true;
+          }
+        }
+        return modified ? next : prev;
+      });
       setLastMessages((prev) => {
         const updated = { ...prev };
         let changed = false;
@@ -476,12 +518,38 @@ export default function App() {
 
     // Message deleted event
     const unsubDel = socketService.onMessageDeleted(({ id }) => {
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+      setMessagesByChat((prev) => {
+        const next = { ...prev };
+        let modified = false;
+        for (const [convKey, msgList] of Object.entries(next)) {
+          if (msgList.some((m) => m.id === id)) {
+            const updated = msgList.filter((m) => m.id !== id);
+            next[convKey] = updated;
+            ChatStorageService.saveConversation(convKey, updated);
+            modified = true;
+          }
+        }
+        return modified ? next : prev;
+      });
     });
 
     // Reaction updated event
     const unsubReact = socketService.onReactionUpdated(({ id, reactions }) => {
-      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, reactions } : m)));
+      setMessagesByChat((prev) => {
+        const next = { ...prev };
+        let modified = false;
+        for (const [convKey, msgList] of Object.entries(next)) {
+          const idx = msgList.findIndex((m) => m.id === id);
+          if (idx >= 0) {
+            const updated = [...msgList];
+            updated[idx] = { ...updated[idx], reactions };
+            next[convKey] = updated;
+            ChatStorageService.saveConversation(convKey, updated);
+            modified = true;
+          }
+        }
+        return modified ? next : prev;
+      });
     });
 
     // New Group created event
@@ -540,8 +608,15 @@ export default function App() {
     });
 
     // Chat cleared event
-    const unsubClear = socketService.onChatCleared(() => {
-      setMessages([]);
+    const unsubClear = socketService.onChatCleared((data: any) => {
+      const key = data?.key || currentChatKey;
+      if (key) {
+        setMessagesByChat((prev) => {
+          const updated = { ...prev, [key]: [] };
+          ChatStorageService.saveConversation(key, []);
+          return updated;
+        });
+      }
     });
 
     // Profile updated event (Multi-device profile and preferences sync)
@@ -605,7 +680,21 @@ export default function App() {
 
     // Message Read event (Two checkmarks status)
     const unsubRead = socketService.onMessageRead(({ messageId }) => {
-      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, status: 'read' } : m)));
+      setMessagesByChat((prev) => {
+        const next = { ...prev };
+        let modified = false;
+        for (const [convKey, msgList] of Object.entries(next)) {
+          const idx = msgList.findIndex((m) => m.id === messageId);
+          if (idx >= 0) {
+            const updated = [...msgList];
+            updated[idx] = { ...updated[idx], status: 'read' as const };
+            next[convKey] = updated;
+            ChatStorageService.saveConversation(convKey, updated);
+            modified = true;
+          }
+        }
+        return modified ? next : prev;
+      });
     });
 
     return () => {
@@ -633,7 +722,7 @@ export default function App() {
     setSelectedUserId('');
     setSelectedGroupId(null);
     setSelectedUserObj(null);
-    setMessages([]);
+    setMessagesByChat(ChatStorageService.getConversations());
     setUnreadCounts({});
     setActiveSection('chats');
     setCurrentUser(user);
@@ -662,7 +751,7 @@ export default function App() {
     setSelectedUserId('');
     setSelectedGroupId(null);
     setSelectedUserObj(null);
-    setMessages([]);
+    setMessagesByChat(ChatStorageService.getConversations());
     setUnreadCounts({});
     setActiveSection('chats');
     setIsDrawerOpen(false);
@@ -708,7 +797,7 @@ export default function App() {
     setSelectedUserId('');
     setSelectedGroupId(null);
     setSelectedUserObj(null);
-    setMessages([]);
+    setMessagesByChat({});
     setAddedFriends([]);
     setActiveChatHandles([]);
     socketService.disconnect();
@@ -768,17 +857,13 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    // If currently viewing the target conversation, update active messages optimistically
-    const currentConvKey = selectedGroupId
-      ? `group__${selectedGroupId}`
-      : (selectedUser ? getConversationKey(currentUser.handle, selectedUser.handle) : '');
-
-    if (convKey === currentConvKey) {
-      setMessages((prev) => [...prev, tempMsg]);
-    }
-
-    // Save to local cache immediately
-    ChatStorageService.saveConversation(convKey, [...messages, tempMsg]);
+    // Save to local cache & messagesByChat immediately
+    setMessagesByChat((prev) => {
+      const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
+      const updated = [...existing, tempMsg];
+      ChatStorageService.saveConversation(convKey, updated);
+      return { ...prev, [convKey]: updated };
+    });
 
     // Update last message preview for sidebar
     setLastMessages((prev) => {
@@ -821,9 +906,14 @@ export default function App() {
       );
 
       // Update status to 'sent'
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'sent', ...(serverMsg || {}) } : m))
-      );
+      setMessagesByChat((prev) => {
+        const existing = prev[convKey] || [];
+        const updated: Message[] = existing.map((m) =>
+          m.id === tempMsg.id ? ((serverMsg ? { ...m, ...serverMsg, status: 'sent' as const } : { ...m, status: 'sent' as const }) as Message) : m
+        );
+        ChatStorageService.saveConversation(convKey, updated);
+        return { ...prev, [convKey]: updated };
+      });
     } catch {
       ChatStorageService.addPendingMessage(tempMsg);
       if (!targetGroupId && targetRecipient) {
@@ -866,7 +956,14 @@ export default function App() {
 
   // Edit Message
   const handleEditMessage = async (id: string, newText: string) => {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text: newText, isEdited: true } : m)));
+    if (currentChatKey) {
+      setMessagesByChat((prev) => {
+        const existing = prev[currentChatKey] || [];
+        const updated = existing.map((m) => (m.id === id ? { ...m, text: newText, isEdited: true } : m));
+        ChatStorageService.saveConversation(currentChatKey, updated);
+        return { ...prev, [currentChatKey]: updated };
+      });
+    }
     setLastMessages((prev) => {
       const updated = { ...prev };
       let changed = false;
@@ -883,17 +980,25 @@ export default function App() {
 
   // Delete Message
   const handleDeleteMessage = async (id: string) => {
-    setMessages((prev) => prev.filter((m) => m.id !== id));
+    if (currentChatKey) {
+      setMessagesByChat((prev) => {
+        const existing = prev[currentChatKey] || [];
+        const updated = existing.filter((m) => m.id !== id);
+        ChatStorageService.saveConversation(currentChatKey, updated);
+        return { ...prev, [currentChatKey]: updated };
+      });
+    }
     await ApiService.deleteMessage(id);
   };
 
   // Toggle Emoji Reaction
   const handleToggleReaction = async (messageId: string, emoji: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentChatKey) return;
     const userHandle = normalizeHandle(currentUser.handle);
 
-    setMessages((prev) =>
-      prev.map((m) => {
+    setMessagesByChat((prev) => {
+      const existing = prev[currentChatKey] || [];
+      const updated = existing.map((m) => {
         if (m.id !== messageId) return m;
         const reactions = { ...(m.reactions || {}) };
         const currentList = reactions[emoji] || [];
@@ -904,8 +1009,10 @@ export default function App() {
           reactions[emoji] = [...currentList, userHandle];
         }
         return { ...m, reactions };
-      })
-    );
+      });
+      ChatStorageService.saveConversation(currentChatKey, updated);
+      return { ...prev, [currentChatKey]: updated };
+    });
 
     await ApiService.toggleReaction(messageId, emoji, currentUser.handle);
   };
@@ -977,7 +1084,13 @@ export default function App() {
 
   const handleClearChat = async () => {
     if (!currentUser) return;
-    setMessages([]);
+    if (currentChatKey) {
+      setMessagesByChat((prev) => {
+        const updated = { ...prev, [currentChatKey]: [] };
+        ChatStorageService.saveConversation(currentChatKey, []);
+        return updated;
+      });
+    }
     if (selectedGroupId) {
       await ApiService.clearChat(currentUser.handle, undefined, selectedGroupId);
     } else if (selectedUser) {
@@ -1395,7 +1508,13 @@ export default function App() {
                 undefined,
                 { type: 'declined', duration: 0 }
               ).then((msg) => {
-                setMessages((prev) => [...prev, msg]);
+                const convKey = getConversationKey(currentUser.handle, incomingCall.caller.handle);
+                setMessagesByChat((prev) => {
+                  const existing = prev[convKey] || [];
+                  const updated = [...existing, msg];
+                  ChatStorageService.saveConversation(convKey, updated);
+                  return { ...prev, [convKey]: updated };
+                });
                 ChatStorageService.addMessage(currentUser.handle, incomingCall.caller.handle, msg);
               });
             }
@@ -1450,7 +1569,13 @@ export default function App() {
                   undefined,
                   finalCallInfo
                 ).then((msg) => {
-                  setMessages((prev) => [...prev, msg]);
+                  const convKey = getConversationKey(currentUser.handle, activeLiveCall.user.handle);
+                  setMessagesByChat((prev) => {
+                    const existing = prev[convKey] || [];
+                    const updated = [...existing, msg];
+                    ChatStorageService.saveConversation(convKey, updated);
+                    return { ...prev, [convKey]: updated };
+                  });
                   ChatStorageService.addMessage(currentUser.handle, activeLiveCall.user.handle, msg);
                 });
               }

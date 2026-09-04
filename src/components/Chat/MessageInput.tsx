@@ -137,8 +137,70 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (!file) return;
 
     const isImage = file.type.startsWith('image/');
-    const reader = new FileReader();
+    const isSvgOrGif = file.type.includes('svg') || file.type.includes('gif');
 
+    // Оптимизация Base64 картинок: сжимаем на клиенте до 1280px перед отправкой, чтобы не забивать CPU и MongoDB
+    if (isImage && !isSvgOrGif) {
+      const imgReader = new FileReader();
+      imgReader.onload = () => {
+        if (typeof imgReader.result === 'string') {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 1280;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedUrl = canvas.toDataURL('image/jpeg', 0.82);
+              const approxKb = (compressedUrl.length * 0.75 / 1024).toFixed(1);
+              setCurrentAttachment({
+                id: `att_${Date.now()}`,
+                name: file.name,
+                type: 'image',
+                url: compressedUrl,
+                size: `${approxKb} KB`,
+              });
+              return;
+            }
+            setCurrentAttachment({
+              id: `att_${Date.now()}`,
+              name: file.name,
+              type: 'image',
+              url: imgReader.result as string,
+              size: `${(file.size / 1024).toFixed(1)} KB`,
+            });
+          };
+          img.onerror = () => {
+            setCurrentAttachment({
+              id: `att_${Date.now()}`,
+              name: file.name,
+              type: 'image',
+              url: imgReader.result as string,
+              size: `${(file.size / 1024).toFixed(1)} KB`,
+            });
+          };
+          img.src = imgReader.result;
+        }
+      };
+      imgReader.readAsDataURL(file);
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setCurrentAttachment({

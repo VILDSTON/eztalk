@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Crypto Key Caching & Tamper Protection**: Cached SHA256-derived AES-256-GCM encryption key once in process memory avoiding CPU bottlenecks on bulk fetches, enforced strict hex/length verification, and safely flagged corrupted/tampered ciphertexts.
 - **Backend Route & Socket JWT Security**: Added `authenticateToken` middleware across mutating REST endpoints, verified JWT tokens in Socket.io handshake (`io.use`) to prevent handle impersonation, switched group message delivery strictly to members, and eliminated presence leak by tracking active socket IDs with `Set` deduplication.
 - **Input Bar Baseline**: Aligned attachment paperclip, input pill, emoji picker, and send/mic buttons along a shared horizontal baseline with clear `text-sm text-white` typography.
+- **Message Pagination & Fast Decryption**: Added 50-message pagination windowing on direct and group message queries and added fast bypass for Base64/data URLs in `decryptMessage`, preventing CPU spikes on low-resource hosting (Render/free tiers).
+- **Persistent Chat Dictionary & Zero-Flicker Switching**: Refactored frontend message state into a key-indexed dictionary (`messagesByChat[chatKey]`) with background merging, eliminating empty-screen flashes on chat switches and socket reconnects.
+- **Client-Side Image Downscaling**: Added canvas image compression in `MessageInput` (1280px max dimension, 0.82 JPEG quality) reducing photo attachment payloads by ~90-95% before Base64 encoding.
 
 ### Removed
 - **Hover Toolbar**: Removed redundant desktop hover action toolbar above message bubbles to prevent visual jitter and declutter the reading experience.

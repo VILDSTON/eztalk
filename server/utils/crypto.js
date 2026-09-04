@@ -46,6 +46,16 @@ export function decryptMessage(cipherText) {
     return cipherText;
   }
 
+  // Мгновенный пропуск для медиа/Base64/data-URL и ссылок (экономит CPU)
+  if (
+    cipherText.startsWith('data:') ||
+    cipherText.startsWith('http://') ||
+    cipherText.startsWith('https://') ||
+    cipherText.startsWith('blob:')
+  ) {
+    return cipherText;
+  }
+
   // Быстрая проверка структуры: ровно две двоеточия
   const parts = cipherText.split(':');
   if (parts.length !== 3) {

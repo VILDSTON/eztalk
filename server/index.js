@@ -745,20 +745,28 @@ app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
   }
 });
 
-// Get Messages for a Group (Decrypted on retrieval)
+// Get Messages for a Group (Decrypted on retrieval, limited to recent messages)
 app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async (req, res) => {
   try {
     const { groupId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const key = `group__${groupId}`;
 
     if (isMongoConnected) {
       const messages = await MessageModel.find({
         $or: [{ conversationKey: key }, { groupId }],
-      }).sort({ createdAt: 1 }).lean();
-      res.json({ messages: messages.map(formatMessage) });
+      })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+      res.json({ messages: messages.reverse().map(formatMessage) });
     } else {
       const db = readLocalDB();
-      const messages = db.messages.filter((m) => m.conversationKey === key || m.groupId === groupId);
+      const messages = (db.messages || [])
+        .filter((m) => m.conversationKey === key || m.groupId === groupId)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .slice(0, limit)
+        .reverse();
       res.json({ messages: messages.map(formatMessage) });
     }
   } catch (err) {
@@ -828,18 +836,26 @@ app.get('/api/conversations/recent/:handle', async (req, res) => {
   }
 });
 
-// Get Messages between two users (Decrypted on retrieval)
+// Get Messages between two users (Decrypted on retrieval, limited to recent messages)
 app.get('/api/messages/:handle1/:handle2', async (req, res) => {
   try {
     const { handle1, handle2 } = req.params;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const key = getConversationKey(handle1, handle2);
 
     if (isMongoConnected) {
-      const messages = await MessageModel.find({ conversationKey: key }).sort({ createdAt: 1 }).lean();
-      res.json({ messages: messages.map(formatMessage) });
+      const messages = await MessageModel.find({ conversationKey: key })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+      res.json({ messages: messages.reverse().map(formatMessage) });
     } else {
       const db = readLocalDB();
-      const messages = db.messages.filter((m) => m.conversationKey === key);
+      const messages = (db.messages || [])
+        .filter((m) => m.conversationKey === key)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .slice(0, limit)
+        .reverse();
       res.json({ messages: messages.map(formatMessage) });
     }
   } catch (err) {
