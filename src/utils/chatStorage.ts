@@ -307,7 +307,18 @@ export class ChatStorageService {
       const data = localStorage.getItem(STORAGE_CONVERSATIONS);
       if (data) {
         const parsed = JSON.parse(data);
-        return { ...INITIAL_SHARED_CONVERSATIONS, ...parsed };
+        // Automatically sanitize stale 'sending' messages from previous sessions to 'failed'
+        const sanitized: Record<string, Message[]> = {};
+        for (const [k, msgs] of Object.entries(parsed)) {
+          if (Array.isArray(msgs)) {
+            sanitized[k] = msgs.map((m: any) =>
+              m.status === 'sending' ? { ...m, status: 'failed' as const } : m
+            );
+          } else {
+            sanitized[k] = msgs as any;
+          }
+        }
+        return { ...INITIAL_SHARED_CONVERSATIONS, ...sanitized };
       }
     } catch {
       // fallback

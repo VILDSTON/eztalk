@@ -136,6 +136,16 @@ export default function App() {
     }
   }, []);
 
+  // Ensure JWT token exists for current user session
+  useEffect(() => {
+    if (!currentUser?.handle) return;
+    const token = localStorage.getItem('eztalk_token');
+    if (!token) {
+      // Background re-authentication to obtain fresh JWT token
+      ApiService.login(currentUser.handle).catch(() => {});
+    }
+  }, [currentUser?.handle]);
+
   // Fetch latest message previews for chat list
   useEffect(() => {
     if (!currentUser?.handle) return;
