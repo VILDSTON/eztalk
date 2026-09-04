@@ -97,12 +97,11 @@ body,
   overflow: hidden;
 }
 
-/* ─── Chat Background Pattern ─── */
+/* ─── Chat Background Pattern (Чистый фон без размытого пятна) ─── */
 .telegram-chat-bg {
   background-color: var(--ez-base);
-  background-image:
-    radial-gradient(circle at 50% 50%, var(--ez-accent-glow) 0%, transparent 70%),
-    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.015' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
   background-attachment: fixed;
 }
 
@@ -174,37 +173,182 @@ body,
   border-bottom-right-radius: 4px;
 }
 
-/* ─── Dynamic Accent Theme Overrides ─── */
-[data-theme] .text-neon-green {
-  color: var(--ez-accent);
+/* ─── Dynamic Accent Theme Overrides (Neon, Cyan, Purple, Amber, Rose) ─── */
+[data-theme] .text-neon-green,
+[data-theme] .text-neon-green-light,
+[data-theme] .text-neon-green-glow,
+[data-theme] .text-ez-accent {
+  color: var(--ez-accent) !important;
 }
 
-[data-theme] .bg-neon-green {
-  background-color: var(--ez-accent);
+[data-theme] .hover\:text-neon-green:hover,
+[data-theme] .hover\:text-neon-green-light:hover,
+[data-theme] .hover\:text-ez-accent:hover {
+  color: var(--ez-accent) !important;
 }
 
-[data-theme] .border-neon-green {
-  border-color: var(--ez-accent);
+[data-theme] .group:hover .group-hover\:text-neon-green,
+[data-theme] [class*="group"]:hover [class*="group-hover:text-neon-green"] {
+  color: var(--ez-accent) !important;
 }
 
+[data-theme] .bg-neon-green,
+[data-theme] .bg-neon-green-dark,
+[data-theme] .bg-ez-accent {
+  background-color: var(--ez-accent) !important;
+}
+
+[data-theme] .bg-neon-green-glow,
+[data-theme] .bg-neon-green-light,
+[data-theme] .bg-ez-glow {
+  background-color: var(--ez-glow) !important;
+}
+
+/* Opacity Variations */
+[data-theme] .bg-neon-green\/5,
+[data-theme] .bg-ez-accent\/5 {
+  background-color: color-mix(in srgb, var(--ez-accent) 5%, transparent) !important;
+}
+
+[data-theme] .bg-neon-green\/10,
+[data-theme] .bg-ez-accent\/10 {
+  background-color: color-mix(in srgb, var(--ez-accent) 10%, transparent) !important;
+}
+
+[data-theme] .bg-neon-green\/15,
+[data-theme] .bg-ez-accent\/15 {
+  background-color: color-mix(in srgb, var(--ez-accent) 15%, transparent) !important;
+}
+
+[data-theme] .bg-neon-green\/20,
+[data-theme] .bg-ez-accent\/20 {
+  background-color: color-mix(in srgb, var(--ez-accent) 20%, transparent) !important;
+}
+
+[data-theme] .bg-neon-green\/25,
+[data-theme] .bg-ez-accent\/25 {
+  background-color: color-mix(in srgb, var(--ez-accent) 25%, transparent) !important;
+}
+
+[data-theme] .bg-neon-green\/30,
+[data-theme] .bg-ez-accent\/30 {
+  background-color: color-mix(in srgb, var(--ez-accent) 30%, transparent) !important;
+}
+
+[data-theme] .hover\:bg-neon-green\/10:hover,
+[data-theme] .hover\:bg-ez-accent\/10:hover {
+  background-color: color-mix(in srgb, var(--ez-accent) 10%, transparent) !important;
+}
+
+[data-theme] .hover\:bg-neon-green\/20:hover,
+[data-theme] .hover\:bg-ez-accent\/20:hover {
+  background-color: color-mix(in srgb, var(--ez-accent) 20%, transparent) !important;
+}
+
+[data-theme] .hover\:bg-neon-green:hover {
+  background-color: var(--ez-accent) !important;
+}
+
+/* Borders */
+[data-theme] .border-neon-green,
+[data-theme] .border-ez-accent {
+  border-color: var(--ez-accent) !important;
+}
+
+[data-theme] .border-neon-green\/10,
+[data-theme] .border-ez-accent\/10 {
+  border-color: color-mix(in srgb, var(--ez-accent) 10%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/20,
+[data-theme] .border-ez-accent\/20 {
+  border-color: color-mix(in srgb, var(--ez-accent) 20%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/25,
+[data-theme] .border-ez-accent\/25 {
+  border-color: color-mix(in srgb, var(--ez-accent) 25%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/30,
+[data-theme] .border-ez-accent\/30 {
+  border-color: color-mix(in srgb, var(--ez-accent) 30%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/40,
+[data-theme] .border-ez-accent\/40 {
+  border-color: color-mix(in srgb, var(--ez-accent) 40%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/50,
+[data-theme] .border-ez-accent\/50 {
+  border-color: color-mix(in srgb, var(--ez-accent) 50%, transparent) !important;
+}
+
+[data-theme] .border-neon-green\/60,
+[data-theme] .border-ez-accent\/60 {
+  border-color: color-mix(in srgb, var(--ez-accent) 60%, transparent) !important;
+}
+
+[data-theme] .hover\:border-neon-green\/30:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 30%, transparent) !important;
+}
+
+[data-theme] .hover\:border-neon-green\/50:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 50%, transparent) !important;
+}
+
+[data-theme] .focus\:border-neon-green:focus {
+  border-color: var(--ez-accent) !important;
+}
+
+[data-theme] .group:hover .group-hover\:border-neon-green\/50,
+[data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green/60"] {
+  border-color: color-mix(in srgb, var(--ez-accent) 60%, transparent) !important;
+}
+
+/* Gradients */
+[data-theme] .from-neon-green\/20 {
+  --tw-gradient-from: color-mix(in srgb, var(--ez-accent) 20%, transparent) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: transparent var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-theme] .to-neon-green\/5 {
+  --tw-gradient-to: color-mix(in srgb, var(--ez-accent) 5%, transparent) var(--tw-gradient-to-position) !important;
+}
+
+/* Shadows, Glows & Meta */
 [data-theme] .bg-ez-sent {
-  background-color: var(--ez-sent);
+  background-color: var(--ez-sent) !important;
 }
 
 [data-theme] .text-ez-sent-meta {
-  color: var(--ez-sent-meta);
+  color: var(--ez-sent-meta) !important;
+}
+
+[data-theme] .shadow-neon-dot {
+  box-shadow: 0 0 8px var(--ez-glow) !important;
 }
 
 [data-theme] .shadow-neon-sm {
-  box-shadow: 0 0 10px var(--ez-accent-glow);
+  box-shadow: 0 0 10px var(--ez-accent-glow) !important;
 }
 
 [data-theme] .shadow-neon-md {
-  box-shadow: 0 0 20px var(--ez-accent-glow);
+  box-shadow: 0 0 20px var(--ez-accent-glow) !important;
 }
 
 [data-theme] .shadow-neon-lg {
-  box-shadow: 0 0 30px var(--ez-accent-glow);
+  box-shadow: 0 0 30px var(--ez-accent-glow) !important;
+}
+
+[data-theme] .shadow-neon-glow {
+  box-shadow: 0 0 15px var(--ez-glow) !important;
+}
+
+[data-theme] .accent-neon-green {
+  accent-color: var(--ez-accent) !important;
 }
 
 /* ─── Mobile Bottom Sheet Animation & Safe Inset ─── */
