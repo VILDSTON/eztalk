@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] - 2026-09-09
+
+### Added
+- **Multi-language Localization (i18n)**: Implemented zero-dependency, type-safe internationalization supporting English (`en`), Russian (`ru`), and Uzbek Latin (`uz`) with 100% key parity across all dictionaries.
+- **Lightweight LanguageContext**: Added React Context with automatic browser language detection (`navigator.language`), instant persistence to `localStorage` (`eztalk_language`), and dynamic `document.documentElement.lang` synchronisation.
+- **Interactive LanguageSwitch Component**: Compact pill-styled switcher with Lucide `Globe` icon integrated into `AuthScreen` and `TelegramDrawer` for instantaneous locale transitions without full-page reload.
+- **Comprehensive UI Translation**: Localized authorization flows, password strength indicators, real-time handle availability statuses, side navigation drawers, and cookie consent notices.
+
 ## [0.9.4] - 2026-09-09
 
 ### Added

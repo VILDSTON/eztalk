@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Cookie, Check } from 'lucide-react';
+import { useTranslation } from '../../context/LanguageContext';
 
 export const CookieBanner: React.FC<{ onOpenPrivacy: () => void }> = ({ onOpenPrivacy }) => {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -27,13 +29,13 @@ export const CookieBanner: React.FC<{ onOpenPrivacy: () => void }> = ({ onOpenPr
             <Cookie className="w-5 h-5" />
           </div>
           <p className="text-xs text-zinc-300 leading-relaxed">
-            Мы используем LocalStorage и сессии исключительно для работы авторизации и сохранения настроек темы.{' '}
+            {t.cookie.text}{' '}
             <button
               type="button"
               onClick={onOpenPrivacy}
               className="text-[var(--ez-accent)] underline hover:brightness-110 cursor-pointer"
             >
-              Подробнее
+              {t.cookie.details}
             </button>
           </p>
         </div>
@@ -43,7 +45,7 @@ export const CookieBanner: React.FC<{ onOpenPrivacy: () => void }> = ({ onOpenPr
           className="w-full sm:w-auto px-4 py-2 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm shrink-0"
         >
           <Check className="w-3.5 h-3.5" />
-          <span>Понятно</span>
+          <span>{t.cookie.accept}</span>
         </button>
       </div>
     </div>

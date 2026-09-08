@@ -4,6 +4,8 @@ import { User } from '../../types/chat';
 import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
 import { compressAvatar } from '../../utils/imageCompressor';
+import { useTranslation } from '../../context/LanguageContext';
+import { LanguageSwitch } from '../Common/LanguageSwitch';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
@@ -18,19 +20,20 @@ const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
 ];
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  if (!password) return { score: 0, label: '', color: 'bg-zinc-800' };
+function getPasswordStrength(password: string): { score: number; color: string } {
+  if (!password) return { score: 0, color: 'bg-zinc-800' };
   let score = 0;
   if (password.length >= 6) score += 1;
   if (password.length >= 8 && /[0-9]/.test(password)) score += 1;
   if (/[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
 
-  if (score === 1) return { score: 1, label: 'Weak', color: 'bg-rose-500' };
-  if (score === 2) return { score: 2, label: 'Medium', color: 'bg-amber-400' };
-  return { score: 3, label: 'Strong', color: 'bg-[var(--ez-accent)]' };
+  if (score === 1) return { score: 1, color: 'bg-rose-500' };
+  if (score === 2) return { score: 2, color: 'bg-amber-400' };
+  return { score: 3, color: 'bg-[var(--ez-accent)]' };
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,8 +60,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const handleCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const passwordStrength = getPasswordStrength(regPassword);
+  const passwordStrengthLabel =
+    passwordStrength.score === 1
+      ? t.auth.weak
+      : passwordStrength.score === 2
+      ? t.auth.medium
+      : passwordStrength.score === 3
+      ? t.auth.strong
+      : '';
 
   useEffect(() => {
     if (handleCheckTimerRef.current) {
@@ -205,6 +215,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
         className="hidden"
       />
 
+      {/* Language Switcher Bar */}
+      <div className="w-full max-w-md flex justify-end mb-3 shrink-0">
+        <LanguageSwitch />
+      </div>
+
       {/* Main Auth Card */}
       <div className="w-full max-w-md bg-[var(--ez-surface)] border border-[var(--ez-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative z-10 animate-fade-in my-auto shrink-0">
         {/* Brand Header */}
@@ -234,7 +249,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
               : 'text-zinc-400 hover:text-zinc-200'
               }`}
           >
-            Sign In
+            {t.auth.signIn}
           </button>
           <button
             type="button"
@@ -247,7 +262,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
               : 'text-zinc-400 hover:text-zinc-200'
               }`}
           >
-            Create Account
+            {t.auth.createAccount}
           </button>
         </div>
 
@@ -264,7 +279,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
           <form onSubmit={handleLoginSubmit} className="space-y-3.5 sm:space-y-4">
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                Email or Username
+                {t.auth.email} / {t.auth.username}
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5" />
@@ -276,7 +291,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                     setLoginEmail(e.target.value);
                     setErrorMessage('');
                   }}
-                  placeholder="name@example.com or @username"
+                  placeholder="name@example.com / @username"
                   className="w-full bg-[var(--ez-base)] border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors"
                 />
               </div>
@@ -284,7 +299,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
 
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                Password
+                {t.auth.password}
               </label>
               <div className="relative flex items-center">
                 <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5" />
@@ -317,7 +332,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded border-white/20 text-[var(--ez-accent)] focus:ring-0 accent-[var(--ez-accent)]"
                 />
-                <span className="text-xs text-zinc-400 hover:text-zinc-200">Remember on this device</span>
+                <span className="text-xs text-zinc-400 hover:text-zinc-200">{t.auth.rememberMe}</span>
               </label>
             </div>
 
@@ -326,7 +341,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
               disabled={loading}
               className="w-full py-2.5 sm:py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-2 mt-2 cursor-pointer disabled:opacity-50 shadow-sm"
             >
-              <span>{loading ? 'Signing in...' : 'Sign In to EzTalk'}</span>
+              <span>{loading ? t.common.loading : t.auth.signInToAccount}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -349,7 +364,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
 
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                Full Name
+                {t.auth.fullName}
               </label>
               <div className="relative flex items-center">
                 <UserIcon className="w-4 h-4 text-zinc-500 absolute left-3.5" />
@@ -371,18 +386,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Username (@handle)
+                  {t.auth.username} (@handle)
                 </label>
+                {handleStatus === 'checking' && (
+                  <span className="text-[10px] font-semibold text-zinc-400 flex items-center space-x-1">
+                    <span>{t.auth.checking}</span>
+                  </span>
+                )}
                 {handleStatus === 'available' && (
                   <span className="text-[10px] font-semibold text-[var(--ez-accent)] flex items-center space-x-1">
                     <Check className="w-3 h-3" />
-                    <span>Available</span>
+                    <span>{t.auth.available}</span>
                   </span>
                 )}
                 {handleStatus === 'taken' && (
                   <span className="text-[10px] font-semibold text-rose-400 flex items-center space-x-1">
                     <X className="w-3 h-3" />
-                    <span>Taken</span>
+                    <span>{t.auth.taken}</span>
                   </span>
                 )}
               </div>
@@ -409,7 +429,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
 
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                Email
+                {t.auth.email}
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5" />
@@ -430,11 +450,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Password
+                  {t.auth.password}
                 </label>
-                {passwordStrength.label && (
+                {passwordStrengthLabel && (
                   <span className={`text-[10px] font-semibold ${passwordStrength.score === 3 ? 'text-[var(--ez-accent)]' : passwordStrength.score === 2 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {passwordStrength.label}
+                    {passwordStrengthLabel}
                   </span>
                 )}
               </div>
@@ -463,7 +483,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
 
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                Confirm Password
+                {t.auth.confirmPassword}
               </label>
               <div className="relative flex items-center">
                 <ShieldCheck className="w-4 h-4 text-zinc-500 absolute left-3.5" />
@@ -495,7 +515,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Profile Avatar
+                  {t.auth.chooseAvatar}
                 </label>
                 <button
                   type="button"
@@ -503,7 +523,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                   className="text-[11px] font-semibold text-[var(--ez-accent)] hover:underline flex items-center space-x-1 cursor-pointer"
                 >
                   <Upload className="w-3 h-3" />
-                  <span>Upload Photo</span>
+                  <span>{t.auth.uploadPhoto}</span>
                 </button>
               </div>
 
@@ -543,7 +563,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded border-white/20 text-[var(--ez-accent)] focus:ring-0 accent-[var(--ez-accent)]"
                 />
-                <span className="text-xs text-zinc-400 hover:text-zinc-200">Remember on this device</span>
+                <span className="text-xs text-zinc-400 hover:text-zinc-200">{t.auth.rememberMe}</span>
               </label>
             </div>
 
@@ -552,7 +572,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
               disabled={loading || handleStatus === 'taken'}
               className="w-full py-2.5 sm:py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-2 mt-2 cursor-pointer disabled:opacity-50 shadow-sm"
             >
-              <span>{loading ? 'Creating Account...' : 'Create Free Account'}</span>
+              <span>{loading ? t.common.loading : t.auth.createFreeAccount}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -561,21 +581,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
         {/* Legal Footer Links */}
         <div className="mt-5 pt-3 border-t border-[var(--ez-border)] text-center">
           <p className="text-[11px] text-zinc-500">
-            Продолжая, вы принимаете{' '}
+            {t.auth.legalConsentPrefix}{' '}
             <button
               type="button"
               onClick={() => onOpenLegal?.('terms')}
               className="text-zinc-400 hover:text-[var(--ez-accent)] underline transition-colors cursor-pointer"
             >
-              Условия
+              {t.auth.terms}
             </button>{' '}
-            и{' '}
+            {t.auth.and}{' '}
             <button
               type="button"
               onClick={() => onOpenLegal?.('privacy')}
               className="text-zinc-400 hover:text-[var(--ez-accent)] underline transition-colors cursor-pointer"
             >
-              Политику конфиденциальности
+              {t.auth.privacyPolicy}
             </button>
           </p>
         </div>

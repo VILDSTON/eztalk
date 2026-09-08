@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
+import { LanguageSwitch } from '../Common/LanguageSwitch';
 
 interface TelegramDrawerProps {
   isOpen: boolean;
@@ -48,6 +50,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
   onLogout,
   onOpenLegal,
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   const otherAccounts = myAccounts.filter(
@@ -116,7 +119,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           >
             <div className="flex items-center space-x-3.5">
               <Settings className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">Settings</span>
+              <span className="font-semibold">{t.sidebar.settings}</span>
             </div>
             <ChevronRight className="w-4 h-4 text-ez-muted group-hover:text-white transition-colors duration-150" />
           </button>
@@ -131,7 +134,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           >
             <div className="flex items-center space-x-3.5">
               <Users className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">New Group</span>
+              <span className="font-semibold">{t.sidebar.newGroup}</span>
             </div>
           </button>
 
@@ -145,7 +148,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           >
             <div className="flex items-center space-x-3.5">
               <Bookmark className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">Saved Messages</span>
+              <span className="font-semibold">{t.sidebar.savedMessages}</span>
             </div>
             <span className="text-[10px] text-neon-green font-mono font-bold bg-neon-green/10 px-2 py-0.5 rounded-full">
               Cloud
@@ -162,7 +165,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           >
             <div className="flex items-center space-x-3.5">
               <UserPlus className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">Contacts & Friends</span>
+              <span className="font-semibold">{t.sidebar.contacts}</span>
             </div>
             <span className="text-xs text-ez-muted font-mono font-bold">{friendsCount}</span>
           </button>
@@ -220,7 +223,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
               className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-gray-300 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
             >
               <Layers className="w-5 h-5 text-neon-green" />
-              <span className="font-semibold text-xs">Add Account</span>
+              <span className="font-semibold text-xs">{t.sidebar.addAccount}</span>
             </button>
           )}
 
@@ -236,12 +239,17 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 cursor-pointer font-semibold"
           >
             <LogOut className="w-5 h-5" />
-            <span>Log Out</span>
+            <span>{t.sidebar.logOut}</span>
           </button>
         </div>
 
         {/* Footer */}
         <div className="p-4 bg-ez-base/80 border-t border-ez-border/50 text-center">
+          {/* Language Switcher */}
+          <div className="flex justify-center mb-3">
+            <LanguageSwitch />
+          </div>
+
           <div className="inline-flex items-center space-x-1.5 text-xs text-ez-muted font-bold">
             <Sparkles className="w-3.5 h-3.5 text-neon-green" />
             <span className="text-neon-green">EzTalk</span>
@@ -258,7 +266,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
               }}
               className="text-zinc-400 hover:text-neon-green transition-colors cursor-pointer"
             >
-              Privacy
+              {t.legal.privacyTitle}
             </button>
             <span>•</span>
             <button
@@ -269,7 +277,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
               }}
               className="text-zinc-400 hover:text-neon-green transition-colors cursor-pointer"
             >
-              Terms
+              {t.legal.termsTitle}
             </button>
           </div>
         </div>
