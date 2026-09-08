@@ -260,7 +260,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       </div>
                       <div className="text-[12px] truncate">
                         {savedLastMsg ? (
-                          renderMessagePreview(savedLastMsg, currentUser.handle)
+                          renderMessagePreview(savedLastMsg, currentUser.handle, t)
                         ) : (
                           <span className="text-ez-muted text-[12px]">Cloud Storage</span>
                         )}
@@ -314,7 +314,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       </div>
                       <div className="text-[12px] truncate">
                         {groupLastMsg ? (
-                          renderMessagePreview(groupLastMsg, currentUser?.handle)
+                          renderMessagePreview(groupLastMsg, currentUser?.handle, t)
                         ) : (
                           <span className="text-[11px] text-ez-muted font-mono truncate">
                             {group.memberHandles.length} members
@@ -397,7 +397,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         {isUserBlocked ? (
                           <span className="text-rose-400 font-semibold text-[11px]">User is blocked</span>
                         ) : lastMsg ? (
-                          renderMessagePreview(lastMsg, currentUser?.handle)
+                          renderMessagePreview(lastMsg, currentUser?.handle, t)
                         ) : (
                           <span className={`text-[11px] truncate ${online ? 'text-neon-green' : 'text-ez-muted'}`}>
                             {user.bio || (online ? 'online' : 'offline')}
