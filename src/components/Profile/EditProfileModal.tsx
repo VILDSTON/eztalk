@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Check, AlertCircle, Globe, Palette, Upload } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { compressAvatar } from '../../utils/imageCompressor';
 
 interface EditProfileModalProps {
   currentUser: User;
@@ -85,17 +86,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         normalizeHandle(u.handle).toLowerCase() === cleanInputHandle
     );
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAvatar(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressAvatar(file);
+      setAvatar(compressedDataUrl);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setAvatar(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {

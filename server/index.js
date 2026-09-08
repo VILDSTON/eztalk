@@ -15,6 +15,7 @@ import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
 import { encryptMessage, decryptMessage } from './utils/crypto.js';
+import { authRateLimiter, uploadRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
@@ -30,6 +31,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
+// Enable trust proxy for correct client IP detection behind Render, Vercel, and Nginx reverse proxies
+app.set('trust proxy', 1);
+
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -41,6 +45,17 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Force HTTPS in production (Render, Vercel, Fly.io, etc.)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const proto = req.headers['x-forwarded-proto'];
+    if (proto && proto !== 'https') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
 
 // Middleware проверки JWT для защищенных API роутов с graceful fallback для существующих сессий
 function authenticateToken(req, res, next) {
@@ -273,7 +288,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Upload Attachment File or Audio (Supabase Storage on Render, uploads/ fallback on local PC)
-app.post('/api/upload', authenticateToken, (req, res) => {
+app.post('/api/upload', uploadRateLimiter, authenticateToken, (req, res) => {
   upload.single('file')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -371,12 +386,15 @@ function formatMessage(m) {
   };
 }
 
-// Auth Login
-app.post('/api/auth/login', async (req, res) => {
+// Auth Login (Rate-limited against brute-force attacks)
+app.post('/api/auth/login', authRateLimiter, async (req, res) => {
   try {
     const { identifier, password } = req.body;
-    if (!identifier) {
+    if (!identifier || typeof identifier !== 'string' || !identifier.trim()) {
       return res.status(400).json({ error: 'Username or email is required' });
+    }
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Password is required' });
     }
 
     const clean = identifier.trim().toLowerCase();
@@ -437,16 +455,45 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Auth Register
-app.post('/api/auth/register', async (req, res) => {
+// Auth Register (Protected by Honeypot & Rate Limiting)
+app.post('/api/auth/register', authRateLimiter, async (req, res) => {
   try {
+    // 1. Honeypot check: Bots auto-fill hidden trap fields (b_username, bot_field, website)
+    if (req.body.b_username || req.body.bot_field || req.body.website) {
+      return res.status(200).json({ success: true, message: 'Account registered' });
+    }
+
     const { name, handle, email, password, avatar, bio } = req.body;
-    if (!handle) {
+    if (!handle || typeof handle !== 'string') {
       return res.status(400).json({ error: 'Username handle is required' });
     }
 
     const cleanHandle = normalizeHandle(handle);
-    const hashedPassword = await bcrypt.hash(password || 'password123', 10);
+    const rawHandle = cleanHandle.replace(/^@/, '');
+
+    // Handle character and length validation: 3-20 alphanumeric characters or underscores
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(rawHandle)) {
+      return res.status(400).json({
+        error: 'Username must be 3-20 characters long and contain only letters, numbers, and underscores.',
+      });
+    }
+
+    // Password validation: minimum 8 characters
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters long.',
+      });
+    }
+
+    // Email validation: RFC compliant if provided
+    if (email && typeof email === 'string' && email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({ error: 'Please provide a valid email address.' });
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     if (isMongoConnected) {
       const existing = await UserModel.findOne({ handle: cleanHandle });
@@ -1275,6 +1322,11 @@ app.get('/api/groups', async (req, res) => {
 app.post('/api/groups', authenticateToken, async (req, res) => {
   try {
     const { name, avatar, creatorHandle, memberHandles } = req.body;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    if (!trimmedName || trimmedName.length < 3 || trimmedName.length > 50) {
+      return res.status(400).json({ error: 'Group name must be between 3 and 50 characters long.' });
+    }
+
     const cleanCreator = normalizeHandle(creatorHandle);
     const cleanMembers = (memberHandles || []).map((h) => normalizeHandle(h));
 

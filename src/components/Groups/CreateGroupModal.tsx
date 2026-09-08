@@ -52,8 +52,13 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setError('Please enter a group name.');
+      return;
+    }
+    if (trimmedName.length < 3 || trimmedName.length > 50) {
+      setError('Group name must be between 3 and 50 characters.');
       return;
     }
     if (selectedMembers.length === 0) {
@@ -61,7 +66,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       return;
     }
 
-    onCreateGroup(name.trim(), selectedAvatar, selectedMembers);
+    onCreateGroup(trimmedName, selectedAvatar, selectedMembers);
     setName('');
     setSelectedMembers([]);
     setError('');

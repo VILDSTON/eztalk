@@ -28,6 +28,7 @@ interface TelegramDrawerProps {
   onAddAccount?: () => void;
   onRemoveAccount?: (user: User) => void;
   onLogout?: () => void;
+  onOpenLegal?: (tab: 'privacy' | 'terms') => void;
 }
 
 export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
@@ -45,6 +46,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
   onAddAccount,
   onRemoveAccount,
   onLogout,
+  onOpenLegal,
 }) => {
   if (!isOpen) return null;
 
@@ -246,6 +248,30 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             <span>Web 2.0</span>
           </div>
           <p className="text-[10px] text-ez-muted font-mono mt-0.5">Real-time Messenger • 24/7 Live</p>
+
+          <div className="flex items-center justify-center space-x-2.5 text-[11px] text-zinc-500 mt-2.5 pt-2 border-t border-white/[0.04]">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenLegal?.('privacy');
+              }}
+              className="text-zinc-400 hover:text-neon-green transition-colors cursor-pointer"
+            >
+              Privacy
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenLegal?.('terms');
+              }}
+              className="text-zinc-400 hover:text-neon-green transition-colors cursor-pointer"
+            >
+              Terms
+            </button>
+          </div>
         </div>
       </div>
     </div>

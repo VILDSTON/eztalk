@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3, Loader2 } from 'lucide-react';
 import { Attachment, QuotedMessage } from '../../types/chat';
 import { ApiService } from '../../services/api';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface MessageInputProps {
   recipientHandle?: string;
@@ -153,89 +154,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     try {
       if (isImage && !isSvgOrGif) {
-        // Pre-compress on client using canvas (max 1280px) to conserve mobile bandwidth and memory
-        const imgReader = new FileReader();
-        imgReader.onload = () => {
-          if (typeof imgReader.result === 'string') {
-            const img = new Image();
-            img.onload = () => {
-              const maxDim = 1280;
-              let width = img.width;
-              let height = img.height;
-              if (width > maxDim || height > maxDim) {
-                if (width > height) {
-                  height = Math.round((height * maxDim) / width);
-                  width = maxDim;
-                } else {
-                  width = Math.round((width * maxDim) / height);
-                  height = maxDim;
-                }
-              }
-              const canvas = document.createElement('canvas');
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0, width, height);
-                canvas.toBlob(
-                  async (blob) => {
-                    if (blob) {
-                      try {
-                        const cleanName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
-                        const uploaded = await ApiService.uploadFile(blob, cleanName);
-                        setCurrentAttachment({
-                          id: `att_${Date.now()}`,
-                          name: file.name,
-                          type: 'image',
-                          url: uploaded.url,
-                          size: uploaded.size,
-                        });
-                      } catch (uploadErr: any) {
-                        alert('Image upload failed: ' + (uploadErr.message || 'Network error'));
-                      } finally {
-                        setIsUploading(false);
-                      }
-                    } else {
-                      setIsUploading(false);
-                    }
-                  },
-                  'image/jpeg',
-                  0.82
-                );
-                return;
-              }
-              // Canvas context fallback
-              ApiService.uploadFile(file, file.name)
-                .then((uploaded) => {
-                  setCurrentAttachment({
-                    id: `att_${Date.now()}`,
-                    name: file.name,
-                    type: 'image',
-                    url: uploaded.url,
-                    size: uploaded.size,
-                  });
-                })
-                .catch((err) => alert('Upload failed: ' + (err.message || 'Network error')))
-                .finally(() => setIsUploading(false));
-            };
-            img.onerror = () => {
-              ApiService.uploadFile(file, file.name)
-                .then((uploaded) => {
-                  setCurrentAttachment({
-                    id: `att_${Date.now()}`,
-                    name: file.name,
-                    type: 'image',
-                    url: uploaded.url,
-                    size: uploaded.size,
-                  });
-                })
-                .catch((err) => alert('Upload failed: ' + (err.message || 'Network error')))
-                .finally(() => setIsUploading(false));
-            };
-            img.src = imgReader.result;
-          }
-        };
-        imgReader.readAsDataURL(file);
+        // Pre-compress image client-side via native Canvas to WebP (max 1600px, quality 0.82)
+        const compressed = await compressImage(file, {
+          maxWidth: 1600,
+          maxHeight: 1600,
+          quality: 0.82,
+          format: 'image/webp',
+        });
+        const cleanName = file.name.replace(/\.[^/.]+$/, '') + '.webp';
+        const uploaded = await ApiService.uploadFile(compressed.blob, cleanName);
+        setCurrentAttachment({
+          id: `att_${Date.now()}`,
+          name: file.name,
+          type: 'image',
+          url: uploaded.url,
+          size: uploaded.size,
+        });
       } else {
         // Direct file upload (svg, gif, pdf, documents, etc.)
         const uploaded = await ApiService.uploadFile(file, file.name);
@@ -246,14 +180,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           url: uploaded.url,
           size: uploaded.size,
         });
-        setIsUploading(false);
       }
     } catch (err: any) {
       alert('Upload failed: ' + (err.message || 'Network error'));
+    } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
-
-    e.target.value = '';
   };
 
   const startRecording = async () => {
@@ -516,7 +449,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             {currentAttachment.type === 'image' ? (
               <img
                 src={currentAttachment.url}
-                alt="preview"
+                alt={currentAttachment.name || 'Attachment preview'}
                 className="w-10 h-10 rounded-lg object-cover"
               />
             ) : (
@@ -531,6 +464,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={() => setCurrentAttachment(null)}
+              aria-label="Remove attachment"
               className="text-ez-muted hover:text-white p-1 rounded cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
@@ -583,6 +517,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
+              aria-label="Attach media or file"
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0"
               title="Attach Media or File"
             >
@@ -603,6 +538,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                aria-label="Choose emoji"
                 className="w-8 h-8 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 ml-1"
                 title="Choose Emoji"
               >
@@ -621,6 +557,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             ) : inputText.trim() || currentAttachment || editingMessage ? (
               <button
                 type="submit"
+                aria-label={editingMessage ? 'Save edit' : 'Send message'}
                 className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-neon-green hover:bg-neon-green-light text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 shrink-0"
                 title={editingMessage ? 'Save edit' : 'Send'}
               >
@@ -630,6 +567,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={startRecording}
+                aria-label="Record voice note"
                 className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
                 title="Record Voice Note"
               >

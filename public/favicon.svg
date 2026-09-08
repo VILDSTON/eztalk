@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <style>
+    :root {
+      --bg: #09090b;
+      --border: #27272a;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f4f5;
+        --border: #d4d4d8;
+      }
+    }
+    .icon-bg { fill: var(--bg); }
+    .icon-border { stroke: var(--border); }
+  </style>
+  <rect class="icon-bg" width="64" height="64" rx="18" fill="#09090b" />
+  <rect class="icon-border" x="1" y="1" width="62" height="62" rx="17" stroke="#27272a" stroke-width="2" />
+  <!-- E -->
+  <path d="M18 44V20H34V25H24V29H32V34H24V39H34V44H18Z" fill="#10B981" />
+  <!-- z -->
+  <path d="M36 44L45 27H36V20H48V25L39 42H48V44H36Z" fill="#34D399" />
+</svg>

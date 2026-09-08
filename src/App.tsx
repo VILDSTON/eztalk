@@ -16,6 +16,9 @@ import { ApiService } from './services/api';
 import { socketService } from './services/socket';
 import { callSoundService, playMessageChime } from './utils/callSounds';
 import { applyTheme, applyCompactMode } from './utils/theme';
+import { LegalModal } from './components/Legal/LegalModal';
+import { CookieBanner } from './components/Common/CookieBanner';
+import { NotFoundScreen } from './components/Common/NotFoundScreen';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
 
 interface ToastNotification {
@@ -34,6 +37,22 @@ export default function App() {
   const [allUsers, setAllUsers] = useState<User[]>(() => ChatStorageService.getAllUsers());
   const [groups, setGroups] = useState<Group[]>([]);
   const [myAccounts, setMyAccounts] = useState<User[]>(() => ChatStorageService.getMyAccounts());
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; tab: 'privacy' | 'terms' }>({
+    isOpen: false,
+    tab: 'privacy',
+  });
+  const [isNotFound, setIsNotFound] = useState(false);
+
+  useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/privacy') {
+      setLegalModal({ isOpen: true, tab: 'privacy' });
+    } else if (path === '/terms') {
+      setLegalModal({ isOpen: true, tab: 'terms' });
+    } else if (path !== '/' && !path.startsWith('/chat') && !path.startsWith('/direct')) {
+      setIsNotFound(true);
+    }
+  }, []);
   const [addedFriends, setAddedFriends] = useState<string[]>(() =>
     currentUser?.friends && currentUser.friends.length > 0
       ? currentUser.friends.map(normalizeHandle)
@@ -1360,9 +1379,36 @@ export default function App() {
     }
   };
 
-  // If not authenticated, render AuthScreen
+  // Custom 404 handler for invalid routes
+  if (isNotFound) {
+    return (
+      <NotFoundScreen
+        onReturnHome={() => {
+          setIsNotFound(false);
+          window.history.pushState({}, '', '/');
+        }}
+      />
+    );
+  }
+
+  // If not authenticated, render AuthScreen with Legal & Cookie Modals
   if (!currentUser) {
-    return <AuthScreen onLogin={handleLogin} />;
+    return (
+      <>
+        <AuthScreen
+          onLogin={handleLogin}
+          onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
+        />
+        <LegalModal
+          isOpen={legalModal.isOpen}
+          initialTab={legalModal.tab}
+          onClose={() => setLegalModal((prev) => ({ ...prev, isOpen: false }))}
+        />
+        <CookieBanner
+          onOpenPrivacy={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
+        />
+      </>
+    );
   }
 
   return (
@@ -1610,6 +1656,7 @@ export default function App() {
         onAddAccount={() => setCurrentUser(null)}
         onRemoveAccount={handleRemoveAccount}
         onLogout={handleLogout}
+        onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
       />
 
       {/* Settings Modal */}
@@ -1771,6 +1818,18 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Legal Privacy & Terms Modal */}
+      <LegalModal
+        isOpen={legalModal.isOpen}
+        initialTab={legalModal.tab}
+        onClose={() => setLegalModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Cookie Consent Banner */}
+      <CookieBanner
+        onOpenPrivacy={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
+      />
     </div>
   );
 }

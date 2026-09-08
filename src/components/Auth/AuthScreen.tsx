@@ -3,9 +3,11 @@ import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, CheckC
 import { User } from '../../types/chat';
 import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
+import { compressAvatar } from '../../utils/imageCompressor';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
+  onOpenLegal?: (tab: 'privacy' | 'terms') => void;
 }
 
 const PRESET_AVATARS = [
@@ -28,7 +30,7 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   return { score: 3, label: 'Strong', color: 'bg-[var(--ez-accent)]' };
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) => {
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,6 +51,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0]);
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState(''); // Anti-bot trap field
 
   // Live handle validation state
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
@@ -87,18 +90,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     };
   }, [regHandle]);
 
-  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setCustomAvatar(reader.result);
-        setSelectedAvatar(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressAvatar(file);
+      setCustomAvatar(compressedDataUrl);
+      setSelectedAvatar(compressedDataUrl);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setCustomAvatar(reader.result);
+          setSelectedAvatar(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = '';
   };
 
@@ -124,13 +133,37 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (regPassword !== regConfirmPassword) {
-      setErrorMessage('Passwords do not match. Please re-enter your password.');
+    // Anti-bot honeypot check: if filled, quietly drop the submission
+    if (honeypot) {
       return;
     }
 
-    if (regPassword.length < 4) {
-      setErrorMessage('Password must be at least 4 characters long.');
+    const rawHandle = regHandle.trim().replace(/^@/, '');
+    if (!rawHandle) {
+      setErrorMessage('Please choose a username.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(rawHandle)) {
+      setErrorMessage('Username must be 3-20 characters long (letters, numbers, underscores only).');
+      return;
+    }
+
+    if (regEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(regEmail.trim())) {
+        setErrorMessage('Please enter a valid email address.');
+        return;
+      }
+    }
+
+    if (regPassword.length < 8) {
+      setErrorMessage('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setErrorMessage('Passwords do not match. Please re-enter your password.');
       return;
     }
 
@@ -139,16 +172,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       return;
     }
 
-    const cleanHandle = regHandle.trim().startsWith('@') ? regHandle.trim() : `@${regHandle.trim() || 'User'}`;
+    const cleanHandle = `@${rawHandle}`;
     setLoading(true);
     try {
       const user = await ApiService.register({
-        name: regName.trim() || cleanHandle.replace('@', ''),
+        name: regName.trim() || rawHandle,
         handle: cleanHandle,
         password: regPassword,
         avatar: selectedAvatar,
-        email: regEmail.trim() || `${cleanHandle.replace('@', '')}@eztalk.app`,
+        email: regEmail.trim() || `${rawHandle}@eztalk.app`,
         bio: 'Hey there! I am using EzTalk.',
+        ...(honeypot ? { b_username: honeypot } as any : {}),
       });
       if (rememberMe) {
         ChatStorageService.saveAuthUser(user);
@@ -299,6 +333,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         ) : (
           /* Register Form */
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
+            {/* Honeypot field for anti-spam bot traps (masked off-screen for smart bots) */}
+            <div className="opacity-0 absolute -z-50 select-none pointer-events-none h-0 w-0 overflow-hidden" aria-hidden="true">
+              <label htmlFor="b_username">Leave this field blank</label>
+              <input
+                id="b_username"
+                type="text"
+                name="b_username"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
+
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
                 Full Name
@@ -509,6 +557,28 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             </button>
           </form>
         )}
+
+        {/* Legal Footer Links */}
+        <div className="mt-5 pt-3 border-t border-[var(--ez-border)] text-center">
+          <p className="text-[11px] text-zinc-500">
+            Продолжая, вы принимаете{' '}
+            <button
+              type="button"
+              onClick={() => onOpenLegal?.('terms')}
+              className="text-zinc-400 hover:text-[var(--ez-accent)] underline transition-colors cursor-pointer"
+            >
+              Условия
+            </button>{' '}
+            и{' '}
+            <button
+              type="button"
+              onClick={() => onOpenLegal?.('privacy')}
+              className="text-zinc-400 hover:text-[var(--ez-accent)] underline transition-colors cursor-pointer"
+            >
+              Политику конфиденциальности
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
