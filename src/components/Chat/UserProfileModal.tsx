@@ -11,6 +11,7 @@ import {
   Ban,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface UserProfileModalProps {
   user: User;
@@ -44,6 +45,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onAddFriend,
 }) => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const { t } = useTranslation();
 
   // Закрытие по клавише Escape
   useEffect(() => {
@@ -173,7 +175,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       ? 'bg-neon-green-glow shadow-neon-dot'
                       : 'bg-ez-muted'
                   }`}
-                  title={isBlocked ? 'Blocked' : isUserOnline ? 'Online' : 'Offline'}
+                  title={isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
                 />
               </div>
 
@@ -189,7 +191,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? 'blocked' : isUserOnline ? 'online' : 'offline'}
+                {isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
               </span>
 
               {user.bio && (
@@ -207,7 +209,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
               >
                 <Phone className="w-5 h-5 text-neon-green mb-1" />
-                <span className="text-[11px] font-semibold text-gray-200">Call</span>
+                <span className="text-[11px] font-semibold text-gray-200">{t.chat.call}</span>
               </button>
 
               <button
@@ -219,30 +221,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   }`}
               >
                 {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-neon-green mb-1" />}
-                <span className="text-[11px] font-semibold">{isMuted ? 'Muted' : 'Mute'}</span>
+                <span className="text-[11px] font-semibold">{isMuted ? t.chat.muted : t.chat.mute}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportChat}
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
-                title="Export Chat History"
+                title={t.chat.exportChatHistory}
               >
                 <Download className="w-5 h-5 text-neon-green mb-1" />
-                <span className="text-[11px] font-semibold text-gray-200">Export</span>
+                <span className="text-[11px] font-semibold text-gray-200">{t.chat.export}</span>
               </button>
             </div>
 
             {/* Shared Media */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-ez-muted uppercase tracking-wider">Shared Media</span>
-                <span className="text-[10px] font-mono text-ez-muted">{sharedAttachments.length} items</span>
+                <span className="text-xs font-bold text-ez-muted uppercase tracking-wider">{t.chat.sharedMedia}</span>
+                <span className="text-[10px] font-mono text-ez-muted">{sharedAttachments.length} {t.chat.items}</span>
               </div>
 
               {sharedAttachments.length === 0 ? (
                 <div className="p-3 bg-ez-surface rounded-xl text-center text-xs text-ez-muted border border-ez-border/30">
-                  No photos or files shared yet.
+                  {t.chat.noMediaShared}
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
@@ -275,7 +277,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     }`}
                 >
                   <Ban className="w-4 h-4" />
-                  <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
+                  <span>{isBlocked ? t.chat.unblockUser : t.chat.blockUser}</span>
                 </button>
               )}
 
@@ -287,7 +289,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/25 transition-colors duration-150 cursor-pointer"
                   >
                     <UserMinus className="w-4 h-4" />
-                    <span>Remove from Friends</span>
+                    <span>{t.chat.removeFriend}</span>
                   </button>
                 )
               ) : (
@@ -298,7 +300,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-bold shadow-neon-sm transition-colors duration-150 cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>Add to Friends</span>
+                    <span>{t.chat.addToFriends}</span>
                   </button>
                 )
               )}

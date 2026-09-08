@@ -3,6 +3,7 @@ import { Paperclip, Smile, Send, X, Mic, Trash2, Check, CornerUpLeft, Edit3, Loa
 import { Attachment, QuotedMessage } from '../../types/chat';
 import { ApiService } from '../../services/api';
 import { compressImage } from '../../utils/imageCompressor';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface MessageInputProps {
   recipientHandle?: string;
@@ -33,6 +34,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onCancelReply,
   onCancelEdit,
 }) => {
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState(initialDraft || '');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
@@ -410,7 +412,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           <div className="mb-2 flex items-center justify-between bg-ez-elevated border-l-2 border-amber-500 px-3 py-1.5 rounded-lg text-xs text-amber-400 animate-fade-in">
             <div className="flex items-center space-x-2 min-w-0">
               <Edit3 className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="font-semibold">Editing message</span>
+              <span className="font-semibold">{t.chat.editingMessage}</span>
             </div>
             <button
               type="button"
@@ -532,7 +534,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={editingMessage ? 'Edit message...' : 'Write a message...'}
+                placeholder={editingMessage ? t.chat.editPlaceholder : t.chat.placeholder}
                 className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-white placeholder-ez-muted font-sans leading-normal"
               />
               <button

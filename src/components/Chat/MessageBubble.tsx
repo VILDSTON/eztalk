@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface MessageBubbleProps {
   message: Message;
@@ -74,6 +75,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onCallBack,
   onRetry,
 }) => {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   // Mobile Bottom Sheet State (< 640px)
@@ -625,7 +627,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <span>
                     {isPlaying
                       ? `0:${currentTimeSec < 10 ? '0' : ''}${currentTimeSec}`
-                      : 'Voice message'}
+                      : t.chat.voiceMessage}
                   </span>
                   <span>
                     {message.attachment.duration ? `0:${message.attachment.duration < 10 ? '0' : ''}${message.attachment.duration}` : '0:05'}
@@ -731,7 +733,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </span>
             )}
 
-            {message.isEdited && <span className="italic text-[9px] text-ez-muted mr-0.5">edited</span>}
+            {message.isEdited && <span className="italic text-[9px] text-ez-muted mr-0.5">{t.chat.edited}</span>}
 
             <span>{timeString}</span>
 

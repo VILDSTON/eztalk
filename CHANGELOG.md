@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-09-09
+
+### Added
+- **Chat Interface Localization**: Fully localized the core chat interface including `LeftSidebar`, `FriendsList`, `ChatHeader`, `MessageInput`, and `MessageBubble`.
+- **Modals & Context Menus i18n**: Completed localization for complex interactive components including `UserProfileModal`, `ChatMenuDropdown`, `MobileMessageActionSheet`, and `ChatWindow`.
+- **Zero-Hardcode Enforcement**: Ensured all user-facing strings are strictly bound to the `useTranslation` hook and `TranslationKeys` interface, guaranteeing 100% type safety and dynamic switching across English, Russian, and Uzbek without reloads.
+
 ## [0.9.5] - 2026-09-09
 
 ### Added

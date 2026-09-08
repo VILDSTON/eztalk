@@ -6,6 +6,7 @@ import { MessageInput } from './MessageInput';
 import { ForwardModal } from './ForwardModal';
 import { MediaLightboxModal } from './MediaLightboxModal';
 import { UserPlus, X, Ban } from 'lucide-react';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ChatWindowProps {
   user?: User | null;
@@ -94,6 +95,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   } | null>(null);
   const [showAddBanner, setShowAddBanner] = useState(true);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+
+  const { t } = useTranslation();
 
   const recipientLabel = group ? group.name : user ? user.name || user.handle : 'Contact';
 
@@ -240,7 +243,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="p-4 bg-ez-surface/90 border-t border-ez-border/50 flex items-center justify-center space-x-3 text-center">
           <span className="text-xs text-rose-400 font-semibold flex items-center space-x-1.5">
             <Ban className="w-4 h-4" />
-            <span>You blocked this user. Messages cannot be sent.</span>
+            <span>{t.chat.blockedBanner}</span>
           </span>
           {onToggleBlock && (
             <button
@@ -248,7 +251,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               onClick={onToggleBlock}
               className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-colors cursor-pointer"
             >
-              Unblock
+              {t.chat.unblock}
             </button>
           )}
         </div>

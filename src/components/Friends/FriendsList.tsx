@@ -14,6 +14,7 @@ import { User, Group, Message } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 function formatChatListTime(dateStr?: string): string {
   if (!dateStr) return '';
@@ -35,7 +36,7 @@ function formatChatListTime(dateStr?: string): string {
   return d.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: '2-digit' });
 }
 
-function renderMessagePreview(msg: Message, currentHandle?: string) {
+function renderMessagePreview(msg: Message, currentHandle?: string, t?: any) {
   const isMe = normalizeHandle(msg.senderHandle).toLowerCase() === normalizeHandle(currentHandle || '').toLowerCase();
 
   let contentNode: React.ReactNode = null;
@@ -44,26 +45,26 @@ function renderMessagePreview(msg: Message, currentHandle?: string) {
     const isMissed = msg.callInfo.type === 'missed' || msg.callInfo.type === 'declined' || msg.callInfo.type === 'canceled';
     contentNode = (
       <span className={isMissed ? 'text-rose-400 font-medium' : 'text-ez-muted'}>
-        📞 {isMissed ? 'Canceled call' : 'Voice call'}
+        📞 {isMissed ? t?.chat?.callCanceled : t?.chat?.voiceCall}
       </span>
     );
   } else if (msg.attachment) {
     if (msg.attachment.type === 'audio') {
-      contentNode = <span className="text-ez-muted">🎤 Voice note</span>;
+      contentNode = <span className="text-ez-muted">🎤 {t?.chat?.voiceMessage}</span>;
     } else if (msg.attachment.type === 'image') {
-      contentNode = <span className="text-ez-muted">📷 Photo</span>;
+      contentNode = <span className="text-ez-muted">📷 {t?.chat?.photo}</span>;
     } else {
-      contentNode = <span className="text-ez-muted truncate">📄 {msg.attachment.name || 'File'}</span>;
+      contentNode = <span className="text-ez-muted truncate">📄 {msg.attachment.name || t?.chat?.file}</span>;
     }
   } else if (msg.text) {
     contentNode = <span className="text-ez-muted truncate">{msg.text}</span>;
   } else {
-    contentNode = <span className="text-ez-muted italic">Message</span>;
+    contentNode = <span className="text-ez-muted italic">{t?.chat?.message}</span>;
   }
 
   return (
     <span className="flex items-center text-[12px] text-ez-muted truncate min-w-0">
-      {isMe && <span className="text-ez-muted mr-1 shrink-0">You:</span>}
+      {isMe && <span className="text-ez-muted mr-1 shrink-0">{t?.chat?.you}:</span>}
       {contentNode}
     </span>
   );
@@ -104,6 +105,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   onCreateGroup,
   onDeleteGroup,
 }) => {
+  const { t } = useTranslation();
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -116,7 +118,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return onlineHandles.some((h) => normalizeHandle(h).toLowerCase() === normalizeHandle(handle).toLowerCase());
   };
 
-  // Filter users
   const matchedUsers = users.filter((u) => {
     if (activeTab === 'online' && !isUserOnline(u.handle)) return false;
     if (!cleanQuery) return true;
@@ -137,7 +138,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return timeB - timeA;
   });
 
-  // Filter groups
   const matchedGroups = groups.filter((g) => {
     if (activeTab === 'online') return false;
     if (!cleanQuery) return true;
@@ -148,7 +148,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   });
   const filteredGroups = cleanQuery ? matchedGroups.slice(0, 8) : matchedGroups;
 
-  // Global search
   const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
   const existingChatHandles = new Set(filteredUsers.map((u) => normalizeHandle(u.handle).toLowerCase()));
 
@@ -168,34 +167,32 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     : [];
 
   const tabs = [
-    { id: 'all' as const, label: 'All Chats' },
-    { id: 'direct' as const, label: 'Personal' },
-    { id: 'groups' as const, label: 'Groups' },
-    { id: 'online' as const, label: 'Online' },
+    { id: 'all' as const, label: t.sidebar.allChats },
+    { id: 'direct' as const, label: t.sidebar.personal },
+    { id: 'groups' as const, label: t.sidebar.groups },
+    { id: 'online' as const, label: t.sidebar.online },
   ];
 
   return (
     <>
       <div className="w-full md:w-80 lg:w-[340px] h-full flex flex-col bg-ez-surface border-r border-ez-border/50 select-none shrink-0 relative overflow-hidden font-sans">
-        {/* ─── Top Bar: Hamburger + Search ─── */}
         <div className="p-3 pb-2 flex items-center space-x-2.5 bg-ez-surface">
           <button
             type="button"
             onClick={onOpenMenu}
             className="p-2 text-ez-muted hover:text-white rounded-xl hover:bg-white/5 transition-colors duration-150 cursor-pointer shrink-0"
-            title="Open Menu"
+            title={t.common.openMenu}
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Search Input */}
           <div className="flex-1 relative flex items-center">
             <Search className="w-4 h-4 text-ez-muted absolute left-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search chats, contacts..."
+              placeholder={t.sidebar.searchPlaceholder}
               className="w-full bg-ez-elevated focus:bg-ez-hover border border-transparent focus:border-neon-green/30 rounded-xl pl-10 pr-8 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
             {searchQuery && (
@@ -210,7 +207,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           </div>
         </div>
 
-        {/* ─── Tab Navigation ─── */}
         <div className="flex items-center px-3 border-b border-ez-border/50 text-xs font-semibold overflow-x-auto custom-scrollbar">
           {tabs.map((tab) => (
             <button
@@ -228,9 +224,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           ))}
         </div>
 
-        {/* ─── Chat & Contact Stream ─── */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-2 pb-28 space-y-0.5">
-          {/* Saved Messages (Telegram-style Personal Cloud) */}
           {(activeTab === 'all' || activeTab === 'direct') && currentUser && !cleanQuery && (
             (() => {
               const savedLastMsg = lastMessages['saved_messages'] || lastMessages[normalizeHandle(currentUser.handle).toLowerCase()];
@@ -257,7 +251,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-bold text-white tracking-tight">Saved Messages</span>
+                        <span className="text-[13px] font-bold text-white tracking-tight">{t.sidebar.savedMessages}</span>
                         {savedLastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
                             {formatChatListTime(savedLastMsg.createdAt || savedLastMsg.timestamp)}

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { User as UserIcon, Bell, BellOff, Trash2, ShieldAlert, Download, UserMinus, UserPlus } from 'lucide-react';
+import { useTranslation } from '../../context/LanguageContext';
 
 export interface ChatMenuDropdownProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
   onAddFriend,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,7 +64,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
         className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
       >
         <UserIcon className="w-4 h-4 text-neon-green" />
-        <span>View Profile</span>
+        <span>{t.chat.viewProfile}</span>
       </button>
 
       <button
@@ -76,12 +78,12 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
         {isMuted ? (
           <>
             <Bell className="w-4 h-4 text-neon-green" />
-            <span>Unmute Notifications</span>
+            <span>{t.chat.unmuteNotifications}</span>
           </>
         ) : (
           <>
             <BellOff className="w-4 h-4 text-red-400" />
-            <span>Mute Notifications</span>
+            <span>{t.chat.muteNotifications}</span>
           </>
         )}
       </button>
@@ -96,7 +98,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
         >
           <Download className="w-4 h-4 text-neon-green" />
-          <span>Export Chat History</span>
+          <span>{t.chat.exportChatHistory}</span>
         </button>
       )}
 
@@ -111,7 +113,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
         className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
       >
         <Trash2 className="w-4 h-4" />
-        <span>Clear Messages</span>
+        <span>{t.chat.clearMessages}</span>
       </button>
 
       {isFriend ? (
@@ -125,7 +127,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
             className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
           >
             <UserMinus className="w-4 h-4" />
-            <span>Remove Friend</span>
+            <span>{t.chat.removeFriend}</span>
           </button>
         )
       ) : (
@@ -139,7 +141,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
             className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-neon-green hover:bg-neon-green/10 transition-colors duration-150 text-left cursor-pointer font-semibold"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Add to Friends</span>
+            <span>{t.chat.addToFriends}</span>
           </button>
         )
       )}
@@ -156,7 +158,7 @@ export const ChatMenuDropdown: React.FC<ChatMenuDropdownProps> = ({
           }`}
         >
           <ShieldAlert className="w-4 h-4" />
-          <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
+          <span>{isBlocked ? t.chat.unblockUser : t.chat.blockUser}</span>
         </button>
       )}
     </div>

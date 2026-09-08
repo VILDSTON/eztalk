@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface LeftSidebarProps {
   currentUser?: User | null;
@@ -94,6 +95,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onLogout,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { t } = useTranslation();
 
   const otherAccounts = myAccounts.filter(
     (acc) => normalizeHandle(acc.handle) !== normalizeHandle(currentUser?.handle || '')
@@ -112,12 +114,12 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       <div className="flex-1 flex flex-col items-center space-y-1">
         <NavItem
           icon={<UserPlus className="w-5 h-5" />}
-          label="Add Friend"
+          label={t.sidebar.addFriend}
           onClick={onOpenAddFriend}
         />
         <NavItem
           icon={<Bookmark className="w-5 h-5" />}
-          label="Saved Messages"
+          label={t.sidebar.savedMessages}
           isActive={activeSection === 'saved'}
           onClick={() => {
             onSelectSection?.('saved');
@@ -129,7 +131,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
         <NavItem
           icon={<Settings className="w-5 h-5" />}
-          label="Settings"
+          label={t.sidebar.settings}
           onClick={onOpenSettings}
         />
       </div>
@@ -150,14 +152,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-neon-green bg-neon-green/10 hover:bg-neon-green/20 text-left transition-colors font-semibold cursor-pointer border border-neon-green/20"
               >
                 <UserCog className="w-4 h-4" />
-                <span>Customize Profile</span>
+                <span>{t.sidebar.customizeProfile}</span>
               </button>
 
               {/* Switch Accounts */}
               {otherAccounts.length > 0 && (
                 <>
                   <div className="h-px bg-ez-border/50 my-1" />
-                  <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-ez-muted tracking-wider">Accounts</div>
+                  <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-ez-muted tracking-wider">{t.sidebar.accounts}</div>
                   {otherAccounts.map((acc) => (
                     <div
                       key={acc.id || acc.handle}
@@ -207,7 +209,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 text-left transition-colors cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5 text-neon-green" />
-                <span>+ Add account</span>
+                <span>+ {t.sidebar.addAccount}</span>
               </button>
 
               {/* Sign Out */}
@@ -220,7 +222,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 text-left transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
+                <span>{t.sidebar.signOut}</span>
               </button>
             </div>
           )}

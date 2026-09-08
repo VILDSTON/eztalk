@@ -14,6 +14,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { Message } from '../../types/chat';
+import { useTranslation } from '../../context/LanguageContext';
 
 export interface MobileMessageActionSheetProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const { t } = useTranslation();
 
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
@@ -200,16 +202,16 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
             <span className="text-gray-300 truncate block text-xs">
               {message.callInfo || (message.text && (message.text.includes('Call') || message.text.includes('📞') || message.text.includes('📵')))
                 ? message.callInfo?.type === 'declined' || message.text?.includes('Declined')
-                  ? 'Declined Call'
+                  ? t.calls.callDeclined
                   : message.callInfo?.type === 'canceled' || message.text?.includes('Canceled')
-                  ? isMe ? 'Canceled Call' : 'Missed Call'
+                  ? isMe ? t.calls.callCanceled : t.calls.missedCall
                   : message.callInfo?.type === 'missed' || message.text?.includes('Missed')
-                  ? 'Missed Call'
-                  : 'Voice Call'
+                  ? t.calls.missedCall
+                  : t.chat.voiceCall
                 : message.text ||
                   (message.attachment?.type === 'audio'
-                    ? 'Voice message'
-                    : message.attachment?.name || 'Media attachment')}
+                    ? t.chat.voiceMessage
+                    : message.attachment?.name || t.chat.mediaAttachment)}
             </span>
           </div>
           {(message.forwardRestricted || message.isSecret) && (
@@ -246,7 +248,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
             <div className="w-8 h-8 rounded-xl bg-neon-green/10 flex items-center justify-center text-neon-green shrink-0">
               <CornerUpLeft className="w-4 h-4" />
             </div>
-            <span className="text-sm font-medium">Reply</span>
+            <span className="text-sm font-medium">{t.chat.reply}</span>
           </button>
 
           {/* Forward */}
@@ -262,7 +264,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               <div className="w-8 h-8 rounded-xl bg-neon-green/10 flex items-center justify-center text-neon-green shrink-0">
                 <CornerUpRight className="w-4 h-4" />
               </div>
-              <span className="text-sm font-medium">Forward</span>
+              <span className="text-sm font-medium">{t.chat.forward}</span>
             </button>
           )}
 
@@ -281,7 +283,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-gray-300 shrink-0">
                 {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4" />}
               </div>
-              <span className="text-sm font-medium">{copied ? 'Copied to clipboard!' : 'Copy Text'}</span>
+              <span className="text-sm font-medium">{copied ? t.chat.copiedToClipboard : t.chat.copyText}</span>
             </button>
           )}
 
@@ -298,7 +300,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               <div className="w-8 h-8 rounded-xl bg-amber-400/10 flex items-center justify-center text-amber-400 shrink-0">
                 <Edit2 className="w-4 h-4" />
               </div>
-              <span className="text-sm font-medium">Edit Message</span>
+              <span className="text-sm font-medium">{t.chat.editMessage}</span>
             </button>
           )}
 
@@ -315,7 +317,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               <div className="w-8 h-8 rounded-xl bg-rose-500/15 flex items-center justify-center text-rose-400 shrink-0">
                 <Trash2 className="w-4 h-4" />
               </div>
-              <span className="text-sm font-medium">Delete Message</span>
+              <span className="text-sm font-medium">{t.chat.deleteMessage}</span>
             </button>
           )}
         </div>

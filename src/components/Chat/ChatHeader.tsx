@@ -3,6 +3,7 @@ import { Phone, MoreVertical, Search, BellOff, Users, Trash2, ArrowLeft, Bookmar
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ChatHeaderProps {
   user?: User | null;
@@ -45,6 +46,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onDeleteGroup,
   onStartCall,
 }) => {
+  const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -120,7 +122,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-bold text-white tracking-tight leading-tight truncate">{group.name}</span>
             <span className="text-[11px] text-ez-muted font-mono">
-              {group.memberHandles.length} members
+              {group.memberHandles.length} {t.groups.membersCount}
             </span>
           </div>
         </div>
@@ -159,8 +161,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Bookmark className="w-4 h-4" />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-bold text-white tracking-tight">Saved Messages</span>
-            <span className="text-[11px] text-neon-green font-mono">Your personal cloud notes</span>
+            <span className="text-sm font-bold text-white tracking-tight">{t.sidebar.savedMessages}</span>
+            <span className="text-[11px] text-neon-green font-mono">{t.chat.cloudNotes}</span>
           </div>
         </div>
       </div>
@@ -202,7 +204,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search in conversation..."
+              placeholder={t.chat.searchInConversation}
               className="w-full bg-ez-hover border border-transparent focus:border-neon-green/30 rounded-xl px-3 py-1.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
               autoFocus
             />
@@ -276,7 +278,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? 'blocked' : isTyping ? 'typing...' : isOnline ? 'online' : 'offline'}
+                {isBlocked ? t.chat.blocked : isTyping ? t.chat.typing : isOnline ? t.chat.online : t.chat.offline}
               </span>
             </div>
           </div>
@@ -289,7 +291,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               type="button"
               onClick={() => setShowSearch(true)}
               className="p-2 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title="Search in Chat"
+              title={t.chat.searchInChat}
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
