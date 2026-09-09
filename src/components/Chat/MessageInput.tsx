@@ -527,7 +527,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             </button>
 
             {/* Input Pill Container */}
-            <div className="flex-1 min-w-0 h-10 sm:h-11 flex items-center bg-ez-input rounded-2xl px-3.5 sm:px-4 border border-ez-border/60 focus-within:border-neon-green/40 transition-colors duration-150 shadow-inner">
+            <div className="flex-1 min-w-0 h-10 sm:h-11 flex items-center bg-ez-input rounded-2xl px-3.5 sm:px-4 border border-ez-border/60 focus-within:border-[var(--ez-accent)] transition-colors duration-150 shadow-inner">
               <input
                 ref={inputRef}
                 type="text"
@@ -564,7 +564,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 className={`w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center shrink-0 transition-all duration-150 ${
                   !inputText.trim() && !currentAttachment && !editingMessage
                     ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
-                    : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-neon-green/50 focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
+                    : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-[var(--ez-accent)] focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
                 }`}
                 title={editingMessage ? 'Save edit' : 'Send'}
               >

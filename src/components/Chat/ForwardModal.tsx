@@ -111,7 +111,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search people and groups..."
-              className="w-full bg-ez-surface focus:bg-ez-hover border border-ez-border/50 focus:border-neon-green/40 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors"
+              className="w-full bg-ez-surface focus:bg-ez-hover border border-ez-border/50 focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors"
               autoFocus
             />
           </div>

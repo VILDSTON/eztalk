@@ -40,7 +40,7 @@ function getStatusDotColor(status: string): string {
       return 'bg-rose-500 shadow-[0_0_8px_#f43f5e]';
     case 'Offline':
     default:
-      return 'bg-slate-500';
+      return 'bg-ez-muted';
   }
 }
 

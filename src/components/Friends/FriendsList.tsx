@@ -195,7 +195,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t.sidebar.searchPlaceholder}
-              className="w-full bg-ez-elevated focus:bg-ez-hover border border-transparent focus:border-neon-green/30 rounded-xl pl-10 pr-8 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
+              className="w-full bg-ez-elevated focus:bg-ez-hover border border-transparent focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-8 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
             {searchQuery && (
               <button

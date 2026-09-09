@@ -148,7 +148,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                     setErrorMessage('');
                   }}
                   placeholder="@username (e.g. @test3 or @test4)"
-                  className="w-full bg-ez-base border border-ez-border focus:border-neon-green rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+                  className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
                 />
               </div>
             </div>
@@ -194,7 +194,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, ''))}
                 placeholder="Full Name"
-                className="w-full bg-ez-base border border-ez-border focus:border-neon-green rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+                className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
           </div>

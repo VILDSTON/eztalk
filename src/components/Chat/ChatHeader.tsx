@@ -205,7 +205,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={t.chat.searchInConversation}
-              className="w-full bg-ez-hover border border-transparent focus:border-neon-green/30 rounded-xl px-3 py-1.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
+              className="w-full bg-ez-hover border border-transparent focus:border-[var(--ez-accent)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
               autoFocus
             />
             <button

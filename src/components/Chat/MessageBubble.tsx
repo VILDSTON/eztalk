@@ -799,8 +799,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   }}
                   className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${
                     reaction.hasReacted
-                      ? 'bg-[#0F141C] border-neon-green/40 text-neon-green font-semibold shadow-xs'
-                      : 'bg-[#131B26] border-white/10 text-gray-200 hover:bg-[#1A2332] hover:border-white/20'
+                      ? 'bg-ez-surface border-neon-green/40 text-neon-green font-semibold shadow-xs'
+                      : 'bg-ez-elevated border-white/10 text-gray-200 hover:bg-ez-hover hover:border-white/20'
                   }`}
                 >
                   <span className="text-[13px] leading-none">{reaction.emoji}</span>

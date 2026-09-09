@@ -76,7 +76,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     .filter((m) => m.attachment)
     .map((m) => m.attachment as Attachment);
 
-  const bannerStyle = user.banner || 'linear-gradient(135deg, #0B0E14 0%, #1A1F2C 50%, #12161F 100%)';
+  const bannerStyle = user.banner || 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)';
   const isImageBanner = user.banner && (user.banner.startsWith('http') || user.banner.startsWith('data:image'));
 
   const handleExportChat = () => {

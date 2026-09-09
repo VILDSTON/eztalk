@@ -90,7 +90,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
                   ? 'bg-amber-400'
                   : currentUser.status === 'Busy'
                   ? 'bg-rose-500'
-                  : 'bg-slate-400'
+                  : 'bg-ez-muted'
               }`}
             />
           </div>

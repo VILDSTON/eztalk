@@ -22,7 +22,7 @@ const PRESET_AVATARS = [
 ];
 
 const PRESET_BANNERS = [
-  'linear-gradient(135deg, #0B0E14 0%, #1A1F2C 50%, #12161F 100%)',
+  'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)',
   'linear-gradient(135deg, #05140b 0%, #004d25 50%, #10B981 100%)',
   'linear-gradient(135deg, #1f102e 0%, #4a154b 50%, #a855f7 100%)',
   'linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #3b82f6 100%)',
@@ -235,7 +235,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   setName(clean);
                 }}
                 placeholder="Your Name"
-                className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+                className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
 
@@ -252,7 +252,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   onChange={(e) => setHandle(e.target.value.replace('@', ''))}
                   placeholder="username"
                   className={`w-full bg-ez-input border rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150 ${
-                    isHandleTaken ? 'border-red-500 text-red-400' : 'border-ez-border focus:border-neon-green'
+                    isHandleTaken ? 'border-red-500 text-red-400' : 'border-ez-border focus:border-[var(--ez-accent)]'
                   }`}
                 />
               </div>
@@ -290,7 +290,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={customStatusText}
               onChange={(e) => setCustomStatusText(e.target.value)}
               placeholder="e.g. 🚀 Building the future of messaging"
-              className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+              className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
           </div>
 
@@ -327,7 +327,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Tell friends about yourself..."
-              className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none resize-none transition-colors duration-150"
+              className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none resize-none transition-colors duration-150"
             />
           </div>
 
@@ -342,7 +342,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://github.com/yourname"
-              className="w-full bg-ez-input border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+              className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
           </div>
 

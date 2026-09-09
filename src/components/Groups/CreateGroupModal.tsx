@@ -126,7 +126,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   if (error) setError('');
                 }}
                 placeholder="e.g. Project Devs, Family, Gaming..."
-                className="w-full bg-ez-base border border-ez-border focus:border-neon-green rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
+                className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
 
@@ -223,7 +223,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-150 ${
                 !name.trim() || selectedMembers.length === 0
                   ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
-                  : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-neon-green/50 focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
+                  : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-[var(--ez-accent)] focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
               }`}
             >
               Create Group

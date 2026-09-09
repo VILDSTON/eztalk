@@ -8,18 +8,18 @@ export default {
     extend: {
       colors: {
         ez: {
-          base: '#0B0E14',
-          surface: '#12161F',
-          elevated: '#1A1F2C',
-          border: '#242A38',
-          hover: '#2A3142',
-          accent: '#10B981',
+          base: '#050505',      // Глубокий нейтральный чёрный фон
+          surface: '#0B0B0C',   // Сайдбар и панели (угольный)
+          elevated: '#121214',  // Карточки, модалки, списки
+          border: '#1E1E22',    // Рамки и разделители без синевы
+          hover: '#18181B',     // Нейтральный ховер
+          accent: '#10B981',    // Твой фирменный изумруд
           glow: '#00FF66',
-          muted: '#64748B',
-          sent: '#0D3B2E',
-          received: '#1E2230',
-          input: '#151A24',
-          overlay: '#0B0E14',
+          muted: '#71717A',     // Нейтральный пепельный текст
+          sent: '#064E3B',      // Отправленные сообщения
+          received: '#141417',  // Полученные сообщения (тёмный графит)
+          input: '#0E0E11',     // Поле ввода
+          overlay: '#050505',
         },
         neon: {
           green: '#10B981',
@@ -28,18 +28,18 @@ export default {
           'green-light': '#34D399',
         },
         dark: {
-          bg: '#0B0E14',
-          window: '#1A1F2C',
-          tabActive: '#12161F',
-          tabInactive: '#242A38',
-          addressBar: '#151A24',
-          card: '#1A1F2C',
-          cardBorder: '#242A38',
-          panel: '#12161F',
-          selected: '#2A3142',
-          received: '#1E2230',
-          input: '#151A24',
-          muted: '#64748B',
+          bg: '#050505',
+          window: '#121214',
+          tabActive: '#0B0B0C',
+          tabInactive: '#18181B',
+          addressBar: '#0E0E11',
+          card: '#121214',
+          cardBorder: '#1E1E22',
+          panel: '#0B0B0C',
+          selected: '#18181B',
+          received: '#141417',
+          input: '#0E0E11',
+          muted: '#71717A',
         }
       },
       borderRadius: {
@@ -60,10 +60,10 @@ export default {
         'neon-lg': '0 0 30px rgba(16, 185, 129, 0.55)',
         'neon-glow': '0 0 15px rgba(0, 255, 102, 0.5)',
         'neon-dot': '0 0 8px rgba(0, 255, 102, 0.6)',
-        'glass': '0 8px 32px rgba(0, 0, 0, 0.4)',
-        'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-        'elevated': '0 4px 24px rgba(0, 0, 0, 0.3)',
-        'window': '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+        'glass': '0 8px 32px rgba(0, 0, 0, 0.6)',
+        'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        'elevated': '0 4px 24px rgba(0, 0, 0, 0.5)',
+        'window': '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)',
       },
       keyframes: {
         fadeIn: {

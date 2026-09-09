@@ -80,7 +80,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or @handle..."
-              className="w-full bg-ez-hover focus:bg-ez-border border border-transparent focus:border-neon-green/30 rounded-2xl pl-10 pr-8 py-2.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
+              className="w-full bg-ez-hover focus:bg-ez-border border border-transparent focus:border-[var(--ez-accent)] rounded-2xl pl-10 pr-8 py-2.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
               autoFocus
             />
             {search && (
@@ -117,7 +117,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
                         ? 'bg-amber-400'
                         : user.status === 'Busy'
                         ? 'bg-rose-500'
-                        : 'bg-slate-400'
+                        : 'bg-ez-muted'
                     }`}
                   />
                 </div>

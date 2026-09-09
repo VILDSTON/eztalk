@@ -40,7 +40,7 @@ const PRESET_AVATARS = [
 ];
 
 const PRESET_BANNERS = [
-  { id: 'dark', label: 'Obsidian Night', gradient: 'linear-gradient(135deg, #0B0E14 0%, #1A1F2C 50%, #12161F 100%)' },
+  { id: 'dark', label: 'Obsidian Night', gradient: 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)' },
   { id: 'green', label: 'Neon Cyber', gradient: 'linear-gradient(135deg, #05140b 0%, #004d25 50%, #00ff73 100%)' },
   { id: 'purple', label: 'Deep Cosmos', gradient: 'linear-gradient(135deg, #1f102e 0%, #4a154b 50%, #a855f7 100%)' },
   { id: 'blue', label: 'Ocean Matrix', gradient: 'linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #38bdf8 100%)' },
@@ -349,7 +349,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             ? 'bg-amber-400'
                             : status === 'Busy'
                             ? 'bg-rose-500'
-                            : 'bg-slate-400'
+                            : 'bg-ez-muted'
                         }`}
                       />
                     </div>
@@ -448,7 +448,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your Display Name"
-                    className="w-full bg-ez-elevated border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
+                    className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
                 </div>
 
@@ -461,7 +461,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     value={customStatusText}
                     onChange={(e) => setCustomStatusText(e.target.value)}
                     placeholder="e.g. Building cool apps"
-                    className="w-full bg-ez-elevated border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
+                    className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
                 </div>
               </div>
@@ -499,7 +499,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell people a little bit about yourself..."
-                  className="w-full bg-ez-elevated border border-ez-border focus:border-neon-green rounded-xl px-3.5 py-2.5 text-xs text-white outline-none resize-none transition-colors duration-150"
+                  className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none resize-none transition-colors duration-150"
                 />
               </div>
             </div>
@@ -531,7 +531,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     type="button"
                     onClick={() => setSoundEnabled(!soundEnabled)}
                     className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                      soundEnabled ? 'bg-neon-green' : 'bg-gray-700'
+                      soundEnabled ? 'bg-neon-green' : 'bg-ez-muted'
                     }`}
                   >
                     <div
@@ -580,7 +580,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   type="button"
                   onClick={() => setFloatingToastsEnabled(!floatingToastsEnabled)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    floatingToastsEnabled ? 'bg-neon-green' : 'bg-gray-700'
+                    floatingToastsEnabled ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}
                 >
                   <div
@@ -605,7 +605,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   type="button"
                   onClick={() => setCallRingtoneEnabled(!callRingtoneEnabled)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    callRingtoneEnabled ? 'bg-neon-green' : 'bg-gray-700'
+                    callRingtoneEnabled ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}
                 >
                   <div
@@ -653,7 +653,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   type="button"
                   onClick={() => setEnterToSend(!enterToSend)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    enterToSend ? 'bg-neon-green' : 'bg-gray-700'
+                    enterToSend ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}
                 >
                   <div
@@ -673,7 +673,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   type="button"
                   onClick={() => handleToggleCompact(!compactMode)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    compactMode ? 'bg-neon-green' : 'bg-gray-700'
+                    compactMode ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}
                 >
                   <div

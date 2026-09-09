@@ -7,11 +7,11 @@
   color-scheme: dark;
 
   /* Surfaces & Hierarchy */
-  --ez-base: #0A0D14;
-  --ez-surface: #111622;
-  --ez-elevated: #181F2E;
-  --ez-border: #232B3D;
-  --ez-hover: #29344A;
+  --ez-base: #050505;
+  --ez-surface: #0B0B0C;
+  --ez-elevated: #121214;
+  --ez-border: #1E1E22;
+  --ez-hover: #18181B;
 
   /* Accent & Neons */
   --ez-accent: #10B981;
@@ -20,12 +20,12 @@
 
   /* Typography & Details */
   --ez-text: #F1F5F9;
-  --ez-muted: #64748B;
+  --ez-muted: #71717A;
   --ez-sent-meta: #6EE7B7;
 
   /* Chat Bubbles */
   --ez-sent: #064E3B;
-  --ez-received: #1E2638;
+  --ez-received: #141417;
 }
 
 [data-theme="cyan"] {
@@ -151,13 +151,13 @@ body,
 
 /* ─── Glassmorphic Overlays ─── */
 .glass-overlay {
-  background: rgba(10, 13, 20, 0.75);
+  background: rgba(5, 5, 5, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-panel {
-  background: rgba(24, 31, 46, 0.88);
+  background: rgba(11, 11, 12, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
