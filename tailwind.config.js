@@ -42,6 +42,15 @@ export default {
           muted: '#64748B',
         }
       },
+      borderRadius: {
+        'sm': '1px',
+        DEFAULT: '2px',
+        'md': '3px',
+        'lg': '4px',
+        'xl': '5px',
+        '2xl': '6px',
+        '3xl': '8px',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },

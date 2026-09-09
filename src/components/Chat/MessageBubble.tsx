@@ -556,7 +556,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-2xl max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             isMe

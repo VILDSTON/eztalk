@@ -224,7 +224,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
       <div className="w-full max-w-md bg-[var(--ez-surface)] border border-[var(--ez-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative z-10 animate-fade-in my-auto shrink-0">
         {/* Brand Header */}
         <div className="text-center mb-5 sm:mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[var(--ez-accent)] mb-2 shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-[16px] bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[var(--ez-accent)] mb-2 shadow-sm">
             <span className="text-xl sm:text-2xl font-black">Ez</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-100">
