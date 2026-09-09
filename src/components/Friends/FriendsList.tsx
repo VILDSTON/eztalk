@@ -15,6 +15,7 @@ import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
+import { ConfirmModal } from '../Common/ConfirmModal';
 
 function formatChatListTime(dateStr?: string): string {
   if (!dateStr) return '';
@@ -111,6 +112,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
+  const [groupToDelete, setGroupToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
 
@@ -329,9 +331,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Delete group "${group.name}"?`)) {
-                          onDeleteGroup(group.id);
-                        }
+                        setGroupToDelete({ id: group.id, name: group.name });
                       }}
                       className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-opacity duration-150 cursor-pointer shrink-0"
                       title="Delete Group"
@@ -526,6 +526,22 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           if (onCreateGroup) onCreateGroup(name, avatar, members);
           setIsGroupModalOpen(false);
         }}
+      />
+
+      {/* Confirm Delete Group Modal */}
+      <ConfirmModal
+        isOpen={!!groupToDelete}
+        title="Delete Group"
+        message={`Are you sure you want to delete group "${groupToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete forever"
+        cancelText="Cancel"
+        onConfirm={() => {
+          if (groupToDelete && onDeleteGroup) {
+            onDeleteGroup(groupToDelete.id);
+          }
+          setGroupToDelete(null);
+        }}
+        onCancel={() => setGroupToDelete(null)}
       />
     </>
   );

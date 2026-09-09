@@ -148,14 +148,30 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     handleClose();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      // If click is outside the sheet, close it
+      const target = e.target as HTMLElement;
+      if (!target.closest('.action-sheet-content')) {
+        handleClose();
+      }
+    };
+    document.addEventListener('mousedown', handleGlobalClick);
+    document.addEventListener('touchstart', handleGlobalClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClick);
+      document.removeEventListener('touchstart', handleGlobalClick);
+    };
+  }, [isOpen, handleClose]);
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-none">
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-200 pointer-events-none ${
           isClosing ? 'opacity-0' : 'opacity-100'
         }`}
-        onClick={handleClose}
       />
 
       {/* Slide-Up Bottom Sheet */}
@@ -163,7 +179,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative z-50 w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
+        className={`action-sheet-content pointer-events-auto relative z-50 w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
           isDragging ? '' : 'transition-transform duration-200 ease-out'
         } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
         style={{

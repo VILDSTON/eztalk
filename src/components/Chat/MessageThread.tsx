@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { ArrowDown, Loader2 } from 'lucide-react';
 import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -264,7 +264,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
           className="absolute bottom-5 right-4 sm:right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated/95 hover:bg-ez-hover text-neon-green border border-neon-green/30 shadow-glass backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-scale-up"
           title="Scroll to latest message"
         >
-          <ChevronDown className="w-5 h-5" />
+          <ArrowDown className="w-5 h-5" />
           {newMessagesCount > 0 && (
             <span className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-neon-green text-black text-[10px] font-black min-w-[20px] h-5 flex items-center justify-center shadow-neon-sm animate-scale-up">
               {newMessagesCount > 99 ? '99+' : newMessagesCount}

@@ -219,7 +219,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-bold shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer"
+              disabled={!name.trim() || selectedMembers.length === 0}
+              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-150 ${
+                !name.trim() || selectedMembers.length === 0
+                  ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
+                  : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-neon-green/50 focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
+              }`}
             >
               Create Group
             </button>

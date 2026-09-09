@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
+import { ConfirmModal } from '../Common/ConfirmModal';
 
 interface UserProfileModalProps {
   user: User;
@@ -45,6 +46,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onAddFriend,
 }) => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [actionToConfirm, setActionToConfirm] = useState<'block' | 'unblock' | 'remove_friend' | null>(null);
   const { t } = useTranslation();
 
   // Закрытие по клавише Escape
@@ -270,7 +272,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               {onToggleBlock && (
                 <button
                   type="button"
-                  onClick={onToggleBlock}
+                  onClick={() => setActionToConfirm(isBlocked ? 'unblock' : 'block')}
                   className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${isBlocked
                     ? 'bg-neon-green/10 text-neon-green border border-neon-green/25'
                     : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-transparent hover:border-rose-500/25'
@@ -285,7 +287,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 onRemoveFriend && (
                   <button
                     type="button"
-                    onClick={onRemoveFriend}
+                    onClick={() => setActionToConfirm('remove_friend')}
                     className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/25 transition-colors duration-150 cursor-pointer"
                   >
                     <UserMinus className="w-4 h-4" />
@@ -341,6 +343,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
         )}
+
+        <ConfirmModal
+          isOpen={!!actionToConfirm}
+          title={
+            actionToConfirm === 'block'
+              ? 'Block User'
+              : actionToConfirm === 'remove_friend'
+              ? 'Remove Friend'
+              : 'Unblock User'
+          }
+          message={
+            actionToConfirm === 'block'
+              ? `Are you sure you want to block ${user.name || user.handle}?`
+              : actionToConfirm === 'remove_friend'
+              ? `Are you sure you want to remove ${user.name || user.handle} from your friends list?`
+              : `Are you sure you want to unblock ${user.name || user.handle}?`
+          }
+          confirmText={
+            actionToConfirm === 'block'
+              ? 'Block User'
+              : actionToConfirm === 'remove_friend'
+              ? 'Remove Friend'
+              : 'Unblock User'
+          }
+          cancelText="Cancel"
+          onConfirm={() => {
+            if (actionToConfirm === 'block' || actionToConfirm === 'unblock') {
+              if (onToggleBlock) onToggleBlock();
+            } else if (actionToConfirm === 'remove_friend') {
+              if (onRemoveFriend) onRemoveFriend();
+            }
+            setActionToConfirm(null);
+          }}
+          onCancel={() => setActionToConfirm(null)}
+        />
       </div>
     </div>
   );

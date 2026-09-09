@@ -556,11 +556,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               >
                 <Loader2 className="w-5 h-5 text-neon-green animate-spin" />
               </div>
-            ) : inputText.trim() || currentAttachment || editingMessage ? (
+            ) : inputText.length > 0 || currentAttachment || editingMessage ? (
               <button
                 type="submit"
+                disabled={!inputText.trim() && !currentAttachment && !editingMessage}
                 aria-label={editingMessage ? 'Save edit' : 'Send message'}
-                className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-neon-green hover:bg-neon-green-light text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 shrink-0"
+                className={`w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center shrink-0 transition-all duration-150 ${
+                  !inputText.trim() && !currentAttachment && !editingMessage
+                    ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
+                    : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-neon-green/50 focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
+                }`}
                 title={editingMessage ? 'Save edit' : 'Send'}
               >
                 {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5 ml-0.5" />}
