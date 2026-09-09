@@ -41,6 +41,7 @@ interface MessageBubbleProps {
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
   onCallBack?: () => void;
   onRetry?: (message: Message) => void;
+  isNewMessage?: boolean;
 }
 
 function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
@@ -74,6 +75,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onOpenMedia,
   onCallBack,
   onRetry,
+  isNewMessage = false,
 }) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -520,11 +522,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <>
       <div
+        id={`message-${message.id}`}
         className={`group/bubble relative flex flex-col ${
           formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
         } max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } animate-fade-in font-sans`}
+        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -578,7 +581,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Quoted Message */}
           {message.replyTo && (
             <div
-              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none ${
+              onClick={(e) => {
+                e.stopPropagation();
+                const target = document.getElementById(`message-${message.replyTo?.id}`);
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  target.classList.add('animate-flash-highlight');
+                  setTimeout(() => target.classList.remove('animate-flash-highlight'), 1500);
+                }
+              }}
+              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none cursor-pointer hover:opacity-80 transition-opacity ${
                 isMe ? 'bg-black/20 border-neon-green' : 'bg-black/25 border-neon-green'
               }`}
             >

@@ -90,6 +90,10 @@ export default {
           '0%, 80%, 100%': { transform: 'scale(0)' },
           '40%': { transform: 'scale(1)' },
         },
+        flashHighlight: {
+          '0%': { backgroundColor: 'rgba(16, 185, 129, 0.4)' },
+          '100%': { backgroundColor: 'transparent' },
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out forwards',
@@ -98,6 +102,7 @@ export default {
         'scale-up': 'scaleUp 0.2s ease-out forwards',
         'glow-pulse': 'glowPulse 2s ease-in-out infinite',
         'dot-bounce': 'dotBounce 1.4s ease-in-out infinite',
+        'flash-highlight': 'flashHighlight 1.5s ease-out forwards',
       }
     },
   },

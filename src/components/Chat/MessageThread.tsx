@@ -83,10 +83,12 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   onCallBack,
   onRetry,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const initialMessageIdsRef = useRef<Set<string>>(new Set());
   const prevMessagesLengthRef = useRef(messages.length);
   const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const prevFirstMsgIdRef = useRef<string | null>(messages[0]?.id || null);
@@ -137,6 +139,13 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
       (isNewMessageAdded && firstMsgId !== prevFirstMsgIdRef.current && prevFirstMsgIdRef.current !== null);
     isPrependRef.current = false;
     prevFirstMsgIdRef.current = firstMsgId;
+
+    if (!initialLoadComplete) {
+      if (messages.length > 0) {
+        messages.forEach(m => initialMessageIdsRef.current.add(m.id));
+        setInitialLoadComplete(true);
+      }
+    }
 
     // Skip auto-scrolling to bottom on history prepends
     if (wasPrepended) {
@@ -234,6 +243,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                     onOpenMedia={onOpenMedia}
                     onCallBack={onCallBack}
                     onRetry={onRetry}
+                    isNewMessage={initialLoadComplete && !initialMessageIdsRef.current.has(msg.id)}
                   />
                 </React.Fragment>
               );
@@ -242,13 +252,12 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
 
           {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex items-center space-x-2.5 text-xs text-neon-green font-medium py-2 px-3 mb-2 animate-fade-in select-none">
-              <div className="flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce [animation-delay:0.16s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-dot-bounce [animation-delay:0.32s]" />
+            <div className="flex flex-col items-start mb-2 animate-fade-in font-sans">
+              <div className="bg-ez-received border border-ez-border/50 px-3.5 py-3 rounded-[16px] rounded-bl-sm flex items-center space-x-1.5 w-fit telegram-bubble-in shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce [animation-delay:0.16s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce [animation-delay:0.32s]" />
               </div>
-              <span className="text-ez-muted text-[11px]">{recipientHandle || 'Contact'} is typing...</span>
             </div>
           )}
 
