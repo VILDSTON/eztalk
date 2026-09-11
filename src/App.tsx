@@ -176,7 +176,6 @@ export default function App() {
   const [toast, setToast] = useState<ToastNotification | null>(null);
 
   // Drawer & Modals State
-  const [selectedUserObj, setSelectedUserObj] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -274,23 +273,15 @@ export default function App() {
       (currentUser.handle && normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle)))
   );
 
-  const selectedUser = !selectedGroupId && selectedUserId
-    ? (isSavedMessages
-        ? currentUser
-        : (chatUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
-           allUsers.find((u) => u.id === selectedUserId || normalizeHandle(u.handle) === normalizeHandle(selectedUserId)) ||
-           (selectedUserObj && (selectedUserObj.id === selectedUserId || normalizeHandle(selectedUserObj.handle) === normalizeHandle(selectedUserObj.handle)) ? selectedUserObj : null) ||
-           (selectedUserId
-             ? {
-                 id: selectedUserId,
-                 handle: normalizeHandle(selectedUserId),
-                 name: selectedUserId.replace('@', ''),
-                 avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                 status: 'Offline',
-                 bio: 'Hey there! I am using EzTalk.',
-               }
-             : null)))
-    : null;
+  const selectedUser = useMemo(() => {
+    if (!urlChatId || urlChatId.startsWith('group__')) return null;
+    const cleanUrl = normalizeHandle(urlChatId).toLowerCase();
+    if (currentUser && normalizeHandle(currentUser.handle).toLowerCase() === cleanUrl) {
+      return currentUser; // Saved Messages
+    }
+    return allUsers.find(u => normalizeHandle(u.handle).toLowerCase() === cleanUrl) || null;
+  }, [urlChatId, allUsers, currentUser]);
+
   selectedUserRef.current = selectedUser;
 
   const selectedGroup = selectedGroupId
@@ -926,7 +917,6 @@ export default function App() {
   const handleLogin = (user: User) => {
     setSelectedUserId('');
     setSelectedGroupId(null);
-    setSelectedUserObj(null);
     setMessagesByChat(ChatStorageService.getConversations());
     setUnreadCounts({});
     setActiveSection('chats');
@@ -957,7 +947,6 @@ export default function App() {
     
     setSelectedUserId('');
     setSelectedGroupId(null);
-    setSelectedUserObj(null);
     setUnreadCounts({});
     setDrafts({});
     setActiveChatHandles([]);
@@ -1033,7 +1022,6 @@ export default function App() {
     ChatStorageService.saveAuthUser(null);
     setSelectedUserId('');
     setSelectedGroupId(null);
-    setSelectedUserObj(null);
     setMessagesByChat({});
     setLastMessages({});
     setDrafts({});
@@ -1097,7 +1085,6 @@ export default function App() {
       (!isGroup && normalizeHandle(selectedUserId) === normalizeHandle(targetIdOrHandle))
     ) {
       navigate('/direct');
-      setSelectedUserObj(null);
     }
   };
 
@@ -1676,14 +1663,12 @@ export default function App() {
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               const handle = normalizeHandle(u.handle);
-              setSelectedUserObj(u);
               navigate(`/direct/t/${handle.replace('@', '')}`);
               setActiveSection(currentUser && (handle === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
               setUnreadCounts((prev) => ({ ...prev, [handle]: 0, [u.id || handle]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, handle])]);
             }}
             onSelectGroup={(g) => {
-              setSelectedUserObj(null);
               navigate(`/direct/t/${g.id}`);
               setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
@@ -1741,7 +1726,6 @@ export default function App() {
                 }
               }}
               onBack={() => {
-                setSelectedUserObj(null);
                 navigate('/direct');
                 setActiveSection('chats');
               }}
