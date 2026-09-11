@@ -152,6 +152,16 @@ export const en = {
     revision: 'EzTalk • 2026 Edition',
     close: 'Close',
   },
+  contextMenu: {
+    pin: 'Pin to top',
+    unpin: 'Unpin',
+    mute: 'Mute notifications',
+    unmute: 'Unmute notifications',
+    clearHistory: 'Clear history',
+    clearHistoryConfirm: 'Are you sure you want to clear the history for this chat?',
+    deleteChat: 'Delete chat',
+    deleteChatConfirm: 'Are you sure you want to delete this chat completely?',
+  },
 };
 
 export type TranslationKeys = typeof en;

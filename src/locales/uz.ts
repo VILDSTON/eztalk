@@ -155,4 +155,14 @@ export const uz: TranslationKeys = {
     revision: 'EzTalk • 2026-yil tahriri',
     close: 'Yopish',
   },
+  contextMenu: {
+    pin: 'Yuqoriga qadash',
+    unpin: 'Qadashni bekor qilish',
+    mute: 'Ovozini o‘chirish',
+    unmute: 'Ovozini yoqish',
+    clearHistory: 'Tarixni tozalash',
+    clearHistoryConfirm: 'Ushbu chat tarixini tozalashni xohlaysizmi?',
+    deleteChat: 'Chatni o‘chirish',
+    deleteChatConfirm: 'Ushbu chatni butunlay o‘chirishni xohlaysizmi?',
+  }
 };

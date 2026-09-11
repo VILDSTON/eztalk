@@ -151,6 +151,24 @@ export default function App() {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  
+  const [pinnedChats, setPinnedChats] = useState<string[]>(() => 
+    currentUser ? ChatStorageService.getPinnedChats(currentUser.id) : []
+  );
+
+  useEffect(() => {
+    if (currentUser) {
+      setPinnedChats(ChatStorageService.getPinnedChats(currentUser.id));
+    } else {
+      setPinnedChats([]);
+    }
+  }, [currentUser]);
+
+  const handleTogglePin = useCallback((chatKey: string) => {
+    if (!currentUser) return;
+    const updated = ChatStorageService.togglePinnedChat(currentUser.id, chatKey);
+    setPinnedChats(updated);
+  }, [currentUser]);
 
   // Voice Call State
   const [incomingCall, setIncomingCall] = useState<{ caller: User } | null>(null);
@@ -1040,6 +1058,49 @@ export default function App() {
     }));
   };
 
+  const handleClearHistory = (targetIdOrHandle: string, isGroup: boolean) => {
+    const convKey = isGroup 
+      ? `group__${targetIdOrHandle}`
+      : getConversationKey(currentUser?.handle || '', targetIdOrHandle);
+
+    setMessagesByChat((prev) => {
+      const next = { ...prev };
+      delete next[convKey];
+      return next;
+    });
+
+    setLastMessages((prev) => {
+      const next = { ...prev };
+      // Also delete the alternative key used in some places
+      delete next[convKey];
+      if (!isGroup) delete next[normalizeHandle(targetIdOrHandle)];
+      return next;
+    });
+
+    const all = ChatStorageService.getConversations();
+    if (all[convKey]) {
+      delete all[convKey];
+      ChatStorageService.saveConversations(all);
+    }
+  };
+
+  const handleDeleteChat = (targetIdOrHandle: string, isGroup: boolean) => {
+    handleClearHistory(targetIdOrHandle, isGroup);
+    
+    if (!isGroup) {
+      const handle = normalizeHandle(targetIdOrHandle);
+      setActiveChatHandles((prev) => prev.filter(h => h !== handle));
+    }
+    
+    if (
+      (isGroup && selectedGroupId === targetIdOrHandle) ||
+      (!isGroup && normalizeHandle(selectedUserId) === normalizeHandle(targetIdOrHandle))
+    ) {
+      navigate('/direct');
+      setSelectedUserObj(null);
+    }
+  };
+
   // Send Message (Direct or Group, with Reply, Forwarding & Optimistic UI)
   const handleSendMessage = async (
     text: string,
@@ -1629,6 +1690,12 @@ export default function App() {
             }}
             onCreateGroup={handleCreateGroup}
             onDeleteGroup={handleDeleteGroup}
+            pinnedChats={pinnedChats}
+            mutedUsers={mutedUsers}
+            onTogglePin={handleTogglePin}
+            onToggleMute={handleToggleMute}
+            onClearHistory={handleClearHistory}
+            onDeleteChat={handleDeleteChat}
           />
         </div>
 

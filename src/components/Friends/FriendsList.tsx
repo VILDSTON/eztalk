@@ -13,6 +13,7 @@ import {
 import { User, Group, Message } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
+import { ChatContextMenu } from './ChatContextMenu';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
 import { ConfirmModal } from '../Common/ConfirmModal';
@@ -87,6 +88,12 @@ interface FriendsListProps {
   onSelectGroup?: (group: Group) => void;
   onCreateGroup?: (name: string, avatar: string, memberHandles: string[]) => void;
   onDeleteGroup?: (groupId: string) => void;
+  pinnedChats?: string[];
+  mutedUsers?: Record<string, boolean>;
+  onTogglePin?: (chatKey: string) => void;
+  onToggleMute?: (chatKey: string) => void;
+  onClearHistory?: (chatKey: string, isGroup: boolean) => void;
+  onDeleteChat?: (chatKey: string, isGroup: boolean) => void;
 }
 
 export const FriendsList: React.FC<FriendsListProps> = ({
@@ -105,6 +112,12 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   onSelectGroup,
   onCreateGroup,
   onDeleteGroup,
+  pinnedChats = [],
+  mutedUsers = {},
+  onTogglePin,
+  onToggleMute,
+  onClearHistory,
+  onDeleteChat,
 }) => {
   const { t } = useTranslation();
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -113,6 +126,49 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
   const [groupToDelete, setGroupToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    targetId: string;
+    isGroup: boolean;
+  }>({ isOpen: false, x: 0, y: 0, targetId: '', isGroup: false });
+
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent, id: string, isGroup: boolean) => {
+    e.preventDefault();
+    setContextMenu({
+      isOpen: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetId: id,
+      isGroup,
+    });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, id: string, isGroup: boolean) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    const touch = e.touches[0];
+    longPressTimerRef.current = setTimeout(() => {
+      setContextMenu({
+        isOpen: true,
+        x: touch.clientX,
+        y: touch.clientY,
+        targetId: id,
+        isGroup,
+      });
+    }, 500);
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+  };
 
   const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
 
@@ -133,6 +189,11 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const filteredUsers = baseFilteredUsers.slice().sort((a, b) => {
     const handleA = normalizeHandle(a.handle).toLowerCase();
     const handleB = normalizeHandle(b.handle).toLowerCase();
+    
+    const pinA = pinnedChats.includes(handleA) ? 1 : 0;
+    const pinB = pinnedChats.includes(handleB) ? 1 : 0;
+    if (pinA !== pinB) return pinB - pinA;
+
     const msgA = lastMessages[handleA] || lastMessages[normalizeHandle(a.handle)] || (a.id ? lastMessages[a.id] : undefined);
     const msgB = lastMessages[handleB] || lastMessages[normalizeHandle(b.handle)] || (b.id ? lastMessages[b.id] : undefined);
     const timeA = msgA ? new Date(msgA.createdAt || msgA.timestamp || 0).getTime() : 0;
@@ -148,7 +209,17 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       g.memberHandles.some((h) => h.toLowerCase().replace('@', '').includes(cleanQuery))
     );
   });
-  const filteredGroups = cleanQuery ? matchedGroups.slice(0, 8) : matchedGroups;
+  const filteredGroups = (cleanQuery ? matchedGroups.slice(0, 8) : matchedGroups).slice().sort((a, b) => {
+    const pinA = pinnedChats.includes(a.id) ? 1 : 0;
+    const pinB = pinnedChats.includes(b.id) ? 1 : 0;
+    if (pinA !== pinB) return pinB - pinA;
+
+    const msgA = lastMessages[`group__${a.id}`] || lastMessages[a.id];
+    const msgB = lastMessages[`group__${b.id}`] || lastMessages[b.id];
+    const timeA = msgA ? new Date(msgA.createdAt || msgA.timestamp || 0).getTime() : 0;
+    const timeB = msgB ? new Date(msgB.createdAt || msgB.timestamp || 0).getTime() : 0;
+    return timeB - timeA;
+  });
 
   const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
   const existingChatHandles = new Set(filteredUsers.map((u) => normalizeHandle(u.handle).toLowerCase()));
@@ -285,6 +356,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 <div
                   key={group.id}
                   onClick={() => onSelectGroup && onSelectGroup(group)}
+                  onContextMenu={(e) => handleContextMenu(e, group.id, true)}
+                  onTouchStart={(e) => handleTouchStart(e, group.id, true)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                   className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
                     isSelected
                       ? 'bg-neon-green/10 border border-neon-green/30'
@@ -307,7 +382,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
+                          {pinnedChats.includes(group.id) && <Bookmark className="w-3 h-3 text-neon-green shrink-0 fill-neon-green" />}
+                        </div>
                         {groupLastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
                             {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp)}
@@ -360,6 +438,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 <div
                   key={user.id || user.handle}
                   onClick={() => onSelectUser(user)}
+                  onContextMenu={(e) => handleContextMenu(e, normalizeHandle(user.handle), false)}
+                  onTouchStart={(e) => handleTouchStart(e, normalizeHandle(user.handle), false)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                   className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
                     isSelected
                       ? 'bg-neon-green/10 border border-neon-green/30'
@@ -384,9 +466,12 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-bold text-white truncate tracking-tight">
-                          {user.name || user.handle}
-                        </span>
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <span className="text-[13px] font-bold text-white truncate tracking-tight">
+                            {user.name || user.handle}
+                          </span>
+                          {pinnedChats.includes(handleClean) && <Bookmark className="w-3 h-3 text-neon-green shrink-0 fill-neon-green" />}
+                        </div>
                         {lastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
                             {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp)}
@@ -542,6 +627,20 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           setGroupToDelete(null);
         }}
         onCancel={() => setGroupToDelete(null)}
+      />
+
+      {/* Chat Context Menu */}
+      <ChatContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        isOpen={contextMenu.isOpen}
+        onClose={() => setContextMenu((prev) => ({ ...prev, isOpen: false }))}
+        isPinned={pinnedChats.includes(contextMenu.targetId)}
+        isMuted={Boolean(mutedUsers[contextMenu.targetId])}
+        onTogglePin={() => onTogglePin && onTogglePin(contextMenu.targetId)}
+        onToggleMute={() => onToggleMute && onToggleMute(contextMenu.targetId)}
+        onClearHistory={() => onClearHistory && onClearHistory(contextMenu.targetId, contextMenu.isGroup)}
+        onDeleteChat={() => onDeleteChat && onDeleteChat(contextMenu.targetId, contextMenu.isGroup)}
       />
     </>
   );

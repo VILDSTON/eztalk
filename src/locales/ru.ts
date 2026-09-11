@@ -155,4 +155,14 @@ export const ru: TranslationKeys = {
     revision: 'EzTalk • Редакция от 2026 года',
     close: 'Закрыть',
   },
+  contextMenu: {
+    pin: 'Закрепить',
+    unpin: 'Открепить',
+    mute: 'Без звука',
+    unmute: 'Включить звук',
+    clearHistory: 'Очистить историю',
+    clearHistoryConfirm: 'Вы уверены, что хотите очистить историю сообщений?',
+    deleteChat: 'Удалить чат',
+    deleteChatConfirm: 'Вы уверены, что хотите безвозвратно удалить этот чат?',
+  }
 };

@@ -384,8 +384,29 @@ export class ChatStorageService {
     this.saveConversations(updatedConversations);
     return updatedConversations;
   }
+  // Pinned chats management
+  static getPinnedChats(userId: string): string[] {
+    try {
+      const data = localStorage.getItem(`eztalk_pinned_chats_${userId}`);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  }
 
-
+  static togglePinnedChat(userId: string, chatKey: string): string[] {
+    try {
+      const current = this.getPinnedChats(userId);
+      const isPinned = current.includes(chatKey);
+      const updated = isPinned 
+        ? current.filter(k => k !== chatKey)
+        : [chatKey, ...current];
+      
+      localStorage.setItem(`eztalk_pinned_chats_${userId}`, JSON.stringify(updated));
+      return updated;
+    } catch {
+      return [];
+    }
+  }
 
   // Drafts management
   static getDraft(key: string): string {
