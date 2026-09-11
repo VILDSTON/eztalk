@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, MoreVertical, Search, BellOff, Users, Trash2, ArrowLeft, Bookmark, X } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
@@ -65,6 +65,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const activeId = group ? group.id : user ? (user.id || user.handle) : isSavedMessages ? 'saved' : null;
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setIsProfileOpen(false);
+    setShowSearch(false);
+    setSearchQuery('');
+  }, [activeId]);
 
   const handleExportChat = () => {
     if (!messages || messages.length === 0) {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Group, Message, Attachment, QuotedMessage } from '../../types/chat';
 import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
@@ -95,6 +95,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   } | null>(null);
   const [showAddBanner, setShowAddBanner] = useState(true);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+
+  const activeChatId = group ? group.id : user ? (user.id || user.handle) : null;
+
+  useEffect(() => {
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setForwardingMessage(null);
+    setInChatSearchQuery('');
+    setShowAddBanner(true);
+  }, [activeChatId]);
 
   const { t } = useTranslation();
 
@@ -257,6 +267,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       ) : (
         <MessageInput
+          key={activeChatId || 'input'}
           enterToSend={currentUser?.settings?.enterToSend !== false}
           initialDraft={draftText}
           onDraftChange={onDraftChange}

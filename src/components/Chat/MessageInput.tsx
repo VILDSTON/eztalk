@@ -58,7 +58,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // Restore draft when conversation changes
   useEffect(() => {
+    // 1. Cancel pending draft save
+    if (draftDebounceTimerRef.current) {
+      clearTimeout(draftDebounceTimerRef.current);
+    }
+    // 2. Reset text to new draft
     setInputText(initialDraft || '');
+    // 3. Clear attachments and close picker
+    setCurrentAttachment(null);
+    setShowEmojiPicker(false);
+    // 4. Stop recording if active
+    if (isRecording) {
+      cancelRecording();
+    }
   }, [recipientHandle, initialDraft]);
 
   useEffect(() => {
@@ -351,7 +363,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const cancelRecording = () => {
-    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
+      mediaRecorderRef.current.stop();
+    }
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     if (peakSampleTimerRef.current) clearInterval(peakSampleTimerRef.current);
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
