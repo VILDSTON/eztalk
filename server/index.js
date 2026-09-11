@@ -1634,11 +1634,8 @@ io.on('connection', (socket) => {
 const DIST_PATH = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_PATH)) {
   app.use(express.static(DIST_PATH));
-  app.use((req, res, next) => {
-    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
-      return res.sendFile(path.join(DIST_PATH, 'index.html'));
-    }
-    next();
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(DIST_PATH, 'index.html'));
   });
 }
 

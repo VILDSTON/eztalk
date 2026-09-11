@@ -20,6 +20,7 @@ import { LegalModal } from './components/Legal/LegalModal';
 import { CookieBanner } from './components/Common/CookieBanner';
 import { NotFoundScreen } from './components/Common/NotFoundScreen';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { useNavigate, useMatch, useLocation } from 'react-router-dom';
 
 interface ToastNotification {
   id: string;
@@ -32,6 +33,11 @@ interface ToastNotification {
 }
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const match = useMatch('/direct/t/:chatId');
+  const urlChatId = match?.params.chatId;
+
   // Authentication & Global Users State
   const [currentUser, setCurrentUser] = useState<User | null>(() => ChatStorageService.getAuthUser());
   const [allUsers, setAllUsers] = useState<User[]>(() => ChatStorageService.getAllUsers());
@@ -44,15 +50,17 @@ export default function App() {
   const [isNotFound, setIsNotFound] = useState(false);
 
   useEffect(() => {
-    const path = window.location.pathname.toLowerCase();
+    const path = location.pathname.toLowerCase();
     if (path === '/privacy') {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
     } else if (path !== '/' && !path.startsWith('/chat') && !path.startsWith('/direct')) {
       setIsNotFound(true);
+    } else {
+      setIsNotFound(false);
     }
-  }, []);
+  }, [location.pathname]);
   const [addedFriends, setAddedFriends] = useState<string[]>(() =>
     currentUser?.friends && currentUser.friends.length > 0
       ? currentUser.friends.map(normalizeHandle)
@@ -91,8 +99,42 @@ export default function App() {
     return map;
   });
 
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const selectedGroupId = urlChatId?.startsWith('group__') ? urlChatId : null;
+  const selectedUserId = urlChatId && !urlChatId.startsWith('group__') ? urlChatId : '';
+
+  const setSelectedUserId = useCallback((id: string | null) => {
+    if (!id) {
+      navigate('/direct');
+    } else {
+      navigate(`/direct/t/${id}`);
+    }
+  }, [navigate]);
+
+  const setSelectedGroupId = useCallback((id: string | null) => {
+    if (id) {
+      navigate(`/direct/t/${id}`);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      if (urlChatId) {
+        sessionStorage.setItem('eztalk_redirect_after_login', `/direct/t/${urlChatId}`);
+      }
+    } else {
+      const pendingRedirect = sessionStorage.getItem('eztalk_redirect_after_login');
+      if (pendingRedirect) {
+        sessionStorage.removeItem('eztalk_redirect_after_login');
+        navigate(pendingRedirect, { replace: true });
+      } else {
+        const path = location.pathname.toLowerCase();
+        if (path === '/' || path === '/direct' || path === '/direct/') {
+          navigate('/direct', { replace: true });
+        }
+      }
+    }
+  }, [currentUser, location.pathname, navigate, urlChatId]);
+
   const [activeSection, setActiveSection] = useState<'chats' | 'contacts' | 'groups' | 'saved'>('chats');
 
   const [mutedUsers, setMutedUsers] = useState<Record<string, boolean>>({});
@@ -1439,7 +1481,7 @@ export default function App() {
       <NotFoundScreen
         onReturnHome={() => {
           setIsNotFound(false);
-          window.history.pushState({}, '', '/');
+          navigate('/direct');
         }}
       />
     );
@@ -1537,8 +1579,7 @@ export default function App() {
             onSelectSection={(sec) => {
               setActiveSection(sec);
               if (sec === 'saved' && currentUser) {
-                setSelectedUserId(currentUser.id);
-                setSelectedGroupId(null);
+                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
               }
             }}
             onOpenAddFriend={() => setIsAddFriendOpen(true)}
@@ -1546,8 +1587,7 @@ export default function App() {
             onOpenEditProfile={() => setIsEditProfileOpen(true)}
             onSelectSavedMessages={() => {
               if (currentUser) {
-                setSelectedUserId(currentUser.id);
-                setSelectedGroupId(null);
+                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
                 setActiveSection('saved');
               }
             }}
@@ -1574,18 +1614,16 @@ export default function App() {
             selectedGroupId={selectedGroupId}
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
-              const uid = u.id || (u as any)._id || u.handle;
+              const handle = normalizeHandle(u.handle);
               setSelectedUserObj(u);
-              setSelectedUserId(uid);
-              setSelectedGroupId(null);
-              setActiveSection(currentUser && (uid === currentUser.id || normalizeHandle(u.handle) === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
-              setUnreadCounts((prev) => ({ ...prev, [normalizeHandle(u.handle)]: 0, [uid]: 0 }));
-              setActiveChatHandles((prev) => [...new Set([...prev, normalizeHandle(u.handle)])]);
+              navigate(`/direct/t/${handle.replace('@', '')}`);
+              setActiveSection(currentUser && (handle === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
+              setUnreadCounts((prev) => ({ ...prev, [handle]: 0, [u.id || handle]: 0 }));
+              setActiveChatHandles((prev) => [...new Set([...prev, handle])]);
             }}
             onSelectGroup={(g) => {
               setSelectedUserObj(null);
-              setSelectedGroupId(g.id);
-              setSelectedUserId('');
+              navigate(`/direct/t/${g.id}`);
               setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
@@ -1637,8 +1675,7 @@ export default function App() {
               }}
               onBack={() => {
                 setSelectedUserObj(null);
-                setSelectedUserId('');
-                setSelectedGroupId(null);
+                navigate('/direct');
                 setActiveSection('chats');
               }}
               onToggleMute={() => {
