@@ -197,7 +197,8 @@ export default function App() {
     (u) =>
       normalizeHandle(u.handle) !== normalizeHandle(currentUser?.handle || '') &&
       (addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(u.handle)) ||
-        activeChatHandles.some((h) => normalizeHandle(h) === normalizeHandle(u.handle)))
+        activeChatHandles.some((h) => normalizeHandle(h) === normalizeHandle(u.handle)) ||
+        Object.keys(messagesByChat).some((key) => key.split('__').includes(normalizeHandle(u.handle))))
   );
 
   // Filter groups where currentUser is a member
@@ -251,6 +252,21 @@ export default function App() {
     if (!currentChatKey) return [];
     return messagesByChat[currentChatKey] || ChatStorageService.getConversations()[currentChatKey] || [];
   }, [currentChatKey, messagesByChat]);
+
+  // Mark unread messages as read when viewing a chat
+  useEffect(() => {
+    if (!currentUser || !currentChatKey || messages.length === 0) return;
+    
+    const unreadMessages = messages.filter(
+      (m) => m.senderHandle !== currentUser.handle && m.status !== 'read'
+    );
+    
+    if (unreadMessages.length > 0) {
+      unreadMessages.forEach((m) => {
+        socketService.markMessageRead(m.id, currentUser.handle, currentChatKey);
+      });
+    }
+  }, [currentChatKey, messages, currentUser]);
 
   // Fetch all users, groups, and current user profile from Backend API
   const refreshUsersAndGroups = useCallback(async () => {
@@ -498,6 +514,10 @@ export default function App() {
             [key]: (prev[key] || 0) + 1,
           };
         });
+      } else if (sHandle !== myHandle && isCurrentChatOpen) {
+        // Chat is open, mark as read immediately
+        const convKey = isForGroup ? `group__${newMsg.groupId}` : getConversationKey(sHandle, rHandle);
+        socketService.markMessageRead(newMsg.id, myHandle, convKey);
       }
 
       // Add to conversation cache immediately whether chat is active or not
@@ -873,11 +893,14 @@ export default function App() {
   };
 
   const handleSwitchAccount = async (targetAccount: User) => {
+    socketService.disconnect();
+    
     setSelectedUserId('');
     setSelectedGroupId(null);
     setSelectedUserObj(null);
-    setMessagesByChat(ChatStorageService.getConversations());
     setUnreadCounts({});
+    setDrafts({});
+    setActiveChatHandles([]);
     setActiveSection('chats');
     setIsDrawerOpen(false);
 
@@ -894,7 +917,35 @@ export default function App() {
     setCurrentUser(userToSet);
     currentUserRef.current = userToSet;
     ChatStorageService.saveAuthUser(userToSet);
+    
+    // Now that auth user is saved, load their conversations
+    const userConvs = ChatStorageService.getConversations();
+    setMessagesByChat(userConvs);
     setMyAccounts(ChatStorageService.getMyAccounts());
+
+    // Recalculate lastMessages
+    const map: Record<string, Message> = {};
+    const myHandle = normalizeHandle(userToSet.handle);
+    for (const [key, msgs] of Object.entries(userConvs)) {
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        const last = msgs[msgs.length - 1];
+        map[key] = last;
+        if (key.startsWith('group__')) {
+          map[key.replace('group__', '')] = last;
+        } else {
+          const parts = key.split('__');
+          if (parts.length === 2) {
+            const other = parts[0] === myHandle ? parts[1] : parts[0];
+            map[other] = last;
+            map[`@${other}`] = last;
+            if (parts[0] === parts[1]) {
+              map['saved_messages'] = last;
+            }
+          }
+        }
+      }
+    }
+    setLastMessages(map);
 
     if (Array.isArray(userToSet.friends) && userToSet.friends.length > 0) {
       setAddedFriends(userToSet.friends.map(normalizeHandle));
@@ -917,15 +968,18 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    socketService.disconnect();
     setCurrentUser(null);
     ChatStorageService.saveAuthUser(null);
     setSelectedUserId('');
     setSelectedGroupId(null);
     setSelectedUserObj(null);
     setMessagesByChat({});
+    setLastMessages({});
+    setDrafts({});
+    setUnreadCounts({});
     setAddedFriends([]);
     setActiveChatHandles([]);
-    socketService.disconnect();
   };
 
   const isSelectedUserMuted = selectedUser
@@ -1507,6 +1561,7 @@ export default function App() {
         {/* Panel 2: Friends & Conversations Panel */}
         <div className={`h-full ${selectedUser || selectedGroup ? 'hidden md:flex' : 'flex'} w-full md:w-auto shrink-0`}>
           <FriendsList
+            key={currentUser?.id || 'guest'}
             currentUser={currentUser}
             users={chatUsers}
             allExistingUsers={allUsers}

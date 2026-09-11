@@ -63,6 +63,11 @@ export const en = {
   chat: {
     online: 'online',
     offline: 'last seen recently',
+    lastSeenJustNow: 'last seen just now',
+    lastSeenMinutes: 'last seen {n} min ago',
+    lastSeenHours: 'last seen {n}h ago',
+    lastSeenYesterday: 'last seen yesterday',
+    lastSeenDays: 'last seen {n}d ago',
     typing: 'is typing...',
     blocked: 'blocked',
     placeholder: 'Write a message...',

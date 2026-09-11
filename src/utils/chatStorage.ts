@@ -301,10 +301,12 @@ export class ChatStorageService {
     return updated;
   }
 
-  // Get all two-way conversations
+  // Get all two-way conversations scoped to current user
   static getConversations(): Record<string, Message[]> {
     try {
-      const data = localStorage.getItem(STORAGE_CONVERSATIONS);
+      const authUser = this.getAuthUser();
+      const storageKey = authUser ? `${STORAGE_CONVERSATIONS}_${authUser.id}` : STORAGE_CONVERSATIONS;
+      const data = localStorage.getItem(storageKey);
       if (data) {
         const parsed = JSON.parse(data);
         // Automatically sanitize stale 'sending' messages from previous sessions to 'failed'
@@ -323,12 +325,43 @@ export class ChatStorageService {
     } catch {
       // fallback
     }
-    this.saveConversations(INITIAL_SHARED_CONVERSATIONS);
-    return INITIAL_SHARED_CONVERSATIONS;
+    
+    const authUser = this.getAuthUser();
+    // Only pre-populate if user is AlexR
+    if (!authUser || normalizeHandle(authUser.handle) === '@alexr') {
+      this.saveConversations(INITIAL_SHARED_CONVERSATIONS);
+      return INITIAL_SHARED_CONVERSATIONS;
+    }
+    return {};
+  }
+
+  // Get a specific two-way conversation by key
+  static getConversation(key: string): Message[] {
+    const convs = this.getConversations();
+    return convs[key] || [];
+  }
+
+  // Save a conversation by key
+  static saveConversation(key: string, messages: Message[]) {
+    try {
+      const allConversations = this.getConversations();
+      allConversations[key] = messages;
+      const authUser = this.getAuthUser();
+      const storageKey = authUser ? `${STORAGE_CONVERSATIONS}_${authUser.id}` : STORAGE_CONVERSATIONS;
+      localStorage.setItem(storageKey, JSON.stringify(allConversations));
+    } catch {
+      // fallback
+    }
   }
 
   static saveConversations(conversations: Record<string, Message[]>) {
-    localStorage.setItem(STORAGE_CONVERSATIONS, JSON.stringify(conversations));
+    try {
+      const authUser = this.getAuthUser();
+      const storageKey = authUser ? `${STORAGE_CONVERSATIONS}_${authUser.id}` : STORAGE_CONVERSATIONS;
+      localStorage.setItem(storageKey, JSON.stringify(conversations));
+    } catch {
+      // fallback
+    }
   }
 
   // Get conversation messages between two handles
@@ -352,16 +385,7 @@ export class ChatStorageService {
     return updatedConversations;
   }
 
-  // Save messages for a specific conversation key
-  static saveConversation(key: string, messages: Message[]) {
-    try {
-      const all = this.getConversations();
-      all[key] = messages;
-      this.saveConversations(all);
-    } catch {
-      // ignore
-    }
-  }
+
 
   // Drafts management
   static getDraft(key: string): string {

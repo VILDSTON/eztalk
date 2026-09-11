@@ -66,6 +66,11 @@ export const uz: TranslationKeys = {
   chat: {
     online: 'onlayn',
     offline: 'yaqinda bo‘lgan',
+    lastSeenJustNow: 'hozirgina onlayn edi',
+    lastSeenMinutes: '{n} min oldin onlayn edi',
+    lastSeenHours: '{n} soat oldin onlayn edi',
+    lastSeenYesterday: 'kecha onlayn edi',
+    lastSeenDays: '{n} kun oldin onlayn edi',
     typing: 'yozmoqda...',
     blocked: 'bloklangan',
     placeholder: 'Xabar yozing...',

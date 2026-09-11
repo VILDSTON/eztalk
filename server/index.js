@@ -1500,8 +1500,21 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     if (socketHandleMap.has(socket.id)) {
+      const handle = socketHandleMap.get(socket.id);
       socketHandleMap.delete(socket.id);
       io.emit('online_users', getOnlineHandles());
+      
+      const now = new Date();
+      if (isMongoConnected) {
+        UserModel.updateOne({ handle }, { $set: { lastSeen: now } }).catch(() => {});
+      } else {
+        const db = readLocalDB();
+        const u = db.users.find((x) => normalizeHandle(x.handle) === normalizeHandle(handle));
+        if (u) {
+          u.lastSeen = now.toISOString();
+          writeLocalDB(db);
+        }
+      }
     }
   });
 

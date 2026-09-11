@@ -66,6 +66,11 @@ export const ru: TranslationKeys = {
   chat: {
     online: 'в сети',
     offline: 'был(а) недавно',
+    lastSeenJustNow: 'был(а) только что',
+    lastSeenMinutes: 'был(а) {n} мин назад',
+    lastSeenHours: 'был(а) {n} ч назад',
+    lastSeenYesterday: 'был(а) вчера',
+    lastSeenDays: 'был(а) {n} д назад',
     typing: 'печатает...',
     blocked: 'заблокирован',
     placeholder: 'Напишите сообщение...',

@@ -4,6 +4,20 @@ import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
 import { useTranslation } from '../../context/LanguageContext';
+import { TranslationKeys } from '../../locales/en';
+
+function formatLastSeen(lastSeen: string | undefined, t: TranslationKeys['chat']): string {
+  if (!lastSeen) return t.offline;
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return t.lastSeenJustNow || t.offline;
+  if (mins < 60) return (t.lastSeenMinutes || '').replace('{n}', String(mins)) || t.offline;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return (t.lastSeenHours || '').replace('{n}', String(hours)) || t.offline;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return t.lastSeenYesterday || t.offline;
+  return (t.lastSeenDays || '').replace('{n}', String(days)) || t.offline;
+}
 
 interface ChatHeaderProps {
   user?: User | null;
@@ -278,7 +292,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? t.chat.blocked : isTyping ? t.chat.typing : isOnline ? t.chat.online : t.chat.offline}
+                {isBlocked ? t.chat.blocked : isTyping ? t.chat.typing : isOnline ? t.chat.online : formatLastSeen(user?.lastSeen, t.chat)}
               </span>
             </div>
           </div>

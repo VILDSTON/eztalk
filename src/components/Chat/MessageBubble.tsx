@@ -771,11 +771,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </button>
                 ) : message.status === 'read' ? (
                   <span title="Read">
-                    <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
+                    <CheckCheck className="w-3.5 h-3.5 text-[var(--ez-accent)] transition-colors duration-500" />
                   </span>
                 ) : (
-                  <span title="Sent">
-                    <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70" />
+                  <span title="Delivered">
+                    <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70 transition-colors duration-500" />
                   </span>
                 )}
               </span>
