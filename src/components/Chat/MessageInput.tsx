@@ -156,7 +156,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     // Strict 10MB limit validation
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     if (file.size > MAX_FILE_SIZE) {
-      alert('Файл слишком большой. Лимит — 10 МБ');
+      alert(t['chat.fileTooLarge'] || 'Файл слишком большой. Лимит — 10 МБ');
       e.target.value = '';
       return;
     }
@@ -196,7 +196,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         });
       }
     } catch (err: any) {
-      alert('Upload failed: ' + (err.message || 'Network error'));
+      alert((t['chat.uploadFailed'] || 'Upload failed: ') + (err.message || 'Network error'));
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -281,7 +281,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } catch {
-      alert('Microphone access is required to record voice notes.');
+      alert(t['chat.micAccessRequired'] || 'Microphone access is required to record voice notes.');
     }
   };
 
@@ -326,7 +326,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       // Strict 10MB limit validation on voice recordings
       if (audioBlob.size > 10 * 1024 * 1024) {
-        alert('Файл слишком большой. Лимит — 10 МБ');
+        alert(t['chat.fileTooLarge'] || 'Файл слишком большой. Лимит — 10 МБ');
         return;
       }
 
@@ -350,7 +350,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         );
         if (onCancelReply) onCancelReply();
       } catch (err: any) {
-        alert('Failed to upload voice message: ' + (err.message || 'Network error'));
+        alert((t['chat.voiceUploadFailed'] || 'Failed to upload voice message: ') + (err.message || 'Network error'));
       } finally {
         setIsUploading(false);
       }
@@ -411,7 +411,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <CornerUpLeft className="w-4 h-4 text-neon-green shrink-0" />
               <div className="truncate">
                 <span className="font-bold text-neon-green mr-1.5">{replyingTo.senderHandle}:</span>
-                <span className="text-gray-300 italic truncate">{replyingTo.text || 'Attachment'}</span>
+                <span className="text-gray-300 italic truncate">{replyingTo.text || (t as any)?.chat?.attachment || 'Attachment'}</span>
               </div>
             </div>
             <button
@@ -515,7 +515,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 type="button"
                 onClick={cancelRecording}
                 className="p-1.5 rounded-full text-ez-muted hover:text-rose-400 hover:bg-white/10 cursor-pointer transition-colors duration-150 shrink-0"
-                title="Cancel"
+                title={(t as any)?.chat?.cancel || "Cancel"}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -523,7 +523,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 type="button"
                 onClick={stopAndSendRecording}
                 className="w-8 h-8 rounded-full bg-neon-green text-black flex items-center justify-center cursor-pointer shadow-neon-sm transition-transform duration-150 hover:scale-105 shrink-0"
-                title="Send voice note"
+                title={(t as any)?.chat?.sendVoiceNote || "Send voice note"}
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -536,9 +536,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach media or file"
+              aria-label={(t as any)?.chat?.attachMedia || "Attach media or file"}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0"
-              title="Attach Media or File"
+              title={(t as any)?.chat?.attachMedia || "Attach Media or File"}
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -557,9 +557,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                aria-label="Choose emoji"
+                aria-label={(t as any)?.chat?.chooseEmoji || "Choose emoji"}
                 className="w-8 h-8 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 ml-1"
-                title="Choose Emoji"
+                title={(t as any)?.chat?.chooseEmoji || "Choose Emoji"}
               >
                 <Smile className="w-5 h-5" />
               </button>
@@ -569,7 +569,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             {isUploading ? (
               <div
                 className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full bg-white/10 flex items-center justify-center shrink-0"
-                title="Uploading file..."
+                title={(t as any)?.chat?.uploadingFile || "Uploading file..."}
               >
                 <Loader2 className="w-5 h-5 text-neon-green animate-spin" />
               </div>
@@ -577,13 +577,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="submit"
                 disabled={!inputText.trim() && !currentAttachment && !editingMessage}
-                aria-label={editingMessage ? 'Save edit' : 'Send message'}
+                aria-label={editingMessage ? ((t as any)?.chat?.saveEdit || 'Save edit') : ((t as any)?.chat?.sendMessage || 'Send message')}
                 className={`w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center shrink-0 transition-all duration-150 ${
                   !inputText.trim() && !currentAttachment && !editingMessage
                     ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
                     : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-[var(--ez-accent)] focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
                 }`}
-                title={editingMessage ? 'Save edit' : 'Send'}
+                title={editingMessage ? ((t as any)?.chat?.saveEdit || 'Save edit') : ((t as any)?.chat?.send || 'Send')}
               >
                 {editingMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5 ml-0.5" />}
               </button>
@@ -591,9 +591,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={startRecording}
-                aria-label="Record voice note"
+                aria-label={(t as any)?.chat?.recordVoiceNote || "Record voice note"}
                 className="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
-                title="Record Voice Note"
+                title={(t as any)?.chat?.recordVoiceNote || "Record Voice Note"}
               >
                 <Mic className="w-5 h-5" />
               </button>

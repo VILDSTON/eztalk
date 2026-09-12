@@ -213,7 +213,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
           </div>
           <div className="flex-1 min-w-0">
             <span className="font-semibold block truncate text-neon-green text-[11px]">
-              {message.senderHandle || (isMe ? 'You' : 'Friend')}
+              {message.senderHandle || (isMe ? (t as any).chat?.you || 'You' : (t as any).chat?.friend || 'Friend')}
             </span>
             <span className="text-gray-300 truncate block text-xs">
               {message.callInfo || (message.text && (message.text.includes('Call') || message.text.includes('📞') || message.text.includes('📵')))

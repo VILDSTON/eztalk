@@ -105,6 +105,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
 
+  // Link Preview State
+  const [linkPreview, setLinkPreview] = useState<any>(null);
+
   const isMe =
     (currentUserHandle &&
       message.senderHandle &&
@@ -198,8 +201,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (type === 'declined') {
       return {
         title: 'Declined Call',
-        subtitle: isMe ? 'Call was declined' : 'Declined voice call',
-        statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
+        subtitle: 'Call was declined',
+        statusColor: 'bg-red-500/15 text-red-400 border-red-500/25',
         Icon: PhoneOff,
         isNegative: true,
       };
@@ -208,22 +211,72 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (type === 'missed') {
       return {
         title: 'Missed Call',
-        subtitle: isMe ? 'No answer' : 'Missed voice call',
-        statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
+        subtitle: 'Tap to call back',
+        statusColor: 'bg-red-500/15 text-red-400 border-red-500/25',
         Icon: PhoneMissed,
         isNegative: true,
       };
     }
 
-    // Default for canceled
+    if (type === 'canceled') {
+      return {
+        title: 'Canceled Call',
+        subtitle: 'Call was canceled',
+        statusColor: 'bg-ez-muted/15 text-ez-muted border-white/10',
+        Icon: PhoneOff,
+        isNegative: false,
+      };
+    }
+
     return {
-      title: isMe ? 'Canceled Call' : 'Missed Call',
-      subtitle: isMe ? 'Call canceled' : 'Missed voice call',
-      statusColor: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
-      Icon: isMe ? PhoneOff : PhoneMissed,
-      isNegative: true,
+      title: 'Voice Call',
+      subtitle: isMe ? 'Outgoing call' : 'Incoming call',
+      statusColor: 'bg-ez-muted/15 text-ez-muted border-white/10',
+      Icon: Phone,
+      isNegative: false,
     };
   }, [callData, isMe]);
+
+  useEffect(() => {
+    if (!message.text || callPresentation) return;
+    const urlRegex = /(https?:\/\/[^\s]+)/;
+    const match = message.text.match(urlRegex);
+    if (match) {
+      const url = match[1];
+      const cacheKey = `linkPreview_${url}`;
+      
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        if (cached !== 'error') {
+          setLinkPreview(JSON.parse(cached));
+        }
+        return;
+      }
+      
+      const abortController = new AbortController();
+      
+      fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { signal: abortController.signal })
+        .then(res => {
+          if (!res.ok) throw new Error('Preview fetch failed');
+          return res.json();
+        })
+        .then(data => {
+          if (data.title || data.image || data.description) {
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            setLinkPreview(data);
+          } else {
+            sessionStorage.setItem(cacheKey, 'error');
+          }
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            sessionStorage.setItem(cacheKey, 'error');
+          }
+        });
+        
+      return () => abortController.abort();
+    }
+  }, [message.text, callPresentation]);
 
   // Close context menu on outside click, scroll, or Escape
   useEffect(() => {
@@ -639,7 +692,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   ref={waveformRef}
                   onClick={handleWaveformSeek}
                   className="flex items-center space-x-[2px] h-6 cursor-pointer py-1 group/wave"
-                  title="Click to seek"
+                  title={t?.chat?.clickToSeek || "Click to seek"}
                 >
                   {waveformBars.map((height, idx) => {
                     const barPercent = (idx / waveformBars.length) * 100;
@@ -675,7 +728,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={handleSpeedToggle}
                 className="px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono text-neon-green bg-neon-green/10 hover:bg-neon-green/20 border border-neon-green/30 transition-colors cursor-pointer shrink-0"
-                title="Playback Speed"
+                title={t?.chat?.playbackSpeed || "Playback Speed"}
               >
                 {PLAYBACK_SPEEDS[playbackSpeedIdx]}x
               </button>
@@ -759,11 +812,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </p>
           )}
 
+          {/* Link Preview Card */}
+          {linkPreview && (
+            <a 
+              href={linkPreview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none"
+            >
+              {linkPreview.image && (
+                <div className="w-full h-32 bg-black/40 border-b border-white/10">
+                  <img src={linkPreview.image} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="p-2 min-w-0">
+                {linkPreview.siteName && (
+                  <div className="text-[10px] text-ez-muted font-bold tracking-wide truncate mb-0.5">{linkPreview.siteName}</div>
+                )}
+                {linkPreview.title && (
+                  <div className="text-xs text-neon-green font-bold truncate mb-1">{linkPreview.title}</div>
+                )}
+                {linkPreview.description && (
+                  <div className="text-[11px] text-gray-300 line-clamp-2 leading-snug">{linkPreview.description}</div>
+                )}
+              </div>
+            </a>
+          )}
+
           {/* Bubble Meta Footer: Time + Checkmarks */}
           <div className="flex items-center justify-end space-x-1.5 text-[10px] font-mono select-none mt-0.5 text-ez-muted">
             {/* Secret / Forward Protected Lock Icon */}
             {(message.forwardRestricted || message.isSecret) && (
-              <span title="Forward Restricted">
+              <span title={t?.chat?.forwardRestricted || "Forward Restricted"}>
                 <Lock className="w-2.5 h-2.5 text-neon-green" />
               </span>
             )}
@@ -776,7 +856,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {isMe && (
               <span className="ml-0.5">
                 {message.status === 'sending' ? (
-                  <span title="Sending...">
+                  <span title={t?.chat?.sending || "Sending..."}>
                     <Clock className="w-3 h-3 text-ez-muted animate-spin" />
                   </span>
                 ) : message.status === 'failed' ? (
@@ -787,17 +867,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       if (onRetry) onRetry(message);
                     }}
                     className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                    title="Failed to send. Click to retry."
+                    title={t?.chat?.failedToRetry || "Failed to send. Click to retry."}
                   >
                     <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
                     <span className="text-[9px] font-sans font-bold underline">Retry</span>
                   </button>
                 ) : message.status === 'read' ? (
-                  <span title="Read">
+                  <span title={t?.chat?.read || "Read"}>
                     <CheckCheck className="w-3.5 h-3.5 text-[var(--ez-accent)] transition-colors duration-500" />
                   </span>
                 ) : (
-                  <span title="Delivered">
+                  <span title={t?.chat?.delivered || "Delivered"}>
                     <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70 transition-colors duration-500" />
                   </span>
                 )}

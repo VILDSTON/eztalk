@@ -81,7 +81,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleExportChat = () => {
     if (messages.length === 0) {
-      alert('No messages to export.');
+      alert(t.chat?.noMessagesToExport || 'No messages to export.');
       return;
     }
 
@@ -337,7 +337,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className="flex items-center space-x-1 text-xs text-neon-green font-bold hover:underline cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download</span>
+                  <span>{t.chat?.download || "Download"}</span>
                 </button>
               </div>
             </div>
@@ -348,26 +348,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           isOpen={!!actionToConfirm}
           title={
             actionToConfirm === 'block'
-              ? 'Block User'
+              ? (t as any).chat?.blockUser || 'Block User'
               : actionToConfirm === 'remove_friend'
-              ? 'Remove Friend'
-              : 'Unblock User'
+              ? (t as any).chat?.removeFriend || 'Remove Friend'
+              : (t as any).chat?.unblockUser || 'Unblock User'
           }
           message={
             actionToConfirm === 'block'
-              ? `Are you sure you want to block ${user.name || user.handle}?`
+              ? ((t as any).chat?.blockConfirm || `Are you sure you want to block {user}?`).replace('{user}', user.name || user.handle)
               : actionToConfirm === 'remove_friend'
-              ? `Are you sure you want to remove ${user.name || user.handle} from your friends list?`
-              : `Are you sure you want to unblock ${user.name || user.handle}?`
+              ? ((t as any).chat?.removeFriendConfirm || `Are you sure you want to remove {user} from your friends list?`).replace('{user}', user.name || user.handle)
+              : ((t as any).chat?.unblockConfirm || `Are you sure you want to unblock {user}?`).replace('{user}', user.name || user.handle)
           }
           confirmText={
             actionToConfirm === 'block'
-              ? 'Block User'
+              ? (t as any).chat?.blockUser || 'Block User'
               : actionToConfirm === 'remove_friend'
-              ? 'Remove Friend'
-              : 'Unblock User'
+              ? (t as any).chat?.removeFriend || 'Remove Friend'
+              : (t as any).chat?.unblockUser || 'Unblock User'
           }
-          cancelText="Cancel"
+          cancelText={(t as any).chat?.cancel || "Cancel"}
           onConfirm={() => {
             if (actionToConfirm === 'block' || actionToConfirm === 'unblock') {
               if (onToggleBlock) onToggleBlock();

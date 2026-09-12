@@ -20,7 +20,28 @@ import { LegalModal } from './components/Legal/LegalModal';
 import { CookieBanner } from './components/Common/CookieBanner';
 import { NotFoundScreen } from './components/Common/NotFoundScreen';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
-import { useNavigate, useMatch, useLocation } from 'react-router-dom';
+import { useNavigate, useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { useTranslation } from './context/LanguageContext';
+
+const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
+
+function RootRedirect() {
+  const location = useLocation();
+  const savedLang = localStorage.getItem('eztalk_language') || (navigator.language.slice(0, 2).toLowerCase() === 'ru' ? 'ru' : navigator.language.slice(0, 2).toLowerCase() === 'uz' ? 'uz' : 'en');
+  const validLang = SUPPORTED_LANGS.includes(savedLang as any) ? savedLang : 'en';
+  // preserve path but fallback legacy /direct to language
+  const targetPath = location.pathname === '/' ? `/${validLang}/` : `/${validLang}${location.pathname}`;
+  return <Navigate to={`${targetPath}${location.search}`} replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/:lang/*" element={<MainApp />} />
+      <Route path="*" element={<RootRedirect />} />
+    </Routes>
+  );
+}
 
 interface ToastNotification {
   id: string;
@@ -32,10 +53,23 @@ interface ToastNotification {
   groupId?: string;
 }
 
-export default function App() {
+function MainApp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const match = useMatch('/direct/t/:chatId');
+  const { lang } = useParams();
+  const { setLanguage } = useTranslation();
+
+  useEffect(() => {
+    if (lang && SUPPORTED_LANGS.includes(lang as any)) {
+      setLanguage(lang as any);
+    }
+  }, [lang, setLanguage]);
+
+  if (!lang || !SUPPORTED_LANGS.includes(lang as any)) {
+    return <RootRedirect />;
+  }
+
+  const match = useMatch('/:lang/direct/t/:chatId');
   const urlChatId = match?.params.chatId;
 
   // Authentication & Global Users State
@@ -55,7 +89,7 @@ export default function App() {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
-    } else if (path !== '/' && !path.startsWith('/chat') && !path.startsWith('/direct')) {
+    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`)) {
       setIsNotFound(true);
     } else {
       setIsNotFound(false);
@@ -208,6 +242,7 @@ export default function App() {
   blockedUsersRef.current = blockedUsers;
 
   const selectedUserRef = useRef<User | null>(null);
+  const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Request browser notification permission on load
   useEffect(() => {
@@ -801,10 +836,29 @@ export default function App() {
       const cUser = currentUserRef.current;
       if (!cUser) return;
       if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
+        const sender = normalizeHandle(senderHandle);
+        
+        // Clear any existing timeout for this sender
+        if (typingTimeoutsRef.current[sender]) {
+          clearTimeout(typingTimeoutsRef.current[sender]);
+          delete typingTimeoutsRef.current[sender];
+        }
+
         setTypingUsers((prev) => ({
           ...prev,
-          [normalizeHandle(senderHandle)]: isTyping,
+          [sender]: isTyping,
         }));
+
+        // Set a new timeout if they are typing
+        if (isTyping) {
+          typingTimeoutsRef.current[sender] = setTimeout(() => {
+            setTypingUsers((prev) => ({
+              ...prev,
+              [sender]: false,
+            }));
+            delete typingTimeoutsRef.current[sender];
+          }, 4000);
+        }
       }
     });
 

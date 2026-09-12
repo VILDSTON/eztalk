@@ -1639,6 +1639,102 @@ io.on('connection', (socket) => {
   });
 });
 
+// OpenGraph Link Preview Endpoint with SSRF Protection
+app.get('/api/link-preview', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).json({ error: 'Missing url parameter' });
+
+  try {
+    const parsedUrl = new URL(targetUrl);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Invalid protocol' });
+    }
+
+    const hostname = parsedUrl.hostname;
+    // SSRF Protections
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
+    ) {
+      return res.status(403).json({ error: 'Forbidden domain or IP' });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const response = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'EzTalkBot/1.0 (+https://eztalk.app)',
+        'Accept': 'text/html',
+      }
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch' });
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('text/html')) {
+      return res.status(400).json({ error: 'Not an HTML page' });
+    }
+
+    const html = await response.text();
+
+    const getMatch = (regex) => {
+      const match = html.match(regex);
+      return match ? match[1].trim() : null;
+    };
+
+    let title = getMatch(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                getMatch(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i) ||
+                getMatch(/<title[^>]*>([^<]+)<\/title>/i);
+    
+    let description = getMatch(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+                      getMatch(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i) ||
+                      getMatch(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
+                      getMatch(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i);
+    
+    let image = getMatch(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                getMatch(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+                
+    let siteName = getMatch(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i) ||
+                   getMatch(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i) ||
+                   hostname;
+
+    if (!title && !description && !image) {
+      return res.status(404).json({ error: 'No metadata found' });
+    }
+
+    // Convert relative image URLs to absolute
+    if (image && !image.startsWith('http')) {
+      try {
+        image = new URL(image, targetUrl).href;
+      } catch (e) {}
+    }
+
+    res.json({
+      title: title ? title.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : null,
+      description: description ? description.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : null,
+      image,
+      url: targetUrl,
+      siteName
+    });
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ error: 'Request timeout' });
+    }
+    res.status(500).json({ error: 'Failed to parse URL or fetch' });
+  }
+});
+
 // Serve frontend dist if available (for single-server / Docker / VPS / Render deployments)
 const DIST_PATH = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_PATH)) {

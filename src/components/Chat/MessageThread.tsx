@@ -3,6 +3,7 @@ import { ArrowDown, Loader2 } from 'lucide-react';
 import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface MessageThreadProps {
   messages: Message[];
@@ -25,7 +26,7 @@ interface MessageThreadProps {
   onRetry?: (message: Message) => void;
 }
 
-function formatMessageDateDivider(createdAt?: string, timestamp?: string): string {
+function formatMessageDateDivider(createdAt?: string, timestamp?: string, t?: any): string {
   let date: Date | null = null;
   if (createdAt) {
     const d = new Date(createdAt);
@@ -42,8 +43,8 @@ function formatMessageDateDivider(createdAt?: string, timestamp?: string): strin
   const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round((today.getTime() - targetDay.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
+  if (diffDays === 0) return t ? t['chat.today'] || 'Today' : 'Today';
+  if (diffDays === 1) return t ? t['chat.yesterday'] || 'Yesterday' : 'Yesterday';
 
   if (date.getFullYear() === now.getFullYear()) {
     return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
@@ -95,6 +96,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const prevFirstMsgIdRef = useRef<string | null>(messages[0]?.id || null);
   const isPrependRef = useRef(false);
+  const { t } = useTranslation();
 
   const handleScroll = () => {
     const el = containerRef.current;
@@ -215,7 +217,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
             <div className="flex justify-center py-2.5 my-1 select-none">
               <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
                 <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
-                <span className="text-[11px] font-mono text-ez-muted">Loading earlier messages...</span>
+                <span className="text-[11px] font-mono text-ez-muted">{t['chat.loadingEarlier'] || 'Loading earlier messages...'}</span>
               </div>
             </div>
           ) : (
@@ -231,8 +233,8 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
               <div className="w-16 h-16 rounded-2xl bg-ez-elevated border border-ez-border/50 flex items-center justify-center text-2xl mb-4 shadow-glass">
                 ✈️
               </div>
-              <p className="font-bold text-gray-300 text-sm">No messages here yet...</p>
-              <p className="mt-1.5 text-ez-muted text-xs max-w-[240px]">Send a message to start the conversation!</p>
+              <p className="font-bold text-gray-300 text-sm">{t['chat.noMessages'] || 'No messages here yet...'}</p>
+              <p className="mt-1.5 text-ez-muted text-xs max-w-[240px]">{t['chat.sendToStart'] || 'Send a message to start the conversation!'}</p>
             </div>
           ) : (
             messages.map((msg, index) => {
@@ -246,7 +248,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
                   {showDateDivider && (
                     <div className="flex justify-center my-3 select-none">
                       <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
-                        {formatMessageDateDivider(msg.createdAt, msg.timestamp)}
+                        {formatMessageDateDivider(msg.createdAt, msg.timestamp, t)}
                       </span>
                     </div>
                   )}
