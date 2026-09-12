@@ -45,6 +45,7 @@ interface ChatWindowProps {
   onStartCall?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  isLoadingInitial?: boolean;
   onLoadMore?: () => Promise<void>;
   onRetryMessage?: (message: Message) => void;
 }
@@ -82,6 +83,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onStartCall,
   hasMore,
   isLoadingMore,
+  isLoadingInitial,
   onLoadMore,
   onRetryMessage,
 }) => {
@@ -209,6 +211,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         recipientHandle={recipientLabel}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
+        isLoadingInitial={isLoadingInitial}
         onLoadMore={onLoadMore}
         onReply={(msg) => setReplyingTo(msg)}
         onForward={(msg) => setForwardingMessage(msg)}

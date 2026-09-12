@@ -186,6 +186,8 @@ export default function App() {
   const [hasMoreByChat, setHasMoreByChat] = useState<Record<string, boolean>>({});
   const [nextCursorByChat, setNextCursorByChat] = useState<Record<string, string | null>>({});
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isFetchingChat, setIsFetchingChat] = useState(false);
+  const currentChatKeyRef = useRef<string>('');
 
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
@@ -363,8 +365,20 @@ export default function App() {
 
     if (selectedGroupId) {
       const convKey = `group__${selectedGroupId}`;
+      currentChatKeyRef.current = convKey;
+      
+      const cached = ChatStorageService.getConversation(convKey);
+      if (!cached || cached.length === 0) {
+        setIsFetchingChat(true);
+      } else {
+        setMessagesByChat((prev) => ({ ...prev, [convKey]: cached }));
+        setIsFetchingChat(false);
+      }
+
       try {
         const res = await ApiService.getGroupMessages(selectedGroupId, undefined, 30);
+        if (currentChatKeyRef.current !== convKey) return;
+        
         if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
@@ -382,11 +396,25 @@ export default function App() {
         setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
+      } finally {
+        if (currentChatKeyRef.current === convKey) setIsFetchingChat(false);
       }
     } else if (selectedUser) {
       const convKey = getConversationKey(cUser.handle, selectedUser.handle);
+      currentChatKeyRef.current = convKey;
+
+      const cached = ChatStorageService.getConversation(convKey);
+      if (!cached || cached.length === 0) {
+        setIsFetchingChat(true);
+      } else {
+         setMessagesByChat((prev) => ({ ...prev, [convKey]: cached }));
+         setIsFetchingChat(false);
+      }
+
       try {
         const res = await ApiService.getMessages(cUser.handle, selectedUser.handle, undefined, 30);
+        if (currentChatKeyRef.current !== convKey) return;
+
         if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
@@ -404,6 +432,8 @@ export default function App() {
         setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
+      } finally {
+        if (currentChatKeyRef.current === convKey) setIsFetchingChat(false);
       }
     }
   }, [selectedUser, selectedGroupId]);
@@ -1752,6 +1782,7 @@ export default function App() {
               onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
               hasMore={Boolean(currentChatKey && hasMoreByChat[currentChatKey])}
               isLoadingMore={isLoadingMore}
+              isLoadingInitial={isFetchingChat}
               onLoadMore={handleLoadMoreMessages}
               onRetryMessage={handleRetryMessage}
             />
