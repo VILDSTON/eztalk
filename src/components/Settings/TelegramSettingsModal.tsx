@@ -155,11 +155,18 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   const handleSelectTheme = (themeId: string) => {
     setSelectedAccent(themeId);
     applyTheme(themeId);
+    localStorage.setItem('eztalk_theme', themeId);
   };
 
   const handleToggleCompact = (val: boolean) => {
     setCompactMode(val);
     applyCompactMode(val);
+    localStorage.setItem('eztalk_compact_mode', JSON.stringify(val));
+  };
+
+  const handleToggleEnterToSend = (val: boolean) => {
+    setEnterToSend(val);
+    localStorage.setItem('eztalk_enter_to_send', JSON.stringify(val));
   };
 
   const handleSave = () => {
@@ -651,7 +658,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEnterToSend(!enterToSend)}
+                  onClick={() => handleToggleEnterToSend(!enterToSend)}
                   className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
                     enterToSend ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}

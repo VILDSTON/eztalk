@@ -181,8 +181,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 />
               </div>
 
-              <h3 className="text-lg font-bold text-white tracking-tight leading-tight">{user.name || user.handle}</h3>
+              <h3 className="text-lg font-bold text-white tracking-tight leading-tight flex items-center justify-center">
+                {user.name || user.handle}
+                {user.statusEmoji && (
+                  <span className="ml-1.5 text-base leading-none">{user.statusEmoji}</span>
+                )}
+              </h3>
               <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
+
+              {user.customStatusText && (
+                <p className="text-[13px] text-gray-200 mt-1.5 font-medium italic">
+                  "{user.customStatusText}"
+                </p>
+              )}
 
               <span
                 className={`text-[11px] font-mono mt-1 ${
@@ -313,8 +324,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Lightbox Modal */}
         {previewAttachment && (
           <div
-            className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 animate-fade-in"
-            onClick={() => setPreviewAttachment(null)}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPreviewAttachment(null);
+            }}
           >
             <div className="relative max-w-2xl max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
               <button

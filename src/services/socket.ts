@@ -46,6 +46,10 @@ class SocketService {
     return this.socket;
   }
 
+  public getSocket(): Socket | null {
+    return this.socket;
+  }
+
   public setHandle(userHandle: string) {
     const cleanHandle = normalizeHandle(userHandle);
     this.currentHandle = cleanHandle;
@@ -100,6 +104,13 @@ class SocketService {
     this.socket?.on('chat_cleared', callback);
     return () => {
       this.socket?.off('chat_cleared', callback);
+    };
+  }
+
+  public onHistoryCleared(callback: (data: { targetId: string; isGroup: boolean }) => void) {
+    this.socket?.on('history_cleared', callback);
+    return () => {
+      this.socket?.off('history_cleared', callback);
     };
   }
 

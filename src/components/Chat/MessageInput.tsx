@@ -4,6 +4,7 @@ import { Attachment, QuotedMessage } from '../../types/chat';
 import { ApiService } from '../../services/api';
 import { compressImage } from '../../utils/imageCompressor';
 import { useTranslation } from '../../context/LanguageContext';
+import { socketService } from '../../services/socket';
 
 interface MessageInputProps {
   recipientHandle?: string;
@@ -39,6 +40,30 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  useEffect(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    
+    const handleSpamWarning = (data: { cooldownSeconds: number, message: string }) => {
+      setCooldownSeconds(data.cooldownSeconds);
+    };
+    
+    socket.on('spam_warning', handleSpamWarning);
+    return () => {
+      socket.off('spam_warning', handleSpamWarning);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cooldownSeconds > 0) {
+      const timer = setInterval(() => {
+        setCooldownSeconds(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [cooldownSeconds]);
 
   // Voice recording & Web Audio Analyser peaks
   const [isRecording, setIsRecording] = useState(false);
@@ -133,7 +158,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (enterToSend !== false) {
+    const localSetting = localStorage.getItem('eztalk_enter_to_send');
+    const shouldEnterToSend = localSetting !== null ? JSON.parse(localSetting) : (enterToSend !== false);
+
+    if (shouldEnterToSend) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -551,8 +579,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={editingMessage ? t.chat.editPlaceholder : t.chat.placeholder}
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-white placeholder-ez-muted font-sans leading-normal"
+                disabled={cooldownSeconds > 0}
+                placeholder={cooldownSeconds > 0 
+                  ? t.chat.spamCooldown?.replace('{seconds}', String(cooldownSeconds)) || `Too many messages. Wait ${cooldownSeconds}s`
+                  : editingMessage ? t.chat.editPlaceholder : t.chat.placeholder}
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-white placeholder-ez-muted font-sans leading-normal disabled:opacity-50"
               />
               <button
                 type="button"
@@ -576,10 +607,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             ) : inputText.length > 0 || currentAttachment || editingMessage ? (
               <button
                 type="submit"
-                disabled={!inputText.trim() && !currentAttachment && !editingMessage}
+                disabled={cooldownSeconds > 0 || (!inputText.trim() && !currentAttachment && !editingMessage)}
                 aria-label={editingMessage ? ((t as any)?.chat?.saveEdit || 'Save edit') : ((t as any)?.chat?.sendMessage || 'Send message')}
                 className={`w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] rounded-full flex items-center justify-center shrink-0 transition-all duration-150 ${
-                  !inputText.trim() && !currentAttachment && !editingMessage
+                  cooldownSeconds > 0 || (!inputText.trim() && !currentAttachment && !editingMessage)
                     ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
                     : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-[var(--ez-accent)] focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
                 }`}

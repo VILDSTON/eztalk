@@ -398,6 +398,20 @@ export class ApiService {
     }
   }
 
+  // Clear Chat History
+  static async clearChatHistory(targetId: string, isGroup: boolean): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/messages/history/${targetId}?isGroup=${isGroup}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleResponse(res, 'Failed to clear chat history');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // Clear chat
   static async clearChat(handle1: string, handle2?: string, groupId?: string): Promise<boolean> {
     try {

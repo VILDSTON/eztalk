@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.13] - 2026-09-13
+
+### Added
+- **Group System 2.0**: Overhauled group creation modal with localized strings, user search filter, selected member chips, and custom group avatar upload functionality.
+- **Chat History Management**: Replaced local-only clear functionality with robust "Clear History" and "Delete Chat" logic. Implemented a backend endpoint for permanent message deletion (hard delete) synchronized via WebSockets (`history_cleared` event) to ensure consistent state across all connected clients.
+- **Localization**: Added comprehensive translations for all Group System features across English, Russian, and Uzbek.
+
 ## [0.9.12] - 2026-09-13
 
 ### Added

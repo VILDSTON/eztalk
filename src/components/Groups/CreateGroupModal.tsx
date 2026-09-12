@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Users, Check, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Users, Check, AlertCircle, Camera, Search } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { ApiService } from '../../services/api';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -28,19 +30,26 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   onClose,
   onCreateGroup,
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(GROUP_AVATAR_PRESETS[0]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
   const rawList = existingUsers.length > 0 ? existingUsers : friends;
   const myHandle = normalizeHandle(currentUserHandle || '').toLowerCase();
 
-  const memberCandidates = rawList.filter(
-    (u) => normalizeHandle(u.handle).toLowerCase() !== myHandle
-  );
+  const memberCandidates = rawList
+    .filter((u) => normalizeHandle(u.handle).toLowerCase() !== myHandle)
+    .filter((u) => {
+      const q = searchQuery.toLowerCase();
+      return (u.name || '').toLowerCase().includes(q) || u.handle.toLowerCase().includes(q);
+    });
 
   const toggleMember = (handle: string) => {
     if (selectedMembers.includes(handle)) {
@@ -50,25 +59,47 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError(t.groups?.validationError || 'Please select an image file.');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setError('');
+      const uploaded = await ApiService.uploadFile(file);
+      setSelectedAvatar(uploaded.url);
+    } catch (err) {
+      setError(t.groups?.uploadError || 'Failed to upload image.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError('Please enter a group name.');
+      setError(t.groups?.nameRequired || 'Please enter a group name.');
       return;
     }
     if (trimmedName.length < 3 || trimmedName.length > 50) {
-      setError('Group name must be between 3 and 50 characters.');
+      setError(t.groups?.nameLengthError || 'Group name must be between 3 and 50 characters.');
       return;
     }
     if (selectedMembers.length === 0) {
-      setError('Please select at least 1 member to join the group.');
+      setError(t.groups?.memberRequired || 'Please select at least 1 member to join the group.');
       return;
     }
 
     onCreateGroup(trimmedName, selectedAvatar, selectedMembers);
     setName('');
     setSelectedMembers([]);
+    setSearchQuery('');
     setError('');
     onClose();
   };
@@ -90,8 +121,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Create Group</h3>
-              <p className="text-xs text-ez-muted">Add friends and collaborate</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t.groups?.createGroup || 'Create Group'}</h3>
+              <p className="text-xs text-ez-muted">{t.groups?.addMembers || 'Add friends and collaborate'}</p>
             </div>
           </div>
           <button
@@ -116,7 +147,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             {/* Group Name */}
             <div>
               <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider mb-1.5">
-                Group Name
+                {t.groups?.groupName || 'Group Name'}
               </label>
               <input
                 type="text"
@@ -125,7 +156,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   setName(e.target.value);
                   if (error) setError('');
                 }}
-                placeholder="e.g. Project Devs, Family, Gaming..."
+                placeholder={t.groups?.groupNamePlaceholder || 'e.g. Project Devs, Family, Gaming...'}
                 className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
@@ -133,9 +164,36 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             {/* Group Avatar Previews */}
             <div>
               <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider mb-1.5">
-                Group Avatar
+                {t.groups?.groupAvatar || 'Group Avatar'}
               </label>
               <div className="flex items-center space-x-3 overflow-x-auto custom-scrollbar pb-1">
+                {/* Custom Avatar Upload Button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className={`relative w-12 h-12 rounded-full overflow-hidden border-2 border-dashed border-ez-border flex items-center justify-center bg-ez-base/50 text-ez-muted hover:text-white hover:border-ez-muted transition-colors shrink-0 cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleAvatarUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                {/* Presets and Selected Custom */}
+                {(!GROUP_AVATAR_PRESETS.includes(selectedAvatar) && selectedAvatar) && (
+                  <button
+                    type="button"
+                    className="relative w-12 h-12 rounded-full overflow-hidden border-2 transition-transform duration-150 shrink-0 cursor-pointer border-neon-green scale-105 shadow-neon-sm"
+                  >
+                    <img src={selectedAvatar} alt="Custom Avatar" className="w-full h-full object-cover" />
+                  </button>
+                )}
+
                 {GROUP_AVATAR_PRESETS.map((avatar, idx) => (
                   <button
                     key={idx}
@@ -153,28 +211,60 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             </div>
 
             {/* Member Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <label className="block text-[11px] font-bold text-ez-muted uppercase tracking-wider">
-                  Select Members
+                  {t.groups?.selectMembers || 'Select Members'}
                 </label>
                 <span className="text-xs font-mono font-bold text-neon-green">
-                  {selectedMembers.length} selected
+                  {selectedMembers.length} {t.groups?.membersCount || 'members'}
                 </span>
+              </div>
+
+              {/* Selected Chips */}
+              {selectedMembers.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+                  {selectedMembers.map(handle => {
+                    const user = rawList.find(u => normalizeHandle(u.handle) === handle);
+                    if (!user) return null;
+                    return (
+                      <div key={handle} className="flex items-center gap-1.5 bg-neon-green/10 border border-neon-green/20 rounded-full pl-1.5 pr-2.5 py-1 shrink-0">
+                        <img src={user.avatar} alt={user.handle} className="w-5 h-5 rounded-full object-cover" />
+                        <span className="text-[11px] font-medium text-neon-green">{user.name || user.handle}</span>
+                        <X 
+                          className="w-3 h-3 text-neon-green/70 hover:text-neon-green cursor-pointer ml-0.5" 
+                          onClick={() => toggleMember(handle)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ez-muted" />
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t.groups?.searchMembers || 'Search members...'}
+                  className="w-full bg-ez-base border border-ez-border rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-ez-muted outline-none focus:border-[var(--ez-accent)]"
+                />
               </div>
 
               {memberCandidates.length === 0 ? (
                 <div className="p-4 bg-ez-base/50 rounded-2xl border border-ez-border/40 text-center text-xs text-ez-muted">
-                  No friends available to add yet.
+                  {t.groups?.noMembersAvailable || 'No friends available to add yet.'}
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar">
+                <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
                   {memberCandidates.map((user) => {
                     const isSelected = selectedMembers.includes(normalizeHandle(user.handle));
                     return (
                       <div
                         key={user.id || user.handle}
-                        onClick={() => toggleMember(user.handle)}
+                        onClick={() => toggleMember(normalizeHandle(user.handle))}
                         className={`flex items-center justify-between p-2.5 rounded-2xl border cursor-pointer transition-colors duration-150 ${isSelected
                           ? 'bg-neon-green/10 border-neon-green/40 text-white'
                           : 'bg-ez-base/60 border-ez-border/40 text-gray-300 hover:bg-white/5'
@@ -215,18 +305,18 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 cursor-pointer transition-colors duration-150"
             >
-              Cancel
+              {t.groups?.cancel || 'Cancel'}
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || selectedMembers.length === 0}
+              disabled={!name.trim() || selectedMembers.length === 0 || isUploading}
               className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-150 ${
-                !name.trim() || selectedMembers.length === 0
+                !name.trim() || selectedMembers.length === 0 || isUploading
                   ? 'bg-neon-green/40 text-black/50 cursor-not-allowed opacity-40'
                   : 'bg-neon-green hover:bg-neon-green-light focus:ring-2 focus:ring-[var(--ez-accent)] focus:outline-none text-black shadow-neon-sm hover:scale-105 active:scale-95 cursor-pointer'
               }`}
             >
-              Create Group
+              {t.groups?.createGroup || 'Create Group'}
             </button>
           </div>
         </form>

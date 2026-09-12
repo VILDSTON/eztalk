@@ -1093,6 +1093,25 @@ app.get('/api/messages/:handle1/:handle2', async (req, res) => {
 });
 
 // Post New Message (Encrypted at rest with AES-256-GCM)
+// --- Anti-Spam & Block Enforcement ---
+const userSpamRecords = new Map(); // handle -> { timestamps: [], cooldownUntil: number }
+
+const isBlockedBy = async (senderHandle, recipientHandle) => {
+  const rHandle = normalizeHandle(recipientHandle);
+  const sHandle = normalizeHandle(senderHandle);
+  if (!rHandle || !sHandle) return false;
+  
+  if (isMongoConnected) {
+    const user = await UserModel.findOne({ handle: rHandle });
+    return user && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(sHandle);
+  } else {
+    const db = readLocalDB();
+    const user = db.users.find(u => u.handle.toLowerCase() === rHandle);
+    return user && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(sHandle);
+  }
+};
+// -------------------------------------
+
 app.post('/api/messages', authenticateToken, async (req, res) => {
   try {
     const {
@@ -1115,11 +1134,37 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
     let key;
     let rHandle = null;
 
+    // Spam check
+    const now = Date.now();
+    let spamRecord = userSpamRecords.get(sHandle) || { timestamps: [], cooldownUntil: 0 };
+    
+    if (now < spamRecord.cooldownUntil) {
+      const cooldownSeconds = Math.ceil((spamRecord.cooldownUntil - now) / 1000);
+      io.to(`user_${sHandle}`).emit('spam_warning', { cooldownSeconds, message: 'Too many messages. Please wait.' });
+      return res.status(429).json({ error: 'Too many messages. You are in cooldown.', cooldownSeconds });
+    }
+    
+    spamRecord.timestamps = spamRecord.timestamps.filter(t => now - t <= 3000);
+    spamRecord.timestamps.push(now);
+    
+    if (spamRecord.timestamps.length > 5) {
+      spamRecord.cooldownUntil = now + 30000;
+      userSpamRecords.set(sHandle, spamRecord);
+      io.to(`user_${sHandle}`).emit('spam_warning', { cooldownSeconds: 30, message: 'Too many messages. Please wait.' });
+      return res.status(429).json({ error: 'Spam detected. Muted for 30 seconds.', cooldownSeconds: 30 });
+    }
+    userSpamRecords.set(sHandle, spamRecord);
+
     if (groupId) {
       key = `group__${groupId}`;
     } else {
       rHandle = normalizeHandle(recipientHandle);
       key = getConversationKey(sHandle, rHandle);
+      
+      const blocked = await isBlockedBy(sHandle, rHandle);
+      if (blocked) {
+        return res.status(403).json({ error: 'blocked' });
+      }
     }
 
     const plainText = text || '';
@@ -1231,6 +1276,48 @@ app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
         res.json({ success: true, id });
       } else {
         res.status(404).json({ error: 'Message not found' });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear Chat History (Permanently remove all messages between user and target)
+app.delete('/api/messages/history/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isGroup = req.query.isGroup === 'true';
+    const currentUserHandle = normalizeHandle(req.user.handle);
+    const targetHandle = normalizeHandle(id);
+
+    if (isGroup) {
+      if (isMongoConnected) {
+        await MessageModel.deleteMany({ groupId: id });
+        io.emit('history_cleared', { targetId: id, isGroup: true });
+        res.json({ success: true, targetId: id });
+      } else {
+        const db = readLocalDB();
+        db.messages = db.messages.filter((m) => m.groupId !== id);
+        writeLocalDB(db);
+        io.emit('history_cleared', { targetId: id, isGroup: true });
+        res.json({ success: true, targetId: id });
+      }
+    } else {
+      const key = getConversationKey(currentUserHandle, targetHandle);
+      if (isMongoConnected) {
+        await MessageModel.deleteMany({ conversationKey: key });
+        // Emit to both users to clear their history
+        io.to(currentUserHandle).emit('history_cleared', { targetId: targetHandle, isGroup: false });
+        io.to(targetHandle).emit('history_cleared', { targetId: currentUserHandle, isGroup: false });
+        res.json({ success: true, targetId: id });
+      } else {
+        const db = readLocalDB();
+        db.messages = db.messages.filter((m) => m.conversationKey !== key);
+        writeLocalDB(db);
+        io.to(currentUserHandle).emit('history_cleared', { targetId: targetHandle, isGroup: false });
+        io.to(targetHandle).emit('history_cleared', { targetId: currentUserHandle, isGroup: false });
+        res.json({ success: true, targetId: id });
       }
     }
   } catch (err) {
@@ -1512,10 +1599,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('typing', ({ senderHandle, recipientHandle, isTyping }) => {
+  socket.on('typing', async ({ senderHandle, recipientHandle, isTyping }) => {
     const rHandle = normalizeHandle(recipientHandle);
     const sHandle = socket.verifiedHandle || normalizeHandle(senderHandle);
     if (rHandle) {
+      const blocked = await isBlockedBy(sHandle, rHandle);
+      if (blocked) return;
       io.to(rHandle).emit('user_typing', {
         senderHandle: sHandle,
         recipientHandle: rHandle,
@@ -1524,10 +1613,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('call_user', (data) => {
+  socket.on('call_user', async (data) => {
     const caller = socket.verifiedHandle || data.caller || data.from;
     const recipientHandle = normalizeHandle(data.recipientHandle || data.to);
     if (recipientHandle) {
+      const blocked = await isBlockedBy(caller, recipientHandle);
+      if (blocked) return;
       io.to(recipientHandle).emit('incoming_call', {
         caller,
         from: caller,

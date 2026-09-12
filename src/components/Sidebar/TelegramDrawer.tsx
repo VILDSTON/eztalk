@@ -253,9 +253,9 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           <div className="inline-flex items-center space-x-1.5 text-xs text-ez-muted font-bold">
             <Sparkles className="w-3.5 h-3.5 text-neon-green" />
             <span className="text-neon-green">EzTalk</span>
-            <span>Web 2.0</span>
+            <span>Web</span>
           </div>
-          <p className="text-[10px] text-ez-muted font-mono mt-0.5">Real-time Messenger • 24/7 Live</p>
+          <p className="text-[10px] text-ez-muted font-mono mt-0.5">Fast and Light Messenger</p>
 
           <div className="flex items-center justify-center space-x-2.5 text-[11px] text-zinc-500 mt-2.5 pt-2 border-t border-white/[0.04]">
             <button

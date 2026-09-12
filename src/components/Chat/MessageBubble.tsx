@@ -27,6 +27,7 @@ import {
 import { normalizeHandle } from '../../utils/chatStorage';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
 import { useTranslation } from '../../context/LanguageContext';
+import { ConfirmModal } from '../Common/ConfirmModal';
 
 interface MessageBubbleProps {
   message: Message;
@@ -107,6 +108,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Link Preview State
   const [linkPreview, setLinkPreview] = useState<any>(null);
+  
+  // External Link Modal State
+  const [selectedExternalUrl, setSelectedExternalUrl] = useState<string | null>(null);
 
   const isMe =
     (currentUserHandle &&
@@ -808,17 +812,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Text Content with Native Selection (Suppressed for call events to prevent duplicate raw text) */}
           {!callPresentation && message.text && (
             <p className="whitespace-pre-wrap break-words word-break-all select-text selection:bg-neon-green selection:text-black">
-              {message.text}
+              {(() => {
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const parts = message.text.split(urlRegex);
+                return parts.map((part, i) => {
+                  if (part.match(urlRegex)) {
+                    return (
+                      <span
+                        key={i}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedExternalUrl(part);
+                        }}
+                        className="text-blue-400 hover:text-blue-300 underline cursor-pointer break-all"
+                      >
+                        {part}
+                      </span>
+                    );
+                  }
+                  return <React.Fragment key={i}>{part}</React.Fragment>;
+                });
+              })()}
             </p>
           )}
 
           {/* Link Preview Card */}
           {linkPreview && (
-            <a 
-              href={linkPreview.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none"
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedExternalUrl(linkPreview.url);
+              }}
+              className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none cursor-pointer"
             >
               {linkPreview.image && (
                 <div className="w-full h-32 bg-black/40 border-b border-white/10">
@@ -836,7 +862,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <div className="text-[11px] text-gray-300 line-clamp-2 leading-snug">{linkPreview.description}</div>
                 )}
               </div>
-            </a>
+            </div>
           )}
 
           {/* Bubble Meta Footer: Time + Checkmarks */}

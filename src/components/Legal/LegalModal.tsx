@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, FileText, Lock } from 'lucide-react';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface LegalModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<'privacy' | 'terms'>(initialTab);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -48,9 +50,9 @@ export const LegalModal: React.FC<LegalModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100">
-                {activeTab === 'privacy' ? 'Политика конфиденциальности' : 'Условия использования'}
+                {activeTab === 'privacy' ? (t as any).legal?.privacyTitle : (t as any).legal?.termsTitle}
               </h2>
-              <p className="text-[11px] text-zinc-400 font-mono">EzTalk • Редакция от 2026 года</p>
+              <p className="text-[11px] text-zinc-400 font-mono">{(t as any).legal?.revision}</p>
             </div>
           </div>
           <button
@@ -73,7 +75,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            Конфиденциальность
+            {(t as any).legal?.privacyTitle}
           </button>
           <button
             type="button"
@@ -84,7 +86,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            Условия сервиса
+            {(t as any).legal?.termsTitle}
           </button>
         </div>
 
@@ -94,47 +96,47 @@ export const LegalModal: React.FC<LegalModalProps> = ({
             <>
               <section className="space-y-1.5">
                 <h3 className="font-semibold text-zinc-100 text-sm flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-[var(--ez-accent)]" /> 1. Принципы обработки данных
+                  <Lock className="w-4 h-4 text-[var(--ez-accent)]" /> {(t as any).legal?.privacy1Title}
                 </h3>
                 <p>
-                  EzTalk разработан с прицелом на максимальную приватность. Мы не продаем ваши персональные данные, не используем сообщения для таргетированной рекламы и не передаем аналитику третьим лицам.
+                  {(t as any).legal?.privacy1Text}
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="font-semibold text-zinc-100 text-sm">2. Хранение сессий и токенов</h3>
+                <h3 className="font-semibold text-zinc-100 text-sm">{(t as any).legal?.privacy2Title}</h3>
                 <p>
-                  Для поддержания постоянного соединения и безопасной аутентификации используется локальное хранилище браузера (LocalStorage) и защищенные JSON Web Tokens (JWT). Пароли хранятся на сервере исключительно в виде криптографических хэшей (bcrypt).
+                  {(t as any).legal?.privacy2Text}
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="font-semibold text-zinc-100 text-sm">3. Медиафайлы и вложения</h3>
+                <h3 className="font-semibold text-zinc-100 text-sm">{(t as any).legal?.privacy3Title}</h3>
                 <p>
-                  Пользовательские вложения (аватары, фото, голосовые сообщения) сохраняются в защищенном облачном хранилище данных и доступны только участникам соответствующих диалогов.
+                  {(t as any).legal?.privacy3Text}
                 </p>
               </section>
             </>
           ) : (
             <>
               <section className="space-y-1.5">
-                <h3 className="font-semibold text-zinc-100 text-sm">1. Принятие условий</h3>
+                <h3 className="font-semibold text-zinc-100 text-sm">{(t as any).legal?.sec1Title}</h3>
                 <p>
-                  Регистрируя аккаунт в EzTalk, вы соглашаетесь соблюдать настоящие условия. Если вы не согласны с какими-либо правилами, вы должны прекратить использование сервиса.
+                  {(t as any).legal?.sec1Text}
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="font-semibold text-zinc-100 text-sm">2. Правила поведения</h3>
+                <h3 className="font-semibold text-zinc-100 text-sm">{(t as any).legal?.sec2Title}</h3>
                 <p>
-                  Запрещается использовать сервис для рассылки спама, массового создания фиктивных аккаунтов, распространения вредоносного ПО или любых незаконных действий. Нарушение ведет к перманентной блокировке учетной записи.
+                  {(t as any).legal?.sec2Text}
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="font-semibold text-zinc-100 text-sm">3. Ограничение ответственности</h3>
+                <h3 className="font-semibold text-zinc-100 text-sm">{(t as any).legal?.sec3Title}</h3>
                 <p>
-                  EzTalk предоставляется по модели «как есть» (as is). Мы прикладываем все усилия для обеспечения круглосуточной стабильности, но не несем ответственности за сбои на стороне третьих провайдеров сети.
+                  {(t as any).legal?.sec3Text}
                 </p>
               </section>
             </>
@@ -148,7 +150,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
           >
-            Закрыть
+            {(t as any).legal?.close}
           </button>
         </div>
       </div>

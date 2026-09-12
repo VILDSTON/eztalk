@@ -900,6 +900,33 @@ function MainApp() {
       }
     });
 
+    const unsubHistoryCleared = socketService.onHistoryCleared(({ targetId, isGroup }) => {
+      const cUser = currentUserRef.current;
+      if (!cUser) return;
+      const convKey = isGroup 
+        ? `group__${targetId}`
+        : getConversationKey(cUser.handle, targetId);
+        
+      setMessagesByChat((prev) => {
+        const next = { ...prev };
+        delete next[convKey];
+        return next;
+      });
+
+      setLastMessages((prev) => {
+        const next = { ...prev };
+        delete next[convKey];
+        if (!isGroup) delete next[normalizeHandle(targetId)];
+        return next;
+      });
+
+      const all = ChatStorageService.getConversations();
+      if (all[convKey]) {
+        delete all[convKey];
+        ChatStorageService.saveConversations(all);
+      }
+    });
+
     // Profile updated event (Multi-device profile and preferences sync)
     const unsubProfile = socketService.onProfileUpdated((updatedUser: User) => {
       const cUser = currentUserRef.current;
@@ -991,6 +1018,7 @@ function MainApp() {
       unsubCallDeclined();
       unsubCallEnded();
       unsubClear();
+      unsubHistoryCleared();
       unsubProfile();
       unsubUserUpdated();
       unsubFriends();
@@ -1131,7 +1159,11 @@ function MainApp() {
     }));
   };
 
-  const handleClearHistory = (targetIdOrHandle: string, isGroup: boolean) => {
+  const handleClearHistory = async (targetIdOrHandle: string, isGroup: boolean) => {
+    // 1. Backend call
+    await ApiService.clearChatHistory(targetIdOrHandle, isGroup);
+
+    // 2. Client update
     const convKey = isGroup 
       ? `group__${targetIdOrHandle}`
       : getConversationKey(currentUser?.handle || '', targetIdOrHandle);
@@ -1144,7 +1176,6 @@ function MainApp() {
 
     setLastMessages((prev) => {
       const next = { ...prev };
-      // Also delete the alternative key used in some places
       delete next[convKey];
       if (!isGroup) delete next[normalizeHandle(targetIdOrHandle)];
       return next;
@@ -1157,18 +1188,23 @@ function MainApp() {
     }
   };
 
-  const handleDeleteChat = (targetIdOrHandle: string, isGroup: boolean) => {
-    handleClearHistory(targetIdOrHandle, isGroup);
+  const handleDeleteChat = async (targetIdOrHandle: string, isGroup: boolean) => {
+    // 1. Clear history completely
+    await handleClearHistory(targetIdOrHandle, isGroup);
     
+    // 2. Remove from active chats if not a group
     if (!isGroup) {
       const handle = normalizeHandle(targetIdOrHandle);
       setActiveChatHandles((prev) => prev.filter(h => h !== handle));
     }
     
+    // 3. Reset active dialogue and navigate away if it's currently open
     if (
       (isGroup && selectedGroupId === targetIdOrHandle) ||
       (!isGroup && normalizeHandle(selectedUserId) === normalizeHandle(targetIdOrHandle))
     ) {
+      setSelectedUserId('');
+      setSelectedGroupId(null);
       navigate('/direct');
     }
   };
