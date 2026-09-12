@@ -5,12 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.11] - 2026-09-12
+
+### Added
+- **Stale-While-Revalidate Chat Loading**: Instantaneous 0ms message loading from local cache while seamlessly updating in the background without UI blocking.
+- **Dynamic Draft Isolation**: Drafts are now isolated per authenticated user session.
+- **Safe Cache Retention**: Implemented a 70-message cap on locally cached conversations to prevent `localStorage` limits (QuotaExceededError).
+
+## [0.9.10] - 2026-09-12
+
+### Fixed
+- **Socket & JWT Security**: Eliminated fallback bypass vulnerabilities in `authenticateToken`. Checked member access on `join_group` and replaced global emits with scoped socket message delivery.
+- **Duplicate Event Emits**: Resolved double emitting on POST `/api/messages` for group chats.
+
+## [0.9.9] - 2026-09-12
+
+### Fixed
+- **Single Audio Player**: Prevented overlapping voice message playback. Global tracking instantly pauses older voice recordings when a new one is played.
+- **Lazy Audio Initialization**: Replaced immediate `new Audio()` instantiation with on-click lazy loading to drastically reduce DOM overhead.
+- **Mobile Long Press Stability**: Increased `touchmove` threshold from 5px to 14px to prevent slight finger rolls from cancelling the recording UI.
+
+## [0.9.8] - 2026-09-12
+
+### Fixed
+- **Scroll Behavior**: Resolved scroll jumping when navigating between chats. Implemented immediate snap-to-bottom on first load without visual scrolling artifacts.
+- **State Leakage**: Fixed residual states bleeding across chat views (drafts, editing modes, replying status) via `recipientHandle` dependency resets.
+
+## [0.9.7] - 2026-09-12
+
+### Fixed
+- **Url Parsing**: Fixed bug where url parsing was not working
+- **Chat Interface**: Fixed bug where chat interface was not working correctly. Now it works with @handle and id.
+- **Voice Call**: Fixed bug where voice call was not working correctly. Now it works with @handle and id.
+- **Group Chat**: Fixed bug where group chat was not working correctly. Now it works with @handle and id.
+- **Call Interface**: Fixed bug where call interface was not working correctly. Now it works with @handle and id.
+
+
+
 ## [0.9.6] - 2026-09-09
 
 ### Added
 - **Chat Interface Localization**: Fully localized the core chat interface including `LeftSidebar`, `FriendsList`, `ChatHeader`, `MessageInput`, and `MessageBubble`.
 - **Modals & Context Menus i18n**: Completed localization for complex interactive components including `UserProfileModal`, `ChatMenuDropdown`, `MobileMessageActionSheet`, and `ChatWindow`.
 - **Zero-Hardcode Enforcement**: Ensured all user-facing strings are strictly bound to the `useTranslation` hook and `TranslationKeys` interface, guaranteeing 100% type safety and dynamic switching across English, Russian, and Uzbek without reloads.
+- **Create Group Improvements**: Added proper member search with instant availability badges and group name validation.
+- **UI Polish**: Added subtle hover effects for action buttons and refined modal layouts.
 
 ## [0.9.5] - 2026-09-09
 
