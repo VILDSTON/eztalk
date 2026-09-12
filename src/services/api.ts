@@ -25,6 +25,11 @@ export function normalizeUser(user: any): User {
 
 // Хелпер для безопасного парсинга JSON и обработки 502/504/CORS ошибок
 async function handleResponse(res: Response, fallbackError: string) {
+  if (res.status === 401 || res.status === 403) {
+    localStorage.removeItem('eztalk_token');
+    window.dispatchEvent(new CustomEvent('ez:unauthorized'));
+  }
+
   let data: any = {};
   try {
     data = await res.json();
@@ -320,7 +325,7 @@ export class ApiService {
         headers: getAuthHeaders(),
         body: JSON.stringify({ text }),
       });
-      const data = await res.json();
+      const data = await handleResponse(res, 'Failed to edit message');
       return data.message || null;
     } catch {
       return null;
@@ -334,7 +339,8 @@ export class ApiService {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
-      return res.ok;
+      await handleResponse(res, 'Failed to delete message');
+      return true;
     } catch {
       return false;
     }
@@ -348,7 +354,7 @@ export class ApiService {
         headers: getAuthHeaders(),
         body: JSON.stringify({ emoji, userHandle }),
       });
-      const data = await res.json();
+      const data = await handleResponse(res, 'Failed to toggle reaction');
       return data.reactions || null;
     } catch {
       return null;
@@ -400,7 +406,8 @@ export class ApiService {
         headers: getAuthHeaders(),
         body: JSON.stringify({ handle1, handle2, groupId }),
       });
-      return res.ok;
+      await handleResponse(res, 'Failed to clear chat');
+      return true;
     } catch {
       return false;
     }

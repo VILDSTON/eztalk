@@ -24,8 +24,9 @@ class SocketService {
         reconnectionAttempts: 15,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        auth: {
-          token: token || undefined,
+        auth: (cb: (data: { token?: string }) => void) => {
+          const token = localStorage.getItem('eztalk_token');
+          cb({ token: token || undefined });
         },
       });
 
@@ -281,6 +282,7 @@ class SocketService {
   public disconnect() {
     if (this.socket) {
       this.socket.removeAllListeners();
+      this.socket.io.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }

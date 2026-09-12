@@ -57,33 +57,24 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Middleware проверки JWT для защищенных API роутов с graceful fallback для существующих сессий
+// Middleware проверки JWT для защищенных API роутов
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    const candidate = req.body?.senderHandle || req.body?.creatorHandle || req.body?.userHandle || req.query?.senderHandle;
-    if (candidate) {
-      req.user = { handle: normalizeHandle(candidate) };
-      return next();
-    }
     return res.status(401).json({ error: 'Access token required' });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      const candidate = req.body?.senderHandle || req.body?.creatorHandle || req.body?.userHandle || req.query?.senderHandle;
-      if (candidate) {
-        req.user = { handle: normalizeHandle(candidate) };
-        return next();
-      }
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
     req.user = user;
     next();
   });
 }
+
 
 const PORT = process.env.PORT || 5050;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/eztalk_db';
@@ -1164,10 +1155,6 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
       const saved = await MessageModel.create(messageData);
       const formatted = formatMessage(saved);
       if (groupId) {
-        let members = [];
-        const g = await GroupModel.findOne({ id: groupId }).lean();
-        if (g && Array.isArray(g.memberHandles)) members = g.memberHandles;
-        members.forEach((h) => io.to(normalizeHandle(h)).emit('new_message', formatted));
         io.to(`group_${groupId}`).emit('new_message', formatted);
       } else {
         if (rHandle) io.to(rHandle).emit('new_message', formatted);
@@ -1180,10 +1167,6 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
       writeLocalDB(db);
       const formatted = formatMessage(messageData);
       if (groupId) {
-        let members = [];
-        const g = (db.groups || []).find((x) => x.id === groupId);
-        if (g && Array.isArray(g.memberHandles)) members = g.memberHandles;
-        members.forEach((h) => io.to(normalizeHandle(h)).emit('new_message', formatted));
         io.to(`group_${groupId}`).emit('new_message', formatted);
       } else {
         if (rHandle) io.to(rHandle).emit('new_message', formatted);
@@ -1492,9 +1475,20 @@ io.on('connection', (socket) => {
     io.emit('online_users', getOnlineHandles());
   });
 
-  socket.on('join_group', (groupId) => {
-    if (groupId) {
-      socket.join(`group_${groupId}`);
+  socket.on('join_group', async (groupId) => {
+    if (groupId && socket.verifiedHandle) {
+      if (isMongoConnected) {
+        const group = await GroupModel.findOne({ id: groupId }).lean();
+        if (group && Array.isArray(group.memberHandles) && group.memberHandles.includes(socket.verifiedHandle)) {
+          socket.join(`group_${groupId}`);
+        }
+      } else {
+        const db = readLocalDB();
+        const group = (db.groups || []).find((g) => g.id === groupId);
+        if (group && Array.isArray(group.memberHandles) && group.memberHandles.includes(socket.verifiedHandle)) {
+          socket.join(`group_${groupId}`);
+        }
+      }
     }
   });
 
@@ -1599,18 +1593,33 @@ io.on('connection', (socket) => {
     const readAt = new Date().toISOString();
 
     if (messageId) {
+      let m = null;
       if (isMongoConnected) {
-        await MessageModel.updateOne({ id: messageId }, { $set: { status: 'read', readAt: new Date() } }).catch(() => {});
+        m = await MessageModel.findOneAndUpdate(
+          { id: messageId },
+          { $set: { status: 'read', readAt: new Date() } },
+          { new: true }
+        ).lean();
       } else {
         const db = readLocalDB();
-        const m = db.messages.find((x) => x.id === messageId);
+        m = db.messages.find((x) => x.id === messageId);
         if (m) {
           m.status = 'read';
           m.readAt = readAt;
           writeLocalDB(db);
         }
       }
-      io.emit('message_read', { messageId, readerHandle: rHandle, readAt });
+
+      if (m) {
+        if (m.groupId) {
+          io.to(`group_${m.groupId}`).emit('message_read', { messageId, readerHandle: rHandle, readAt });
+        } else {
+          io.to(m.senderHandle).emit('message_read', { messageId, readerHandle: rHandle, readAt });
+          if (m.senderHandle !== m.recipientHandle) {
+            io.to(m.recipientHandle).emit('message_read', { messageId, readerHandle: rHandle, readAt });
+          }
+        }
+      }
     }
   });
 

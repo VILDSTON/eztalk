@@ -345,7 +345,7 @@ export class ChatStorageService {
   static saveConversation(key: string, messages: Message[]) {
     try {
       const allConversations = this.getConversations();
-      allConversations[key] = messages;
+      allConversations[key] = Array.isArray(messages) ? messages.slice(-70) : messages;
       const authUser = this.getAuthUser();
       const storageKey = authUser ? `${STORAGE_CONVERSATIONS}_${authUser.id}` : STORAGE_CONVERSATIONS;
       localStorage.setItem(storageKey, JSON.stringify(allConversations));
@@ -358,7 +358,11 @@ export class ChatStorageService {
     try {
       const authUser = this.getAuthUser();
       const storageKey = authUser ? `${STORAGE_CONVERSATIONS}_${authUser.id}` : STORAGE_CONVERSATIONS;
-      localStorage.setItem(storageKey, JSON.stringify(conversations));
+      const limitedConversations: Record<string, Message[]> = {};
+      for (const [key, msgs] of Object.entries(conversations)) {
+        limitedConversations[key] = Array.isArray(msgs) ? msgs.slice(-70) : msgs;
+      }
+      localStorage.setItem(storageKey, JSON.stringify(limitedConversations));
     } catch {
       // fallback
     }
@@ -411,7 +415,9 @@ export class ChatStorageService {
   // Drafts management
   static getDraft(key: string): string {
     try {
-      const data = localStorage.getItem('eztalk_drafts_v1');
+      const authUser = this.getAuthUser();
+      const storageKey = authUser ? `eztalk_drafts_v2_${authUser.id}` : 'eztalk_drafts_v2_guest';
+      const data = localStorage.getItem(storageKey);
       if (data) {
         const parsed = JSON.parse(data);
         return parsed[key] || '';
@@ -422,14 +428,16 @@ export class ChatStorageService {
 
   static saveDraft(key: string, text: string) {
     try {
-      const data = localStorage.getItem('eztalk_drafts_v1');
+      const authUser = this.getAuthUser();
+      const storageKey = authUser ? `eztalk_drafts_v2_${authUser.id}` : 'eztalk_drafts_v2_guest';
+      const data = localStorage.getItem(storageKey);
       const parsed = data ? JSON.parse(data) : {};
       if (text) {
         parsed[key] = text;
       } else {
         delete parsed[key];
       }
-      localStorage.setItem('eztalk_drafts_v1', JSON.stringify(parsed));
+      localStorage.setItem(storageKey, JSON.stringify(parsed));
     } catch {}
   }
 

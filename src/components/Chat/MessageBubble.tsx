@@ -62,6 +62,9 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
 const EMOJI_OPTIONS = ['❤️', '👍', '😂', '🔥', '😮', '👏', '🚀', '😢'];
 const PLAYBACK_SPEEDS = [1, 1.5, 2];
 
+let activeAudioElement: HTMLAudioElement | null = null;
+let activeAudioStop: (() => void) | null = null;
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   currentUserId,
@@ -245,51 +248,71 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }, [contextMenuPos]);
 
 
-  // Audio Playback Lifecycle
+  // Audio Playback Cleanup
   useEffect(() => {
-    if (message.attachment?.type === 'audio') {
-      const audio = new Audio(message.attachment.url);
-      audio.preservesPitch = true;
-      audio.playbackRate = PLAYBACK_SPEEDS[playbackSpeedIdx];
-      audioRef.current = audio;
-
-      audio.ontimeupdate = () => {
-        const total =
-          audio.duration && isFinite(audio.duration) && audio.duration > 0
-            ? audio.duration
-            : message.attachment?.duration || 1;
-        setAudioProgress(Math.min(100, (audio.currentTime / total) * 100));
-        setCurrentTimeSec(Math.floor(audio.currentTime));
-      };
-
-      audio.onended = () => {
-        setIsPlaying(false);
-        setAudioProgress(0);
-        setCurrentTimeSec(0);
-      };
-
-      audio.onerror = () => {
-        setIsPlaying(false);
-      };
-
-      return () => {
-        audio.ontimeupdate = null;
-        audio.onended = null;
-        audio.onerror = null;
-        audio.pause();
-        audio.src = '';
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.ontimeupdate = null;
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        if (activeAudioElement === audioRef.current) {
+          activeAudioElement = null;
+          activeAudioStop = null;
+        }
         audioRef.current = null;
-      };
-    }
-  }, [message.attachment]);
+      }
+    };
+  }, []);
 
   const togglePlayAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!audioRef.current) return;
+    if (!message.attachment?.url) return;
+
     if (isPlaying) {
-      audioRef.current.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       setIsPlaying(false);
     } else {
+      if (activeAudioElement && activeAudioElement !== audioRef.current) {
+        activeAudioElement.pause();
+        if (activeAudioStop) activeAudioStop();
+      }
+
+      if (!audioRef.current) {
+        const audio = new Audio(message.attachment.url);
+        audio.preservesPitch = true;
+        audio.playbackRate = PLAYBACK_SPEEDS[playbackSpeedIdx];
+        audioRef.current = audio;
+
+        audio.ontimeupdate = () => {
+          const total = audio.duration && isFinite(audio.duration) && audio.duration > 0
+            ? audio.duration
+            : message.attachment?.duration || 1;
+          setAudioProgress(Math.min(100, (audio.currentTime / total) * 100));
+          setCurrentTimeSec(Math.floor(audio.currentTime));
+        };
+
+        audio.onended = () => {
+          setIsPlaying(false);
+          setAudioProgress(0);
+          setCurrentTimeSec(0);
+          if (activeAudioElement === audio) {
+            activeAudioElement = null;
+            activeAudioStop = null;
+          }
+        };
+
+        audio.onerror = () => {
+          setIsPlaying(false);
+        };
+      }
+
+      activeAudioElement = audioRef.current;
+      activeAudioStop = () => setIsPlaying(false);
+
       audioRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
@@ -382,8 +405,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
 
-    // Cancel long press if moved > 10px
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+    // Cancel long press if moved > 14px
+    if (Math.abs(dx) > 14 || Math.abs(dy) > 14) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
