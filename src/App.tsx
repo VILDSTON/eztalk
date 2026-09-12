@@ -20,7 +20,8 @@ import { LegalModal } from './components/Legal/LegalModal';
 import { CookieBanner } from './components/Common/CookieBanner';
 import { NotFoundScreen } from './components/Common/NotFoundScreen';
 import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
-import { useNavigate, useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { useLocalizedNavigate } from './hooks/useLocalizedNavigate';
 import { useTranslation } from './context/LanguageContext';
 
 const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
@@ -54,7 +55,7 @@ interface ToastNotification {
 }
 
 function MainApp() {
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const location = useLocation();
   const { lang } = useParams();
   const { setLanguage } = useTranslation();
