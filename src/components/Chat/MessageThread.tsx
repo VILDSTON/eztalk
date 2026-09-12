@@ -132,6 +132,19 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
   }, [messages]);
 
   useEffect(() => {
+    setIsScrolledUp(false);
+    setNewMessagesCount(0);
+    setInitialLoadComplete(false);
+    initialMessageIdsRef.current.clear();
+    prevMessagesLengthRef.current = messages.length;
+    prevFirstMsgIdRef.current = messages[0]?.id || null;
+
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [recipientHandle]);
+
+  useEffect(() => {
     const isNewMessageAdded = messages.length > prevMessagesLengthRef.current;
     const firstMsgId = messages[0]?.id || null;
     const wasPrepended =
@@ -140,6 +153,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
     isPrependRef.current = false;
     prevFirstMsgIdRef.current = firstMsgId;
 
+    const isInitial = !initialLoadComplete;
     if (!initialLoadComplete) {
       if (messages.length > 0) {
         messages.forEach(m => initialMessageIdsRef.current.add(m.id));
@@ -164,7 +178,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
 
     if (isNewMessageAdded) {
       if (!isScrolledUp || isMyMsg) {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        bottomRef.current?.scrollIntoView({ behavior: isInitial ? 'auto' : 'smooth' });
         setNewMessagesCount(0);
       } else {
         setNewMessagesCount((prev) => prev + (messages.length - prevMessagesLengthRef.current));
