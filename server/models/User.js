@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       sparse: true,
+      index: true,
     },
     password: {
       type: String,
@@ -129,7 +130,5 @@ const userSchema = new mongoose.Schema(
     },
   }
 );
-
-userSchema.index({ email: 1 }, { sparse: true });
 
 export const UserModel = mongoose.models.User || mongoose.model('User', userSchema);

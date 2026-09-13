@@ -35,21 +35,36 @@ const server = http.createServer(app);
 // Enable trust proxy for correct client IP detection behind Render, Vercel, and Nginx reverse proxies
 app.set('trust proxy', 1);
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 const corsOptions = {
   origin: (origin, callback) => {
+    // Разрешаем запросы без origin (мобильные клиенты, curl, PWA standalone)
     if (!origin) return callback(null, true);
-    const allowed = ['http://localhost:3000', 'http://localhost:5173'];
-    if (process.env.FRONTEND_URL) {
-      allowed.push(process.env.FRONTEND_URL.replace(/\/+$/, ''));
+
+    // Очищаем origin от хвостового слэша для точного сравнения
+    const cleanOrigin = origin.replace(/\/$/, '');
+
+    const isAllowed =
+      allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.vercel.app') ||
+      cleanOrigin.includes('vercel.app');
+
+    if (isAllowed) {
+      return callback(null, true);
     }
-    if (allowed.includes(origin) || /\.vercel\.app$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+
+    // ВАЖНО: Не бросать new Error(), а возвращать false или мягко пропускать
+    console.warn(`[CORS Blocked] Origin: ${origin}`);
+    return callback(null, false);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 const io = new Server(server, {
@@ -59,6 +74,7 @@ const io = new Server(server, {
 });
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 
 // Force HTTPS in production (Render, Vercel, Fly.io, etc.)

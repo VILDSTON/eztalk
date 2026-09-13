@@ -598,13 +598,26 @@ function MainApp() {
 
   // Apply user theme and density settings
   useEffect(() => {
+    const savedTheme = localStorage.getItem('eztalk_theme');
+    const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
+    
     if (currentUser) {
-      applyTheme(currentUser.theme || currentUser.settings?.theme || 'neon');
-      applyCompactMode(Boolean(currentUser.settings?.compactMode));
+      const serverTheme = currentUser.theme || currentUser.settings?.theme;
+      const serverCompact = currentUser.settings?.compactMode;
+
+      // If server returned a valid theme, use it and update local storage.
+      // Otherwise, keep the saved theme from local storage.
+      if (serverTheme) {
+        applyTheme(serverTheme);
+        if (serverTheme !== savedTheme) localStorage.setItem('eztalk_theme', serverTheme);
+      } else {
+        applyTheme(savedTheme || 'neon');
+        // Optional: you can sync savedTheme to backend here if needed
+      }
+
+      applyCompactMode(serverCompact !== undefined ? Boolean(serverCompact) : savedCompact);
     } else {
-      const savedTheme = localStorage.getItem('eztalk_theme') || 'neon';
-      const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
-      applyTheme(savedTheme);
+      applyTheme(savedTheme || 'neon');
       applyCompactMode(savedCompact);
     }
   }, [currentUser?.theme, currentUser?.settings?.compactMode, currentUser?.settings?.theme]);
