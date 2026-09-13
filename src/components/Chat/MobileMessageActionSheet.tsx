@@ -130,6 +130,23 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      // If click is outside the sheet, close it
+      const target = e.target as HTMLElement;
+      if (!target.closest('.action-sheet-content')) {
+        handleClose();
+      }
+    };
+    document.addEventListener('mousedown', handleGlobalClick);
+    document.addEventListener('touchstart', handleGlobalClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClick);
+      document.removeEventListener('touchstart', handleGlobalClick);
+    };
+  }, [isOpen, handleClose]);
+
   if (!isOpen || !message || typeof document === 'undefined') return null;
 
   const hasCopyableContent = Boolean(message.text || message.attachment?.url || message.attachment?.name);
@@ -147,23 +164,6 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     }
     handleClose();
   };
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
-      // If click is outside the sheet, close it
-      const target = e.target as HTMLElement;
-      if (!target.closest('.action-sheet-content')) {
-        handleClose();
-      }
-    };
-    document.addEventListener('mousedown', handleGlobalClick);
-    document.addEventListener('touchstart', handleGlobalClick, { passive: true });
-    return () => {
-      document.removeEventListener('mousedown', handleGlobalClick);
-      document.removeEventListener('touchstart', handleGlobalClick);
-    };
-  }, [isOpen, handleClose]);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col justify-end pointer-events-none">
