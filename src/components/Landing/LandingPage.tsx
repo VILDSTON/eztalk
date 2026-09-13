@@ -12,7 +12,7 @@ export const LandingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0d12] text-white font-sans selection:bg-[#00e676]/30 selection:text-white">
+    <div className="h-[100dvh] overflow-y-auto bg-[#0a0d12] text-white font-sans selection:bg-[#00e676]/30 selection:text-white">
       {/* A. Navigation Bar */}
       <header className="w-full bg-[#0a0d12]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
