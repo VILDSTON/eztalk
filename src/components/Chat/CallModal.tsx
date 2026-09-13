@@ -170,8 +170,9 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   const createAndSendOffer = async (pc: RTCPeerConnection) => {
     if (hasOfferedRef.current) return;
+    // Bug 2 fix: set flag SYNCHRONOUSLY before first await to close the race-condition window
+    hasOfferedRef.current = true;
     try {
-      hasOfferedRef.current = true;
       const offer = await pc.createOffer({ offerToReceiveAudio: true });
       const optimizedSDP = optimizeAudioSDP(offer.sdp || '');
       await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: optimizedSDP }));
@@ -181,7 +182,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       });
     } catch (err) {
       console.error('Failed to create/send WebRTC offer:', err);
-      hasOfferedRef.current = false;
+      hasOfferedRef.current = false; // allow retry on error
     }
   };
 
@@ -492,6 +493,8 @@ export const CallModal: React.FC<CallModalProps> = ({
   }, [isSpeakerOn]);
 
   const handleEndCall = () => {
+    // Bug 1 fix: guard against double-close when socket event fires after user already ended call
+    if (callState === 'ended') return;
     callSoundService.stopAll();
     socketService.endCall(currentUser.handle, user.handle);
     setCallState('ended');
