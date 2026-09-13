@@ -13,42 +13,11 @@ interface CallModalProps {
   onClose: (info?: CallInfo) => void;
 }
 
-// High Quality Public STUN / TURN servers for peer-to-peer audio with Symmetric NAT traversal
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    // Google Public STUN
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    // Cloudflare STUN
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    // OpenRelay Public STUN
-    { urls: 'stun:openrelay.metered.ca:80' },
-    // OpenRelay Public TURN (UDP + TCP + TLS for mobile LTE/5G and Symmetric NAT)
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
+    { urls: 'stun:stun1.l.google.com:19302' }
   ],
-  iceCandidatePoolSize: 10,
 };
 
 // Modifies SDP to set Opus to 64kbps high-fidelity voice, enable DTX, in-band FEC, and stable 20ms packetization
@@ -287,12 +256,17 @@ export const CallModal: React.FC<CallModalProps> = ({
     };
 
     pc.onconnectionstatechange = () => {
+      console.log('WebRTC Connection State:', pc.connectionState);
       if (pc.connectionState === 'connected') {
         callSoundService.stopAll();
         setCallState('connected');
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         handleEndCall();
       }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE Connection State changed:', pc.iceConnectionState);
     };
 
     return pc;

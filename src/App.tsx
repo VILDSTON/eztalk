@@ -2222,15 +2222,8 @@ function MainApp() {
                   undefined,
                   undefined,
                   finalCallInfo
-                ).then((msg) => {
-                  const convKey = getConversationKey(currentUser.handle, activeLiveCall.user.handle);
-                  setMessagesByChat((prev) => {
-                    const existing = prev[convKey] || [];
-                    const updated = [...existing, msg];
-                    ChatStorageService.saveConversation(convKey, updated);
-                    return { ...prev, [convKey]: updated };
-                  });
-                  ChatStorageService.addMessage(currentUser.handle, activeLiveCall.user.handle, msg);
+                ).catch((err) => {
+                  console.error('Failed to log call end message:', err);
                 });
               }
             }
