@@ -166,12 +166,13 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
   }, [isOpen, handleClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-none">
+    <div className="fixed inset-0 z-[9999] flex flex-col justify-end pointer-events-none">
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-200 pointer-events-none ${
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] transition-opacity duration-200 pointer-events-auto cursor-pointer ${
           isClosing ? 'opacity-0' : 'opacity-100'
         }`}
+        onClick={handleClose}
       />
 
       {/* Slide-Up Bottom Sheet */}
@@ -179,7 +180,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`action-sheet-content pointer-events-auto relative z-50 w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
+        className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
           isDragging ? '' : 'transition-transform duration-200 ease-out'
         } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
         style={{

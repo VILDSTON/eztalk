@@ -450,7 +450,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }
         setContextMenuPos({ x, y });
       }
-    }, 450);
+    }, 350);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -459,8 +459,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
 
-    // Cancel long press if moved > 14px
-    if (Math.abs(dx) > 14 || Math.abs(dy) > 14) {
+    // Cancel long press if moved > 24px
+    if (Math.abs(dx) > 24 || Math.abs(dy) > 24) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -604,7 +604,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
         } max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans`}
+        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans select-none touch-manipulation [-webkit-touch-callout:none]`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
