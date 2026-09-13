@@ -74,7 +74,6 @@ const io = new Server(server, {
 });
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 
 // Force HTTPS in production (Render, Vercel, Fly.io, etc.)
