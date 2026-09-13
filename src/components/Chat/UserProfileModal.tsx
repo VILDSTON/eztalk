@@ -77,19 +77,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleShareProfile = async () => {
     const profileUrl = `${window.location.origin}/${language}/@${user.handle.replace('@', '')}`;
-    try {
-      if (navigator.share) {
+    
+    const copyToClipboard = async (url: string) => {
+      try {
+        await navigator.clipboard.writeText(url);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy', err);
+      }
+    };
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile && navigator.share) {
+      try {
         await navigator.share({
           title: `EzTalk Profile - ${user.name}`,
           url: profileUrl
         });
-      } else {
-        await navigator.clipboard.writeText(profileUrl);
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
+      } catch {
+        await copyToClipboard(profileUrl);
       }
-    } catch {
-      // Ignore abort errors from native share
+    } else {
+      await copyToClipboard(profileUrl);
     }
   };
 
