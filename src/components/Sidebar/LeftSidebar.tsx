@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Users,
@@ -9,6 +9,7 @@ import {
   ChevronUp,
   UserCog,
   X,
+  Download,
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -95,7 +96,30 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onLogout,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   const otherAccounts = myAccounts.filter(
     (acc) => normalizeHandle(acc.handle) !== normalizeHandle(currentUser?.handle || '')
@@ -134,6 +158,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           label={t.sidebar.settings}
           onClick={onOpenSettings}
         />
+        
+        {installPrompt && (
+          <NavItem
+            icon={<Download className="w-5 h-5" />}
+            label="Install App"
+            onClick={handleInstallClick}
+          />
+        )}
       </div>
 
       {/* ─── Bottom: User Avatar ─── */}
