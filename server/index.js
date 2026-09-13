@@ -472,7 +472,7 @@ app.post('/api/auth/login', authRateLimiter, async (req, res) => {
     if (isMongoConnected) {
       user = await UserModel.findOne({
         $or: [{ handle: handleClean }, { email: clean }],
-      });
+      }).select('+password'); // password has select:false in schema — must be explicitly requested
     } else {
       localDB = readLocalDB();
       user = localDB.users.find(
