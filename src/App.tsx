@@ -1798,27 +1798,27 @@ function MainApp() {
     );
   }
 
-  // If not authenticated, render AuthScreen with Legal & Cookie Modals
-  if (!currentUser) {
-    return (
-      <>
-        <AuthScreen
-          onLogin={handleLogin}
-          onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
-        />
-        <LegalModal
-          isOpen={legalModal.isOpen}
-          initialTab={legalModal.tab}
-          onClose={() => setLegalModal((prev) => ({ ...prev, isOpen: false }))}
-        />
-        <CookieBanner
-          onOpenPrivacy={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
-        />
-      </>
-    );
-  }
+  const token = localStorage.getItem('eztalk_token');
+  const isAuth = Boolean(currentUser && token);
 
-  return (
+  const authContent = (
+    <>
+      <AuthScreen
+        onLogin={(u) => { handleLogin(u); navigate('/t/direct', { replace: true }); }}
+        onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
+      />
+      <LegalModal
+        isOpen={legalModal.isOpen}
+        initialTab={legalModal.tab}
+        onClose={() => setLegalModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+      <CookieBanner
+        onOpenPrivacy={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
+      />
+    </>
+  );
+
+  const mainContent = (
     <div className="w-full h-full min-h-[100dvh] h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
       {/* Top Right In-App Notification Toast */}
       {toast && (
@@ -2264,5 +2264,15 @@ function MainApp() {
         </div>
       )}
     </div>
+  );
+
+  return (
+    <Routes>
+      <Route path="login" element={isAuth ? <Navigate to={`/${lang}/t/direct`} replace /> : authContent} />
+      <Route path="t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
+      <Route path="direct/*" element={<Navigate to={`/${lang}/t/direct`} replace />} />
+      <Route path="@:handle" element={<Navigate to={`/${lang}/t/direct`} replace />} />
+      <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 't/direct' : 'login'}`} replace />} />
+    </Routes>
   );
 }
