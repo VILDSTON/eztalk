@@ -3,6 +3,9 @@ import { User, Message, Attachment, QuotedMessage, Group } from '../types/chat';
 const BACKEND_URL = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '') : '';
 const API_BASE_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
+const profileCache = new Map<string, { data: User; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+
 export const CURATED_AVATARS = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -97,16 +100,23 @@ export class ApiService {
       return [];
     }
   }
-
   // Fetch user by handle
   static async getUserByHandle(handle: string): Promise<User | null> {
     try {
       const clean = encodeURIComponent(handle.trim().toLowerCase());
+      const cacheKey = `handle_${clean}`;
+      const cached = profileCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+      }
+      
       const res = await fetch(`${API_BASE_URL}/users/by-handle/${clean}`, {
         headers: getAuthHeaders(),
       });
       const data = await res.json();
-      return data.user ? normalizeUser(data.user) : null;
+      const user = data.user ? normalizeUser(data.user) : null;
+      if (user) profileCache.set(cacheKey, { data: user, timestamp: Date.now() });
+      return user;
     } catch {
       return null;
     }
@@ -116,17 +126,23 @@ export class ApiService {
   static async getProfile(handleOrId: string): Promise<User | null> {
     try {
       const clean = encodeURIComponent(handleOrId.trim());
+      const cacheKey = `profile_${clean}`;
+      const cached = profileCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+      }
+
       const res = await fetch(`${API_BASE_URL}/users/profile?handle=${clean}`, {
         headers: getAuthHeaders(),
       });
       const data = await res.json();
-      return data.user ? normalizeUser(data.user) : null;
+      const user = data.user ? normalizeUser(data.user) : null;
+      if (user) profileCache.set(cacheKey, { data: user, timestamp: Date.now() });
+      return user;
     } catch {
       return null;
     }
-  }
-
-  // Update user profile
+  }  // Update user profile
   static async updateProfile(user: User, oldHandle?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/users/profile`, {
       method: 'PATCH',
@@ -134,7 +150,20 @@ export class ApiService {
       body: JSON.stringify({ ...user, oldHandle: oldHandle || user.handle }),
     });
     const data = await handleResponse(res, 'Failed to update profile');
-    return normalizeUser(data.user || user);
+    const updated = normalizeUser(data.user || user);
+    
+    // Invalidate cache
+    const newHandleKey = `handle_${encodeURIComponent(updated.handle.trim().toLowerCase())}`;
+    const newProfileKey = `profile_${encodeURIComponent(updated.handle.trim())}`;
+    profileCache.set(newHandleKey, { data: updated, timestamp: Date.now() });
+    profileCache.set(newProfileKey, { data: updated, timestamp: Date.now() });
+    
+    if (oldHandle && oldHandle !== updated.handle) {
+      profileCache.delete(`handle_${encodeURIComponent(oldHandle.trim().toLowerCase())}`);
+      profileCache.delete(`profile_${encodeURIComponent(oldHandle.trim())}`);
+    }
+
+    return updated;
   }
 
   // Block / Unblock user
