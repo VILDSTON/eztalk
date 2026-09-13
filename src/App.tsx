@@ -23,6 +23,7 @@ import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useLocalizedNavigate } from './hooks/useLocalizedNavigate';
 import { useTranslation } from './context/LanguageContext';
+import { LandingPage } from './components/Landing/LandingPage';
 
 const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
 
@@ -2273,11 +2274,13 @@ function MainApp() {
 
   return (
     <Routes>
+      {/* Main Routes */}
+      <Route path="about" element={<LandingPage />} />
       <Route path="login" element={isAuth ? <Navigate to={`/${lang}/t/direct`} replace /> : authContent} />
       <Route path="t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
       <Route path="direct/*" element={<Navigate to={`/${lang}/t/direct`} replace />} />
       <Route path="@:handle" element={<Navigate to={`/${lang}/t/direct`} replace />} />
-      <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 't/direct' : 'login'}`} replace />} />
+      <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 't/direct' : 'about'}`} replace />} />
     </Routes>
   );
 }

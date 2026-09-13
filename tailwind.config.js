@@ -40,6 +40,18 @@ export default {
           received: '#141417',
           input: '#0E0E11',
           muted: '#71717A',
+        },
+        signal: {
+          blue: '#2c6bed',
+          deep: '#2942ff',
+          sky: '#9dbbf8',
+          mist: '#a5cad5',
+          ink: '#1b1b1b',
+          slate: '#404654',
+          twilight: '#3c3744',
+          fog: '#e9e9e9',
+          paper: '#f6f6f6',
+          white: '#ffffff',
         }
       },
       borderRadius: {
@@ -64,6 +76,7 @@ export default {
         'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         'elevated': '0 4px 24px rgba(0, 0, 0, 0.5)',
         'window': '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        'signal': '0px 4px 12px rgba(0, 0, 0, 0.12), 0px 0px 2px rgba(0, 0, 0, 0.08)',
       },
       keyframes: {
         fadeIn: {
