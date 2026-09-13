@@ -108,9 +108,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Link Preview State
   const [linkPreview, setLinkPreview] = useState<any>(null);
-  
-  // External Link Modal State
-  const [selectedExternalUrl, setSelectedExternalUrl] = useState<string | null>(null);
 
   const isMe =
     (currentUserHandle &&
@@ -818,17 +815,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 return parts.map((part, i) => {
                   if (part.match(urlRegex)) {
                     return (
-                      <span
+                      <a
                         key={i}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedExternalUrl(part);
-                        }}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-blue-400 hover:text-blue-300 underline cursor-pointer break-all"
                       >
                         {part}
-                      </span>
+                      </a>
                     );
                   }
                   return <React.Fragment key={i}>{part}</React.Fragment>;
@@ -839,11 +835,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Link Preview Card */}
           {linkPreview && (
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedExternalUrl(linkPreview.url);
-              }}
+            <a 
+              href={linkPreview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none cursor-pointer"
             >
               {linkPreview.image && (
@@ -862,7 +858,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <div className="text-[11px] text-gray-300 line-clamp-2 leading-snug">{linkPreview.description}</div>
                 )}
               </div>
-            </div>
+            </a>
           )}
 
           {/* Bubble Meta Footer: Time + Checkmarks */}
