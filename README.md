@@ -6,14 +6,14 @@
 
 ## 🏗️ Tech Stack & Architecture
 
-- **Frontend Core**: React 18 + TypeScript (Vite / Next.js target architecture)
+- **Frontend Core**: React 18 + TypeScript (Vite)
 - **Styling**: Tailwind CSS (Custom Cyber Dark & Neon Green theme)
 - **Icons**: Lucide React
-- **Real-Time Messaging**: Socket.io-client (Optimized with targeted user & group room routing)
+- **Real-Time Messaging**: Socket.io (Optimized with targeted user & group room routing)
 - **Voice Communication**: WebRTC + Peer signaling (Opus audio codec, P2P peer connection architecture, ICE/STUN support)
-- **Backend & DB**: Node.js, Express.js, MongoDB (Mongoose with compound indexed queries) + High-Performance Local JSON fallback
-- **Presence Engine**: Real-time multi-socket presence tracking (with Redis target support)
-- **Storage Target**: Offloaded media storage architecture (Cloudinary / AWS S3 ready)
+- **Backend & DB**: Node.js, Express.js, MongoDB (Mongoose with compound indexed queries)
+- **Storage**: Supabase Storage (Secure bucket offloading for media files)
+- **Presence Engine**: Real-time socket presence tracking and typing indicators
 
 ---
 
@@ -29,24 +29,46 @@
 
 ---
 
+## 🗺️ Roadmap (Future Enhancements)
+
+- **Next.js Migration**: Transitioning to Next.js for server-side rendering (SSR) and advanced routing capabilities.
+- **Redis Integration**: Target support for Redis to scale real-time multi-socket presence tracking across distributed servers.
+- **Alternative Storage Providers**: Expanding storage architecture to support AWS S3 and Cloudinary targets natively.
+
+---
+
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Clone & Install
 ```bash
+git clone https://github.com/VILDSTON/eztalk.git
+cd eztalk
 npm install
 ```
 
-### 2. Development Server
+### 2. Environment Variables
+The application requires specific environment variables for the database, JWT auth, and Supabase storage. 
+Copy the example file and fill in your credentials:
+```bash
+cp .env.example .env
+```
+*Required variables include: `MONGO_URI`, `JWT_SECRET`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY`.*
+
+### 3. Run the Development Server
+Our dev script concurrently launches both the Vite frontend and the Node.js backend.
 ```bash
 npm run dev
 ```
+*(Alternatively, you can run `npm run server` for just the backend and `npm run client` for the frontend).*
 
-### 3. Production Build
+### 4. Production Build
+To build the frontend for production deployment:
 ```bash
 npm run build
 ```
 
 ---
 
-## 💖 Powered by Gemini
+## 📄 License
 
+MIT License. See `LICENSE` for more information.
