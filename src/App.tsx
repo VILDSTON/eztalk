@@ -2280,10 +2280,12 @@ function MainApp() {
 
   return (
     <Routes>
-      <Route path="login" element={isAuth ? <Navigate to={`/${lang}/t/direct`} replace /> : authContent} />
-      <Route path="t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
-      <Route path="direct/*" element={<Navigate to={`/${lang}/t/direct`} replace />} />
-      <Route path="@:handle" element={<Navigate to={`/${lang}/t/direct`} replace />} />
+      <Route path="/:lang">
+        <Route path="login" element={isAuth ? <Navigate to={`/${lang}/t/direct`} replace /> : authContent} />
+        <Route path="t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
+        <Route path="direct/*" element={<Navigate to={`/${lang}/t/direct`} replace />} />
+        <Route path="@:handle" element={<Navigate to={`/${lang}/t/direct`} replace />} />
+      </Route>
       <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 't/direct' : 'login'}`} replace />} />
     </Routes>
   );
