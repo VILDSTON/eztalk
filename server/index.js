@@ -1157,9 +1157,16 @@ app.get('/api/conversations/recent/:handle', async (req, res) => {
 });
 
 // Get Messages between two users (Cursor pagination, Decrypted on retrieval)
-app.get('/api/messages/:handle1/:handle2', async (req, res) => {
+app.get('/api/messages/:handle1/:handle2', authenticateToken, async (req, res) => {
   try {
     const { handle1, handle2 } = req.params;
+    // Bug 1 fix: only participants can read their own conversation
+    const userHandle = normalizeHandle(req.user?.handle);
+    const h1 = normalizeHandle(handle1);
+    const h2 = normalizeHandle(handle2);
+    if (userHandle !== h1 && userHandle !== h2) {
+      return res.status(403).json({ error: 'Forbidden: You cannot read messages from this conversation' });
+    }
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
     const cursor = req.query.cursor ? String(req.query.cursor) : null;
     const key = getConversationKey(handle1, handle2);
@@ -1263,7 +1270,8 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     
     if (now < spamRecord.cooldownUntil) {
       const cooldownSeconds = Math.ceil((spamRecord.cooldownUntil - now) / 1000);
-      io.to(`user_${sHandle}`).emit('spam_warning', { cooldownSeconds, message: 'Too many messages. Please wait.' });
+      // Bug 2 fix: use correct socket room (sHandle, not user_${sHandle})
+      io.to(sHandle).emit('spam_warning', { cooldownSeconds, message: 'Too many messages. Please wait.' });
       return res.status(429).json({ error: 'Too many messages. You are in cooldown.', cooldownSeconds });
     }
     
@@ -1273,7 +1281,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     if (spamRecord.timestamps.length > 5) {
       spamRecord.cooldownUntil = now + 30000;
       userSpamRecords.set(sHandle, spamRecord);
-      io.to(`user_${sHandle}`).emit('spam_warning', { cooldownSeconds: 30, message: 'Too many messages. Please wait.' });
+      io.to(sHandle).emit('spam_warning', { cooldownSeconds: 30, message: 'Too many messages. Please wait.' });
       return res.status(429).json({ error: 'Spam detected. Muted for 30 seconds.', cooldownSeconds: 30 });
     }
     userSpamRecords.set(sHandle, spamRecord);
@@ -1386,22 +1394,43 @@ app.put('/api/messages/:id', authenticateToken, async (req, res) => {
 app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const callerHandle = normalizeHandle(req.user?.handle);
 
     if (isMongoConnected) {
+      // Bug 3 fix: find message first to verify ownership and target socket rooms
+      const msgToDelete = await MessageModel.findOne({ id }).lean();
+      if (!msgToDelete) return res.status(404).json({ error: 'Message not found' });
+      if (normalizeHandle(msgToDelete.senderHandle) !== callerHandle) {
+        return res.status(403).json({ error: 'Forbidden: You can only delete your own messages' });
+      }
       await MessageModel.deleteOne({ id });
-      io.emit('message_deleted', { id });
+      if (msgToDelete.groupId) {
+        io.to(`group_${msgToDelete.groupId}`).emit('message_deleted', { id });
+      } else {
+        if (msgToDelete.senderHandle) io.to(msgToDelete.senderHandle).emit('message_deleted', { id });
+        if (msgToDelete.recipientHandle && msgToDelete.recipientHandle !== msgToDelete.senderHandle) {
+          io.to(msgToDelete.recipientHandle).emit('message_deleted', { id });
+        }
+      }
       res.json({ success: true, id });
     } else {
       const db = readLocalDB();
-      const initialCount = db.messages.length;
-      db.messages = db.messages.filter((m) => m.id !== id);
-      if (db.messages.length < initialCount) {
-        writeLocalDB(db);
-        io.emit('message_deleted', { id });
-        res.json({ success: true, id });
-      } else {
-        res.status(404).json({ error: 'Message not found' });
+      const msgToDelete = db.messages.find((m) => m.id === id);
+      if (!msgToDelete) return res.status(404).json({ error: 'Message not found' });
+      if (normalizeHandle(msgToDelete.senderHandle) !== callerHandle) {
+        return res.status(403).json({ error: 'Forbidden: You can only delete your own messages' });
       }
+      db.messages = db.messages.filter((m) => m.id !== id);
+      writeLocalDB(db);
+      if (msgToDelete.groupId) {
+        io.to(`group_${msgToDelete.groupId}`).emit('message_deleted', { id });
+      } else {
+        if (msgToDelete.senderHandle) io.to(msgToDelete.senderHandle).emit('message_deleted', { id });
+        if (msgToDelete.recipientHandle && msgToDelete.recipientHandle !== msgToDelete.senderHandle) {
+          io.to(msgToDelete.recipientHandle).emit('message_deleted', { id });
+        }
+      }
+      res.json({ success: true, id });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1847,6 +1876,8 @@ io.on('connection', (socket) => {
       }
 
       if (m) {
+        // Bug 4 fix: only allow participants to mark messages as read
+        if (!m.groupId && m.recipientHandle !== rHandle && m.senderHandle !== rHandle) return;
         if (m.groupId) {
           io.to(`group_${m.groupId}`).emit('message_read', { messageId, readerHandle: rHandle, readAt });
         } else {
