@@ -75,6 +75,7 @@ function renderMessagePreview(msg: Message, currentHandle?: string, t?: any) {
 interface FriendsListProps {
   currentUser?: User | null;
   users: User[];
+  isLoading?: boolean;
   allExistingUsers?: User[];
   groups?: Group[];
   unreadCounts?: Record<string, number>;
@@ -99,6 +100,7 @@ interface FriendsListProps {
 export const FriendsList: React.FC<FriendsListProps> = ({
   currentUser,
   users,
+  isLoading = false,
   allExistingUsers = [],
   groups = [],
   unreadCounts = {},
@@ -422,7 +424,17 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             })}
 
           {/* User Chats */}
-          {(activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
+          {isLoading && (activeTab === 'all' || activeTab === 'direct') && Array.from({ length: 5 }).map((_, i) => (
+            <div key={`skeleton-${i}`} className="flex items-center p-2.5 space-x-3 mb-1 bg-white/[0.01] rounded-2xl animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-ez-border/30 shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-3.5 bg-ez-border/30 rounded w-1/3" />
+                <div className="h-3 bg-ez-border/30 rounded w-2/3" />
+              </div>
+            </div>
+          ))}
+
+          {!isLoading && (activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
             filteredUsers.map((user) => {
               const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
               const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));

@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
+import { ConversationModel } from './models/Conversation.js';
 import { encryptMessage, decryptMessage } from './utils/crypto.js';
 import { authRateLimiter, uploadRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
@@ -157,12 +158,13 @@ function readLocalDB() {
       const data = fs.readFileSync(DB_FILE, 'utf8');
       const parsed = JSON.parse(data);
       if (!parsed.groups) parsed.groups = [];
+      if (!parsed.conversations) parsed.conversations = [];
       return parsed;
     }
   } catch (err) {
     console.error('Error reading local JSON DB:', err);
   }
-  const initial = { users: [], messages: [], groups: [] };
+  const initial = { users: [], messages: [], groups: [], conversations: [] };
   writeLocalDB(initial);
   return initial;
 }
@@ -170,6 +172,7 @@ function readLocalDB() {
 function writeLocalDB(data) {
   try {
     if (!data.groups) data.groups = [];
+    if (!data.conversations) data.conversations = [];
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
     console.error('Error writing local JSON DB:', err);
@@ -263,6 +266,46 @@ async function connectDatabase() {
 }
 
 connectDatabase();
+
+async function upsertConversation(sHandle, rHandle, messageData) {
+  if (!sHandle || !rHandle || sHandle === rHandle) return;
+  const p = [sHandle, rHandle].sort();
+  const convId = `conv_${p[0]}_${p[1]}`;
+
+  if (isMongoConnected) {
+    try {
+      await ConversationModel.findOneAndUpdate(
+        { id: convId },
+        {
+          $set: {
+            participants: p,
+            lastMessage: messageData,
+          },
+          $pull: { deletedBy: { $in: p } },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } catch (err) {
+      console.error('Mongo upsertConversation error:', err);
+    }
+  } else {
+    const db = readLocalDB();
+    let conv = db.conversations.find((c) => c.id === convId);
+    if (!conv) {
+      conv = {
+        id: convId,
+        participants: p,
+        deletedBy: [],
+        createdAt: new Date().toISOString(),
+      };
+      db.conversations.push(conv);
+    }
+    conv.lastMessage = messageData;
+    conv.updatedAt = new Date().toISOString();
+    conv.deletedBy = conv.deletedBy.filter((h) => h !== sHandle && h !== rHandle);
+    writeLocalDB(db);
+  }
+}
 
 // --- REST API ROUTES ---
 
@@ -602,7 +645,55 @@ app.get('/api/users/profile', async (req, res) => {
   }
 });
 
-// Update Profile (Supports both PUT and PATCH for Cross-Device Persistence)
+app.get('/api/conversations', authenticateToken, async (req, res) => {
+  const currentHandle = normalizeHandle(req.user.handle);
+  try {
+    if (isMongoConnected) {
+      const convs = await ConversationModel.find({
+        participants: currentHandle,
+        deletedBy: { $ne: currentHandle }
+      }).sort({ updatedAt: -1 });
+      return res.json({ conversations: convs });
+    } else {
+      const db = readLocalDB();
+      const convs = db.conversations
+        .filter((c) => c.participants.includes(currentHandle) && !c.deletedBy.includes(currentHandle))
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      return res.json({ conversations: convs });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/conversations/:targetHandle', authenticateToken, async (req, res) => {
+  const currentHandle = normalizeHandle(req.user.handle);
+  const targetHandle = normalizeHandle(req.params.targetHandle);
+  const p = [currentHandle, targetHandle].sort();
+  const convId = `conv_${p[0]}_${p[1]}`;
+
+  try {
+    if (isMongoConnected) {
+      await ConversationModel.findOneAndUpdate(
+        { id: convId },
+        { $addToSet: { deletedBy: currentHandle } }
+      );
+    } else {
+      const db = readLocalDB();
+      const conv = db.conversations.find(c => c.id === convId);
+      if (conv && !conv.deletedBy.includes(currentHandle)) {
+        conv.deletedBy.push(currentHandle);
+        writeLocalDB(db);
+      }
+    }
+    io.to(`user_${currentHandle}`).emit('chat_deleted', { targetHandle });
+    return res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update profile (Supports both PUT and PATCH for Cross-Device Persistence)
 app.all(['/api/users/profile', '/api/users/settings'], authenticateToken, async (req, res, next) => {
   if (req.method !== 'PUT' && req.method !== 'PATCH') return next();
   try {
@@ -1204,6 +1295,7 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
       } else {
         if (rHandle) io.to(rHandle).emit('new_message', formatted);
         if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
+        await upsertConversation(sHandle, rHandle, formatted);
       }
       return res.json({ message: formatted });
     } else {
@@ -1216,6 +1308,7 @@ app.post('/api/messages', authenticateToken, async (req, res) => {
       } else {
         if (rHandle) io.to(rHandle).emit('new_message', formatted);
         if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
+        await upsertConversation(sHandle, rHandle, formatted);
       }
       return res.json({ message: formatted });
     }

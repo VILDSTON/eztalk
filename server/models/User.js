@@ -13,19 +13,21 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
+      index: true,
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      sparse: true,
     },
     password: {
       type: String,
-      default: 'password123',
+      select: false, // Защита от утечки в API
     },
     avatar: {
       type: String,
-      default: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      default: 'https://api.dicebear.com/7.x/bottts/svg?seed=EzTalk',
     },
     status: {
       type: String,
@@ -111,6 +113,8 @@ const userSchema = new mongoose.Schema(
       virtuals: true,
       transform: (_doc, ret) => {
         ret.id = ret.id || ret._id?.toString();
+        delete ret.password; // Гарантированное удаление хэша/пароля
+        delete ret.__v;
         return ret;
       },
     },
@@ -118,12 +122,14 @@ const userSchema = new mongoose.Schema(
       virtuals: true,
       transform: (_doc, ret) => {
         ret.id = ret.id || ret._id?.toString();
+        delete ret.password;
+        delete ret.__v;
         return ret;
       },
     },
   }
 );
 
-userSchema.index({ email: 1 });
+userSchema.index({ email: 1 }, { sparse: true });
 
 export const UserModel = mongoose.models.User || mongoose.model('User', userSchema);

@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
     tempId: {
       type: String,
@@ -42,7 +43,7 @@ const messageSchema = new mongoose.Schema(
     attachment: {
       id: String,
       name: String,
-      type: { type: String, enum: ['image', 'file', 'audio'] },
+      type: { type: String, enum: ['image', 'file', 'audio', 'video'] },
       url: String,
       size: String,
       duration: Number,
@@ -86,20 +87,26 @@ const messageSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['sending', 'sent', 'delivered', 'read'],
+      enum: ['pending', 'sending', 'sent', 'delivered', 'read'],
       default: 'sent',
     },
-    timestamp: {
-      type: String,
-      default: 'Sent PM',
-    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret.id || ret._id?.toString();
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
 );
 
-messageSchema.index({ conversationKey: 1, createdAt: 1 });
-messageSchema.index({ groupId: 1, createdAt: 1 });
-messageSchema.index({ senderHandle: 1, createdAt: -1 });
-messageSchema.index({ recipientHandle: 1, createdAt: -1 });
+// Составные индексы для быстрого пагинационного чтения истории
+messageSchema.index({ conversationKey: 1, createdAt: -1 });
+messageSchema.index({ groupId: 1, createdAt: -1 });
+messageSchema.index({ tempId: 1 }, { sparse: true });
 
 export const MessageModel = mongoose.models.Message || mongoose.model('Message', messageSchema);

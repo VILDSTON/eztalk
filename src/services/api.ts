@@ -426,4 +426,31 @@ export class ApiService {
       return false;
     }
   }
+
+  // Get Conversations
+  static async getConversations(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/conversations`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await handleResponse(res, 'Failed to fetch conversations');
+      return data.conversations || [];
+    } catch {
+      return [];
+    }
+  }
+
+  // Delete Conversation
+  static async deleteConversation(targetHandle: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/conversations/${targetHandle}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleResponse(res, 'Failed to delete conversation');
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

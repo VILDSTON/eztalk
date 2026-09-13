@@ -148,6 +148,8 @@ function MainApp() {
       ? currentUser.friends.map(normalizeHandle)
       : (currentUser ? ChatStorageService.getAddedFriends(currentUser.handle) : [])
   );
+  const [activeConversations, setActiveConversations] = useState<any[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [activeChatHandles, setActiveChatHandles] = useState<string[]>([]);
   // Chat messages stored in memory dictionary by conversation key (0ms instant chat switching, no empty flicker)
   const [messagesByChat, setMessagesByChat] = useState<Record<string, Message[]>>(() => {
@@ -341,8 +343,7 @@ function MainApp() {
     (u) =>
       normalizeHandle(u.handle) !== normalizeHandle(currentUser?.handle || '') &&
       (addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(u.handle)) ||
-        activeChatHandles.some((h) => normalizeHandle(h) === normalizeHandle(u.handle)) ||
-        Object.keys(messagesByChat).some((key) => key.split('__').includes(normalizeHandle(u.handle))))
+        activeConversations.some((c) => c.participants.includes(normalizeHandle(u.handle))))
   );
 
   // Filter groups where currentUser is a member
@@ -440,6 +441,28 @@ function MainApp() {
       // fallback
     }
   }, []);
+
+  const fetchConversations = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      setIsLoadingConversations(true);
+      const convs = await ApiService.getConversations();
+      setActiveConversations(convs);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchConversations();
+    } else {
+      setActiveConversations([]);
+      setIsLoadingConversations(false);
+    }
+  }, [currentUser, fetchConversations]);
 
   // Fetch messages from Backend API with Local-First 0ms instant cache rendering & smooth background merge
   const refreshMessages = useCallback(async () => {
@@ -1290,6 +1313,8 @@ function MainApp() {
     if (!isGroup) {
       const handle = normalizeHandle(targetIdOrHandle);
       setActiveChatHandles((prev) => prev.filter(h => h !== handle));
+      await ApiService.deleteConversation(handle);
+      setActiveConversations((prev) => prev.filter(c => !c.participants.includes(handle)));
     }
     
     // 3. Reset active dialogue and navigate away if it's currently open
@@ -1867,6 +1892,7 @@ function MainApp() {
             key={currentUser?.id || 'guest'}
             currentUser={currentUser}
             users={chatUsers}
+            isLoading={isLoadingConversations}
             allExistingUsers={allUsers}
             groups={userGroups}
             unreadCounts={unreadCounts}
