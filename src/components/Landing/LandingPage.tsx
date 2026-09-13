@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { MessageSquare, Shield, Code, ChevronRight, Globe, Lock, Zap } from 'lucide-react';
+import { MessageSquare, Shield, Code, ChevronRight, Globe, Lock, Zap, Download, FileText } from 'lucide-react';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 
 export const LandingPage: React.FC = () => {
@@ -17,9 +17,7 @@ export const LandingPage: React.FC = () => {
       <header className="w-full bg-[#0a0d12]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
-            <div className="w-8 h-8 rounded-lg bg-[#00e676] flex items-center justify-center text-black">
-              <MessageSquare className="w-4 h-4" />
-            </div>
+            <img src="/icons/icon-192x192.png" alt="EzTalk Logo" className="w-8 h-8 rounded-lg object-cover" />
             <span className="font-semibold text-lg tracking-tight">EzTalk</span>
           </div>
 
@@ -30,24 +28,26 @@ export const LandingPage: React.FC = () => {
               <Code className="w-4 h-4 mr-1.5" />
               GitHub
             </a>
-            
+          </nav>
+
+          <div className="flex items-center space-x-4">
             <div className="flex items-center text-gray-300 hover:text-[#00e676] transition-colors relative group cursor-pointer">
               <Globe className="w-4 h-4 mr-1.5" />
-              <span className="uppercase text-sm">{language}</span>
+              <span className="uppercase text-sm hidden sm:inline">{language}</span>
               <div className="absolute top-full right-0 mt-2 bg-[#11161f] border border-white/10 rounded-lg shadow-2xl p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto w-32">
                 <button onClick={() => setLanguage('en')} className={`w-full text-left px-3 py-1.5 rounded-md text-sm ${language === 'en' ? 'bg-white/10 font-semibold text-white' : 'hover:bg-white/5'}`}>English</button>
                 <button onClick={() => setLanguage('ru')} className={`w-full text-left px-3 py-1.5 rounded-md text-sm ${language === 'ru' ? 'bg-white/10 font-semibold text-white' : 'hover:bg-white/5'}`}>Русский</button>
                 <button onClick={() => setLanguage('uz')} className={`w-full text-left px-3 py-1.5 rounded-md text-sm ${language === 'uz' ? 'bg-white/10 font-semibold text-white' : 'hover:bg-white/5'}`}>O'zbekcha</button>
               </div>
             </div>
-          </nav>
 
-          <button 
-            onClick={handleLaunch}
-            className="border border-[#00e676]/50 text-[#00e676] hover:bg-[#00e676]/10 px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            Open Web App
-          </button>
+            <button 
+              onClick={handleLaunch}
+              className="border border-[#00e676]/50 text-[#00e676] hover:bg-[#00e676]/10 px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base whitespace-nowrap"
+            >
+              Open Web App
+            </button>
+          </div>
         </div>
       </header>
 
@@ -173,6 +173,26 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* PWA Install CTA */}
+      <section className="w-full bg-[#0a0d12] border-t border-white/5 py-16 flex justify-center px-6">
+        <div className="bg-[#11161f] border border-white/10 rounded-2xl p-8 max-w-[800px] w-full flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+          <div className="flex flex-col items-center md:items-start text-center md:text-left">
+            <h3 className="text-2xl font-bold text-white mb-2">Install Web App (PWA)</h3>
+            <p className="text-slate-400">Add to Home Screen or Desktop for instant access without app stores</p>
+          </div>
+          <button 
+            onClick={() => {
+              window.dispatchEvent(new Event('beforeinstallprompt'));
+              alert('Check your browser address bar or menu for the "Install" icon, or add the page to your Home Screen.');
+            }}
+            className="flex items-center whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg"
+          >
+            <Download className="w-5 h-5 mr-2 text-[#00e676]" />
+            Install App
+          </button>
+        </div>
+      </section>
+
       {/* E. Footer */}
       <footer className="w-full bg-[#07090d] border-t border-white/10 text-gray-400 pt-16 pb-8">
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
@@ -202,11 +222,19 @@ export const LandingPage: React.FC = () => {
           
           <div>
             <h4 className="text-white font-semibold mb-4">Security & Legal</h4>
-            <ul className="space-y-3 text-sm">
-              <li><a href="#" className="hover:text-white transition-colors flex items-center"><Shield className="w-4 h-4 mr-1.5" /> Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-              <li><a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center"><Code className="w-4 h-4 mr-1.5" /> Open Source</a></li>
-            </ul>
+            <div className="space-y-5 text-sm">
+              <div>
+                <a href="/privacy" className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><Shield className="w-4 h-4 mr-1.5 text-[#00e676]" /> Privacy Policy</a>
+                <p className="text-xs text-slate-500 leading-relaxed">Transparent data processing. Direct P2P calls without media logs and strict TLS in transit.</p>
+              </div>
+              <div>
+                <a href="/terms" className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><FileText className="w-4 h-4 mr-1.5 text-slate-400" /> Terms of Service</a>
+                <p className="text-xs text-slate-500 leading-relaxed">Service provided AS-IS. Fair usage guidelines, zero spam tolerance, and account safety.</p>
+              </div>
+              <div className="pt-2">
+                <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center"><Code className="w-4 h-4 mr-1.5" /> Open Source</a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
