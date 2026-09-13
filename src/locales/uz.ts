@@ -218,5 +218,13 @@ export const uz: TranslationKeys = {
     clearHistoryConfirm: 'Ushbu chat tarixini tozalashni xohlaysizmi?',
     deleteChat: 'Chatni o‘chirish',
     deleteChatConfirm: 'Ushbu chatni butunlay o‘chirishni xohlaysizmi?',
-  }
+  },
+  profile: {
+    shareProfile: 'Profilni ulashish',
+    linkCopied: 'Havola nusxalandi!',
+  },
+  pwa: {
+    installBannerText: 'Tezkor kirish va to‘liq ekran rejimi uchun EzTalk Web ilovasini o‘rnating',
+    install: 'O‘rnatish',
+  },
 };

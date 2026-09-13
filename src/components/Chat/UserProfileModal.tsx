@@ -9,6 +9,8 @@ import {
   UserPlus,
   Download,
   Ban,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
@@ -47,7 +49,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 }) => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [actionToConfirm, setActionToConfirm] = useState<'block' | 'unblock' | 'remove_friend' | null>(null);
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const [isCopied, setIsCopied] = useState(false);
 
   // Закрытие по клавише Escape
   useEffect(() => {
@@ -71,6 +74,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const isUserOnline = Boolean(!isBlocked && isOnline);
 
   if (!isOpen) return null;
+
+  const handleShareProfile = async () => {
+    const profileUrl = `${window.location.origin}/${language}/@${user.handle.replace('@', '')}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `EzTalk Profile - ${user.name}`,
+          url: profileUrl
+        });
+      } else {
+        await navigator.clipboard.writeText(profileUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      }
+    } catch {
+      // Ignore abort errors from native share
+    }
+  };
 
   const sharedAttachments: Attachment[] = messages
     .filter((m) => m.attachment)
@@ -215,7 +236,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               <button
                 type="button"
                 onClick={onStartCall}
@@ -235,6 +256,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               >
                 {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-neon-green mb-1" />}
                 <span className="text-[11px] font-semibold">{isMuted ? t.chat.muted : t.chat.mute}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareProfile}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer relative"
+                title={t.profile?.shareProfile || 'Share Profile'}
+              >
+                {isCopied ? (
+                  <Check className="w-5 h-5 text-neon-green mb-1" />
+                ) : (
+                  <Share2 className="w-5 h-5 text-neon-green mb-1" />
+                )}
+                <span className="text-[11px] font-semibold text-gray-200">{isCopied ? (t.profile?.linkCopied || 'Copied!') : (t.profile?.shareProfile || 'Share')}</span>
               </button>
 
               <button

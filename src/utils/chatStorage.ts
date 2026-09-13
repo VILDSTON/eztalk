@@ -441,29 +441,29 @@ export class ChatStorageService {
     } catch {}
   }
 
-  // Offline pending message queue
-  static getPendingQueue(): Message[] {
+  // Offline message outbox queue
+  static getOutbox(): Message[] {
     try {
-      const data = localStorage.getItem('eztalk_pending_queue_v1');
+      const data = localStorage.getItem('eztalk_outbox_queue');
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
   }
 
-  static addPendingMessage(msg: Message) {
+  static addToOutbox(msg: Message) {
     try {
-      const current = this.getPendingQueue();
+      const current = this.getOutbox();
       const updated = [...current.filter((m) => m.id !== msg.id), msg];
-      localStorage.setItem('eztalk_pending_queue_v1', JSON.stringify(updated));
+      localStorage.setItem('eztalk_outbox_queue', JSON.stringify(updated));
     } catch {}
   }
 
-  static removePendingMessage(id: string) {
+  static removeFromOutbox(id: string) {
     try {
-      const current = this.getPendingQueue();
+      const current = this.getOutbox();
       const updated = current.filter((m) => m.id !== id);
-      localStorage.setItem('eztalk_pending_queue_v1', JSON.stringify(updated));
+      localStorage.setItem('eztalk_outbox_queue', JSON.stringify(updated));
     } catch {}
   }
 

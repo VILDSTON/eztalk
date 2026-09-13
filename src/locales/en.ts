@@ -216,6 +216,14 @@ export const en = {
     deleteChat: 'Delete chat',
     deleteChatConfirm: 'Are you sure you want to delete this chat completely?',
   },
+  profile: {
+    shareProfile: 'Share Profile',
+    linkCopied: 'Link copied!',
+  },
+  pwa: {
+    installBannerText: 'Install EzTalk Web for a faster, full-screen app experience',
+    install: 'Install',
+  },
 };
 
 export type TranslationKeys = typeof en;

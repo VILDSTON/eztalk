@@ -707,18 +707,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </p>
               </div>
 
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Lock className="w-5 h-5 text-neon-green" />
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Direct Message Privacy</h4>
-                    <p className="text-xs text-ez-muted">Allow incoming direct chats from any username</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-bold text-neon-green bg-neon-green/10 px-2.5 py-1 rounded-xl">
-                  Public
-                </span>
-              </div>
 
               {onLogout && (
                 <div className="pt-2">

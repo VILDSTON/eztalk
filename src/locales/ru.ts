@@ -218,5 +218,13 @@ export const ru: TranslationKeys = {
     clearHistoryConfirm: 'Вы уверены, что хотите очистить историю сообщений?',
     deleteChat: 'Удалить чат',
     deleteChatConfirm: 'Вы уверены, что хотите безвозвратно удалить этот чат?',
-  }
+  },
+  profile: {
+    shareProfile: 'Поделиться профилем',
+    linkCopied: 'Ссылка скопирована!',
+  },
+  pwa: {
+    installBannerText: 'Установите приложение EzTalk Web для быстрого доступа и работы в полноэкранном режиме',
+    install: 'Установить',
+  },
 };

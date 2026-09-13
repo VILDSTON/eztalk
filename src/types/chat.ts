@@ -68,7 +68,7 @@ export interface Message {
   recipientHandle?: string; // e.g. "@User_A"
   text: string;
   timestamp: string;
-  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   timeFormatted?: string;
   attachment?: Attachment;
   replyTo?: QuotedMessage;

@@ -58,7 +58,7 @@ function MainApp() {
   const navigate = useLocalizedNavigate();
   const location = useLocation();
   const { lang } = useParams();
-  const { setLanguage } = useTranslation();
+  const { setLanguage, t } = useTranslation();
 
   useEffect(() => {
     if (lang && SUPPORTED_LANGS.includes(lang as any)) {
@@ -84,18 +84,65 @@ function MainApp() {
   });
   const [isNotFound, setIsNotFound] = useState(false);
 
+  const [showPwaInstall, setShowPwaInstall] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      const hideBannerUntil = localStorage.getItem('eztalk_hide_install_banner_until');
+      if (!hideBannerUntil || Date.now() > parseInt(hideBannerUntil, 10)) {
+        setShowPwaInstall(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowPwaInstall(false);
+      }
+      setDeferredPrompt(null);
+    }
+  };
+
+  const closePwaBanner = () => {
+    // 24 hours in ms
+    const nextTime = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem('eztalk_hide_install_banner_until', nextTime.toString());
+    setShowPwaInstall(false);
+  };
+
   useEffect(() => {
     const path = location.pathname.toLowerCase();
+    
+    const handleMatch = path.match(new RegExp(`^/${lang}/@([^/]+)`));
+    const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
+    
+    if (handleMatch) {
+      navigate(`/direct/t/${handleMatch[1]}`, { replace: true });
+      return;
+    }
+    if (chatMatch) {
+      navigate(`/direct/t/${chatMatch[1]}`, { replace: true });
+      return;
+    }
+
     if (path === '/privacy') {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
-    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`)) {
+    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`)) {
       setIsNotFound(true);
     } else {
       setIsNotFound(false);
     }
-  }, [location.pathname]);
+  }, [location.pathname, lang, navigate]);
   const [addedFriends, setAddedFriends] = useState<string[]>(() =>
     currentUser?.friends && currentUser.friends.length > 0
       ? currentUser.friends.map(normalizeHandle)
@@ -542,6 +589,53 @@ function MainApp() {
   useEffect(() => {
     refreshUsersAndGroups();
   }, [refreshUsersAndGroups]);
+
+  const syncOutbox = useCallback(async () => {
+    if (!currentUser) return;
+    const outbox = ChatStorageService.getOutbox();
+    if (outbox.length === 0) return;
+
+    for (const msg of outbox) {
+      try {
+        const serverMsg = await ApiService.sendMessage(
+          currentUser.handle,
+          msg.recipientHandle || '',
+          msg.text,
+          msg.attachment,
+          msg.replyTo,
+          msg.groupId,
+          undefined,
+          msg.id,
+          msg.isForwarded,
+          msg.forwardedFrom,
+          undefined,
+          undefined,
+          msg.tempId
+        );
+        if (serverMsg && serverMsg.status !== 'failed') {
+          ChatStorageService.removeFromOutbox(msg.id);
+          setMessagesByChat((prev) => {
+            const existing = prev[msg.conversationKey] || [];
+            const updated = existing.map((m) =>
+              m.id === msg.id ? { ...m, ...serverMsg, status: 'sent' as const } : m
+            );
+            ChatStorageService.saveConversation(msg.conversationKey, updated);
+            return { ...prev, [msg.conversationKey]: updated };
+          });
+        }
+      } catch (err) {
+        // Still failing, leave in outbox
+      }
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    window.addEventListener('online', syncOutbox);
+    if (navigator.onLine) {
+      syncOutbox();
+    }
+    return () => window.removeEventListener('online', syncOutbox);
+  }, [syncOutbox]);
 
   useEffect(() => {
     refreshMessages();
@@ -1319,16 +1413,16 @@ function MainApp() {
         return { ...prev, [convKey]: updated };
       });
     } catch {
-      // Mark as failed in UI so user can tap "Retry"
+      // Offline Outbox Queue: Mark as pending and save to outbox
       setMessagesByChat((prev) => {
         const existing = prev[convKey] || [];
         const updated: Message[] = existing.map((m) =>
-          m.id === tempId ? { ...m, status: 'failed' as const } : m
+          m.id === tempId ? { ...m, status: 'pending' as const } : m
         );
         ChatStorageService.saveConversation(convKey, updated);
         return { ...prev, [convKey]: updated };
       });
-      ChatStorageService.addPendingMessage(tempMsg);
+      ChatStorageService.addToOutbox({ ...tempMsg, status: 'pending' as const });
     }
   };
 
@@ -2095,6 +2189,31 @@ function MainApp() {
       <CookieBanner
         onOpenPrivacy={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
       />
+
+      {/* PWA Install Banner */}
+      {showPwaInstall && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] w-[90%] sm:w-auto max-w-sm bg-ez-elevated border border-ez-border shadow-glass rounded-2xl p-3 flex items-center justify-between gap-4 animate-fade-in backdrop-blur-md">
+          <div className="flex-1">
+            <p className="text-xs text-white font-medium">
+              {t.pwa?.installBannerText || 'Install EzTalk Web for a faster, full-screen app experience.'}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={handleInstallPwa}
+              className="px-3 py-1.5 bg-neon-green text-black text-xs font-bold rounded-xl shadow-neon-sm hover:scale-105 transition-transform"
+            >
+              {t.pwa?.install || 'Install'}
+            </button>
+            <button
+              onClick={closePwaBanner}
+              className="p-1.5 text-ez-muted hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
