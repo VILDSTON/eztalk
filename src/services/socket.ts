@@ -21,9 +21,10 @@ class SocketService {
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: 15,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
+        timeout: 20000,
         auth: (cb: (data: { token?: string }) => void) => {
           const token = localStorage.getItem('eztalk_token');
           cb({ token: token || undefined });
@@ -38,7 +39,10 @@ class SocketService {
       };
 
       this.socket.on('connect', handleJoin);
-      this.socket.io.on('reconnect', handleJoin);
+      this.socket.io.on('reconnect', () => {
+        handleJoin();
+        window.dispatchEvent(new CustomEvent('ez:reconnect_sync'));
+      });
     } else if (this.socket.connected && this.currentHandle) {
       this.socket.emit('join', normalizeHandle(this.currentHandle));
     }

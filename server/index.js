@@ -16,7 +16,7 @@ import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
 import { ConversationModel } from './models/Conversation.js';
 import { encryptMessage, decryptMessage } from './utils/crypto.js';
-import { authRateLimiter, uploadRateLimiter } from './utils/rateLimiter.js';
+import { authRateLimiter, uploadRateLimiter, apiRateLimiter, messageRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
@@ -136,6 +136,9 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Apply global API rate limiter (excluding auth and specific routes)
+app.use('/api', apiRateLimiter);
 
 // Supabase Storage Configuration (Strictly required on Render due to ephemeral filesystem)
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -1232,7 +1235,7 @@ const isBlockedBy = async (senderHandle, recipientHandle) => {
 };
 // -------------------------------------
 
-app.post('/api/messages', authenticateToken, async (req, res) => {
+app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res) => {
   try {
     const {
       id,
@@ -1653,6 +1656,7 @@ app.post('/api/messages/clear', authenticateToken, async (req, res) => {
 
 // --- SOCKET.IO SECURE PRESENCE & SIGNALING ---
 const socketHandleMap = new Map(); // socket.id -> handle
+const disconnectTimers = new Map(); // handle -> timeoutId
 
 function getOnlineHandles() {
   return Array.from(new Set(socketHandleMap.values()));
@@ -1681,6 +1685,13 @@ io.on('connection', (socket) => {
 
     socket.join(handle);
     socketHandleMap.set(socket.id, handle);
+    
+    // Clear any pending offline timer if user reconnected fast
+    if (disconnectTimers.has(handle)) {
+      clearTimeout(disconnectTimers.get(handle));
+      disconnectTimers.delete(handle);
+    }
+    
     io.emit('online_users', getOnlineHandles());
   });
 
@@ -1705,18 +1716,30 @@ io.on('connection', (socket) => {
     if (socketHandleMap.has(socket.id)) {
       const handle = socketHandleMap.get(socket.id);
       socketHandleMap.delete(socket.id);
-      io.emit('online_users', getOnlineHandles());
       
-      const now = new Date();
-      if (isMongoConnected) {
-        UserModel.updateOne({ handle }, { $set: { lastSeen: now } }).catch(() => {});
-      } else {
-        const db = readLocalDB();
-        const u = db.users.find((x) => normalizeHandle(x.handle) === normalizeHandle(handle));
-        if (u) {
-          u.lastSeen = now.toISOString();
-          writeLocalDB(db);
-        }
+      // Check if user still has other active sockets (e.g. multiple tabs)
+      const isStillOnline = Array.from(socketHandleMap.values()).includes(handle);
+      
+      if (!isStillOnline) {
+        // 5-second grace period before broadcasting offline status
+        const timer = setTimeout(() => {
+          io.emit('online_users', getOnlineHandles());
+          
+          const now = new Date();
+          if (isMongoConnected) {
+            UserModel.updateOne({ handle }, { $set: { lastSeen: now } }).catch(() => {});
+          } else {
+            const db = readLocalDB();
+            const u = db.users.find((x) => normalizeHandle(x.handle) === normalizeHandle(handle));
+            if (u) {
+              u.lastSeen = now.toISOString();
+              writeLocalDB(db);
+            }
+          }
+          disconnectTimers.delete(handle);
+        }, 5000);
+        
+        disconnectTimers.set(handle, timer);
       }
     }
   });

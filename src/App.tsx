@@ -687,6 +687,18 @@ function MainApp() {
     refreshMessages();
   }, [refreshMessages]);
 
+  useEffect(() => {
+    const handleReconnectSync = () => {
+      if (currentUser) {
+        refreshUsersAndGroups();
+        fetchConversations();
+        refreshMessages();
+      }
+    };
+    window.addEventListener('ez:reconnect_sync', handleReconnectSync);
+    return () => window.removeEventListener('ez:reconnect_sync', handleReconnectSync);
+  }, [currentUser, refreshUsersAndGroups, fetchConversations, refreshMessages]);
+
   // Periodic background refresh for 100% synchronized state
   useEffect(() => {
     if (!currentUser) return;
