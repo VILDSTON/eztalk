@@ -459,8 +459,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
 
-    // Cancel long press if moved > 24px
-    if (Math.abs(dx) > 24 || Math.abs(dy) > 24) {
+    // Cancel long press if moved > 28px
+    if (Math.abs(dx) > 28 || Math.abs(dy) > 28) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -501,9 +501,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       triggerReply();
     }
 
-    // Always spring back smoothly to 0px
-    setSwipeOffset(0);
-    setIsSwiping(false);
+    if (isMobileSheetOpen) {
+      setSwipeOffset(0);
+      setIsSwiping(false);
+    } else {
+      setSwipeOffset(0);
+      setIsSwiping(false);
+    }
+    
     isHorizontalSwipeRef.current = false;
     touchStartPosRef.current = null;
   };
@@ -604,7 +609,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
         } max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans select-none touch-manipulation [-webkit-touch-callout:none]`}
+        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -636,7 +641,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-text ${
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             isMe
@@ -808,7 +813,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Text Content with Native Selection (Suppressed for call events to prevent duplicate raw text) */}
           {!callPresentation && message.text && (
-            <p className="whitespace-pre-wrap break-words word-break-all select-text selection:bg-neon-green selection:text-black">
+            <p className="whitespace-pre-wrap break-words word-break-all select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] selection:bg-neon-green selection:text-black">
               {(() => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = message.text.split(urlRegex);
