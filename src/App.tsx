@@ -137,7 +137,7 @@ function MainApp() {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
-    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`)) {
+    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`) && !path.startsWith(`/${lang}/login`) && !path.startsWith(`/${lang}/t`)) {
       setIsNotFound(true);
     } else {
       setIsNotFound(false);
