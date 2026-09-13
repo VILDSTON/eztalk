@@ -16,8 +16,6 @@ class SocketService {
     }
 
     if (!this.socket) {
-      const token = localStorage.getItem('eztalk_token');
-
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,

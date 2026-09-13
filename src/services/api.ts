@@ -215,7 +215,8 @@ export class ApiService {
       const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}?${params.toString()}`, {
         headers: getAuthHeaders(),
       });
-      const data = await res.json();
+      // Bug 3 fix: use handleResponse so 401/403 properly clears token and dispatches ez:unauthorized
+      const data = await handleResponse(res, 'Failed to fetch messages');
       return {
         messages: (data.messages || []).map((m: any) => ({ ...m, status: m.status || 'sent' })),
         nextCursor: data.nextCursor || null,
@@ -281,8 +282,10 @@ export class ApiService {
     tempId?: string
   ): Promise<Message> {
     const nowIso = new Date().toISOString();
+    const realId = id && !id.startsWith('temp_') ? id : `temp_msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const payload = {
-      id: id || `msg_${Date.now()}`,
+      id: realId,
+      // Bug 4 fix: tempId is the original client-side temp_ id for optimistic-update matching
       tempId: tempId || (id && id.startsWith('temp_') ? id : undefined),
       senderHandle,
       recipientHandle,
