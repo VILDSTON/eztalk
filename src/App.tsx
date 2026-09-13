@@ -307,7 +307,12 @@ function MainApp() {
     const token = localStorage.getItem('eztalk_token');
     if (!token) {
       // Background re-authentication to obtain fresh JWT token
-      ApiService.login(currentUser.handle).catch(() => {});
+      ApiService.login(currentUser.handle).catch(() => {
+        // If background login fails (e.g. 400 or 401), clear invalid session to prevent spam loops
+        ChatStorageService.saveAuthUser(null);
+        setCurrentUser(null);
+        window.dispatchEvent(new CustomEvent('ez:unauthorized'));
+      });
     }
   }, [currentUser?.handle]);
 
@@ -407,6 +412,9 @@ function MainApp() {
 
   // Fetch all users, groups, and current user profile from Backend API
   const refreshUsersAndGroups = useCallback(async () => {
+    const token = localStorage.getItem('eztalk_token');
+    if (!token) return; // Prevent spamming API when unauthenticated
+
     try {
       const cUser = currentUserRef.current;
       if (cUser && cUser.handle) {
@@ -443,7 +451,9 @@ function MainApp() {
   }, []);
 
   const fetchConversations = useCallback(async () => {
-    if (!currentUser) return;
+    const token = localStorage.getItem('eztalk_token');
+    if (!currentUser || !token) return; // Prevent spamming API without token
+
     try {
       setIsLoadingConversations(true);
       const convs = await ApiService.getConversations();
