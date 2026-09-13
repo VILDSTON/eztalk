@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { MessageSquare, Shield, Code, ChevronRight, Globe, Lock, Zap, Download, FileText } from 'lucide-react';
+import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot } from 'lucide-react';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 
 export const LandingPage: React.FC = () => {
@@ -41,7 +41,7 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <button 
+            <button
               onClick={handleLaunch}
               className="border border-[#00e676]/50 text-[#00e676] hover:bg-[#00e676]/10 px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base whitespace-nowrap"
             >
@@ -56,12 +56,12 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
           <div className="w-full md:w-[45%] flex flex-col items-start">
             <h1 className="text-[48px] sm:text-[60px] font-extrabold leading-[1.07] text-white tracking-tight mb-6">
-              Light and Fast.
+              Light and fast.
             </h1>
-            <p className="text-[16px] leading-[1.5] text-slate-400 max-w-[480px] mb-8">
-              A privacy-minded web messenger engineered for pure speed. No bloat, no tracking, zero lag.
+            <p className="text-[17px] leading-[1.6] text-slate-400 max-w-[440px] mb-8">
+              Messages arrive the moment they're sent. Calls connect straight between browsers. Nothing sits between you and the person you're talking to.
             </p>
-            <button 
+            <button
               onClick={handleLaunch}
               className="bg-[#00e676] text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 shadow-[0_0_25px_rgba(0,230,118,0.25)] transition-all flex items-center group"
             >
@@ -80,9 +80,9 @@ export const LandingPage: React.FC = () => {
                   <span className="text-slate-400 text-xs block font-mono mt-0.5">last seen recently</span>
                 </div>
               </div>
-              
+
               <div className="border-b border-white/10 my-3" />
-              
+
               {/* Mockup Chat Bubbles */}
               <div className="flex flex-col gap-3">
                 <div className="flex justify-start">
@@ -95,7 +95,7 @@ export const LandingPage: React.FC = () => {
                   <div className="bg-[#0e3b2e] text-white border border-[#00e676]/20 rounded-2xl rounded-br-sm p-3 text-xs sm:text-sm max-w-[85%] ml-auto">
                     Yes, it connects browser-to-browser. Crystal clear. 🚀
                     <div className="text-[#00e676] text-[10px] font-mono flex items-center justify-end gap-1 mt-1">
-                      19:59 
+                      19:59
                       <span className="flex relative w-3 h-3">
                         <svg className="absolute left-0 top-0 w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         <svg className="absolute left-1.5 top-0 w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -105,33 +105,52 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Background decorative blob */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#00e676]/10 blur-3xl rounded-full z-0 pointer-events-none" />
           </div>
         </div>
       </section>
 
-      {/* C. Feature Section 1 */}
+      {/* Technical facts strip — breaks the card-mockup rhythm, states what's real */}
+      <section className="w-full bg-[#0a0d12] border-y border-white/10">
+        <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+          <div className="py-8 sm:px-8 sm:first:pl-0">
+            <p className="text-slate-500 text-sm mb-1.5">Transport</p>
+            <p className="text-white font-medium">WebSocket, direct P2P for calls</p>
+          </div>
+          <div className="py-8 sm:px-8">
+            <p className="text-slate-500 text-sm mb-1.5">Audio</p>
+            <p className="text-white font-medium">Opus codec over WebRTC</p>
+          </div>
+          <div className="py-8 sm:px-8 sm:last:pr-0">
+            <p className="text-slate-500 text-sm mb-1.5">Delivery</p>
+            <p className="text-white font-medium">Pushed instantly, no polling</p>
+          </div>
+        </div>
+      </section>
+
+      {/* C. Feature Section 1 — call UI shown directly, no nested card */}
       <section id="features" className="w-full bg-[#0a0d12] py-24">
-        <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
+        <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-16">
           <div className="w-full md:w-1/2 flex flex-col items-start">
             <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-6">
-              Direct P2P Audio & Video
+              Direct P2P audio & video
             </h2>
-            <p className="text-[16px] text-slate-400 leading-[1.5] max-w-[480px]">
-              Calls connect directly between browsers via WebRTC. Real-time audio with crystal-clear voice clarity and zero relay servers.
+            <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px]">
+              Calls connect straight between browsers over WebRTC. Your voice and video never pass through our servers — standard STUN infrastructure is only used to help two browsers find each other.
             </p>
           </div>
 
-          <div className="w-full md:w-1/2">
-            <div className="bg-[#11161f] border border-white/5 rounded-[16px] p-8 sm:p-12 shadow-2xl relative overflow-hidden flex items-center justify-center">
+          <div className="w-full md:w-1/2 flex items-center justify-center py-4">
+            <div className="relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-[#00e676]/10 blur-3xl rounded-full z-0 pointer-events-none" />
               <div className="bg-[#0a0d12] border border-white/10 rounded-[16px] p-6 shadow-2xl w-full max-w-[280px] flex flex-col items-center relative z-10">
                 <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#0a0d12] shadow-sm mb-4">
                   <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Alex Rivera" className="w-full h-full object-cover" />
                 </div>
                 <h3 className="font-bold text-white text-lg mb-1">Alex Rivera</h3>
-                <p className="text-[#00e676] font-medium text-sm mb-8 animate-pulse">Incoming Call...</p>
+                <p className="text-[#00e676] font-medium text-sm mb-8 animate-pulse">Incoming call...</p>
                 <div className="flex w-full justify-between px-2">
                   <div className="w-14 h-14 rounded-full bg-[#ff3b30] flex items-center justify-center text-white shadow-lg shadow-[#ff3b30]/20">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -146,30 +165,77 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* D. Feature Section 2 */}
+      {/* D. Feature Section 2 — message path diagram replaces the terminal cliché */}
       <section className="w-full bg-[#0a0d12] py-24 border-t border-white/5">
-        <div className="max-w-[1200px] mx-auto px-6 flex flex-col-reverse md:flex-row items-center justify-between gap-12">
-          
-          <div className="w-full md:w-1/2">
-            <div className="bg-[#11161f] rounded-[16px] p-8 shadow-2xl border border-white/5 flex items-center justify-center h-64">
-              <div className="bg-[#0a0d12] border border-white/5 rounded-[8px] p-6 text-[#00e676] font-mono text-sm sm:text-base w-full shadow-inner overflow-hidden">
-                <p>&#62; Connecting to socket...</p>
-                <p>&#62; Establishing secure WS channel...</p>
-                <p>&#62; [OK] Connected to wss://eztalk.app/socket</p>
-                <p className="mt-4 text-slate-500 opacity-70 animate-pulse">_</p>
-              </div>
-            </div>
+        <div className="max-w-[1200px] mx-auto px-6 flex flex-col-reverse md:flex-row items-center justify-between gap-16">
+
+          <div className="w-full md:w-1/2 flex items-center justify-center">
+            <svg viewBox="0 0 400 140" className="w-full max-w-[360px]" role="img" aria-label="You, connected through EzTalk's server, to a friend">
+              <line x1="55" y1="70" x2="345" y2="70" stroke="white" strokeOpacity="0.12" strokeWidth="2" />
+              <circle cx="200" cy="70" r="3" fill="#00e676">
+                <animate attributeName="cx" values="55;345;55" dur="3.2s" repeatCount="indefinite" />
+              </circle>
+
+              <circle cx="55" cy="70" r="28" fill="#11161f" stroke="white" strokeOpacity="0.1" />
+              <text x="55" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">You</text>
+
+              <rect x="168" y="42" width="64" height="56" rx="12" fill="#11161f" stroke="white" strokeOpacity="0.1" />
+              <text x="200" y="66" textAnchor="middle" fontSize="9" fill="#94a3b8">Socket.io</text>
+              <text x="200" y="80" textAnchor="middle" fontSize="9" fill="#94a3b8">server</text>
+
+              <circle cx="345" cy="70" r="28" fill="#11161f" stroke="white" strokeOpacity="0.1" />
+              <text x="345" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">Friend</text>
+            </svg>
           </div>
 
-          <div className="w-full md:w-1/2 flex flex-col items-start md:pl-12">
+          <div className="w-full md:w-1/2 flex flex-col items-start">
             <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-6">
-              Engineered for Simplicity
+              Engineered for simplicity
             </h2>
-            <p className="text-[16px] text-slate-400 leading-[1.5] max-w-[480px]">
-              No heavy frameworks dragging you down. We built EzTalk Web on raw WebSockets and lightweight React to deliver instant messages and low-latency feedback.
+            <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px]">
+              No heavy frameworks dragging you down. You type, your friend sees it appear — one open connection, no refreshing, no polling in the background.
             </p>
           </div>
 
+        </div>
+      </section>
+
+      {/* Real feature list — shipped functionality, shown as a plain list, not more cards */}
+      <section id="security" className="w-full bg-[#0a0d12] py-24 border-t border-white/5">
+        <div className="max-w-[1200px] mx-auto px-6">
+          <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-12 max-w-[560px]">
+            What you get, from day one
+          </h2>
+          <div className="divide-y divide-white/10 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
+              <div className="flex items-center gap-3 sm:w-64 shrink-0">
+                <Users className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Friends & groups</span>
+              </div>
+              <p className="text-slate-400 text-[15px]">Add people by @username, build group chats, and manage who's on your list.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
+              <div className="flex items-center gap-3 sm:w-64 shrink-0">
+                <UserX className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Blocking that actually hides you</span>
+              </div>
+              <p className="text-slate-400 text-[15px]">Block someone and your avatar, bio, and online status disappear from their view — not just the message thread.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
+              <div className="flex items-center gap-3 sm:w-64 shrink-0">
+                <CalendarDays className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Dividers that make sense</span>
+              </div>
+              <p className="text-slate-400 text-[15px]">Conversations group by Today, Yesterday, and date — so scrolling back finds things fast.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
+              <div className="flex items-center gap-3 sm:w-64 shrink-0">
+                <CircleDot className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Unread counts that clear themselves</span>
+              </div>
+              <p className="text-slate-400 text-[15px]">Open a conversation and the badge is gone — no manual "mark as read."</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -177,10 +243,10 @@ export const LandingPage: React.FC = () => {
       <section className="w-full bg-[#0a0d12] border-t border-white/5 py-16 flex justify-center px-6">
         <div className="bg-[#11161f] border border-white/10 rounded-2xl p-8 max-w-[800px] w-full flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <h3 className="text-2xl font-bold text-white mb-2">Install Web App (PWA)</h3>
-            <p className="text-slate-400">Add to Home Screen or Desktop for instant access without app stores</p>
+            <h3 className="text-2xl font-bold text-white mb-2">Install the web app</h3>
+            <p className="text-slate-400">Add it to your home screen or desktop — no app store needed</p>
           </div>
-          <button 
+          <button
             onClick={() => {
               window.dispatchEvent(new Event('beforeinstallprompt'));
               alert('Check your browser address bar or menu for the "Install" icon, or add the page to your Home Screen.');
@@ -188,7 +254,7 @@ export const LandingPage: React.FC = () => {
             className="flex items-center whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg"
           >
             <Download className="w-5 h-5 mr-2 text-[#00e676]" />
-            Install App
+            Install app
           </button>
         </div>
       </section>
@@ -210,7 +276,7 @@ export const LandingPage: React.FC = () => {
               &copy; {new Date().getFullYear()} EzTalk. All rights reserved.
             </p>
           </div>
-          
+
           <div>
             <h4 className="text-white font-semibold mb-4">Product</h4>
             <ul className="space-y-3 text-sm">
@@ -219,17 +285,17 @@ export const LandingPage: React.FC = () => {
               <li><a href="#" className="hover:text-white transition-colors">Changelog</a></li>
             </ul>
           </div>
-          
+
           <div>
             <h4 className="text-white font-semibold mb-4">Security & Legal</h4>
             <div className="space-y-5 text-sm">
               <div>
                 <a href="/privacy" className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><Shield className="w-4 h-4 mr-1.5 text-[#00e676]" /> Privacy Policy</a>
-                <p className="text-xs text-slate-500 leading-relaxed">Transparent data processing. Direct P2P calls without media logs and strict TLS in transit.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">What we collect, what we don't, and how call and message data is handled.</p>
               </div>
               <div>
                 <a href="/terms" className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><FileText className="w-4 h-4 mr-1.5 text-slate-400" /> Terms of Service</a>
-                <p className="text-xs text-slate-500 leading-relaxed">Service provided AS-IS. Fair usage guidelines, zero spam tolerance, and account safety.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Service provided as-is. Fair use, zero tolerance for spam and abuse.</p>
               </div>
               <div className="pt-2">
                 <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center"><Code className="w-4 h-4 mr-1.5" /> Open Source</a>
