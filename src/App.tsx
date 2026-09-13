@@ -70,7 +70,7 @@ function MainApp() {
     return <RootRedirect />;
   }
 
-  const match = useMatch('/:lang/direct/t/:chatId');
+  const match = useMatch('/:lang/t/direct/t/:chatId');
   const urlChatId = match?.params.chatId;
 
   // Authentication & Global Users State
@@ -125,11 +125,11 @@ function MainApp() {
     const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
     
     if (handleMatch) {
-      navigate(`/direct/t/${handleMatch[1]}`, { replace: true });
+      navigate(`/t/direct/t/${handleMatch[1]}`, { replace: true });
       return;
     }
     if (chatMatch) {
-      navigate(`/direct/t/${chatMatch[1]}`, { replace: true });
+      navigate(`/t/direct/t/${chatMatch[1]}`, { replace: true });
       return;
     }
 
@@ -188,22 +188,22 @@ function MainApp() {
 
   const setSelectedUserId = useCallback((id: string | null) => {
     if (!id) {
-      navigate('/direct');
+      navigate('/t/direct');
     } else {
-      navigate(`/direct/t/${id}`);
+      navigate(`/t/direct/t/${id}`);
     }
   }, [navigate]);
 
   const setSelectedGroupId = useCallback((id: string | null) => {
     if (id) {
-      navigate(`/direct/t/${id}`);
+      navigate(`/t/direct/t/${id}`);
     }
   }, [navigate]);
 
   useEffect(() => {
     if (!currentUser) {
       if (urlChatId) {
-        sessionStorage.setItem('eztalk_redirect_after_login', `/direct/t/${urlChatId}`);
+        sessionStorage.setItem('eztalk_redirect_after_login', `/t/direct/t/${urlChatId}`);
       }
     } else {
       const pendingRedirect = sessionStorage.getItem('eztalk_redirect_after_login');
@@ -212,8 +212,8 @@ function MainApp() {
         navigate(pendingRedirect, { replace: true });
       } else {
         const path = location.pathname.toLowerCase();
-        if (path === '/' || path === '/direct' || path === '/direct/') {
-          navigate('/direct', { replace: true });
+        if (path === '/' || path === '/t/direct' || path === '/t/direct/') {
+          navigate('/t/direct', { replace: true });
         }
       }
     }
@@ -1359,7 +1359,7 @@ function MainApp() {
     ) {
       setSelectedUserId('');
       setSelectedGroupId(null);
-      navigate('/direct');
+      navigate('/t/direct');
     }
   };
 
@@ -1804,7 +1804,7 @@ function MainApp() {
       <NotFoundScreen
         onReturnHome={() => {
           setIsNotFound(false);
-          navigate('/direct');
+          navigate('/t/direct');
         }}
       />
     );
@@ -1902,7 +1902,7 @@ function MainApp() {
             onSelectSection={(sec) => {
               setActiveSection(sec);
               if (sec === 'saved' && currentUser) {
-                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/t/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
               }
             }}
             onOpenAddFriend={() => setIsAddFriendOpen(true)}
@@ -1910,7 +1910,7 @@ function MainApp() {
             onOpenEditProfile={() => setIsEditProfileOpen(true)}
             onSelectSavedMessages={() => {
               if (currentUser) {
-                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/t/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
                 setActiveSection('saved');
               }
             }}
@@ -1939,13 +1939,13 @@ function MainApp() {
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               const handle = normalizeHandle(u.handle);
-              navigate(`/direct/t/${handle.replace('@', '')}`);
+              navigate(`/t/direct/t/${handle.replace('@', '')}`);
               setActiveSection(currentUser && (handle === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
               setUnreadCounts((prev) => ({ ...prev, [handle]: 0, [u.id || handle]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, handle])]);
             }}
             onSelectGroup={(g) => {
-              navigate(`/direct/t/${g.id}`);
+              navigate(`/t/direct/t/${g.id}`);
               setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
@@ -2002,7 +2002,7 @@ function MainApp() {
                 }
               }}
               onBack={() => {
-                navigate('/direct');
+                navigate('/t/direct');
                 setActiveSection('chats');
               }}
               onToggleMute={() => {
