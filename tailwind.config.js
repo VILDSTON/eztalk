@@ -42,9 +42,9 @@ export default {
           muted: '#71717A',
         },
         signal: {
-          blue: '#2c6bed',
-          deep: '#2942ff',
-          sky: '#9dbbf8',
+          blue: '#10b981', // EzTalk Accent
+          deep: '#059669', // EzTalk Dark Green
+          sky: '#ecfdf5',  // Emerald-50
           mist: '#a5cad5',
           ink: '#1b1b1b',
           slate: '#404654',

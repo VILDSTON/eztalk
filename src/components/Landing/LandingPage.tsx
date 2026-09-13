@@ -24,14 +24,14 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-signal-deep hover:opacity-80 transition-opacity">Features</a>
-            <a href="#security" className="text-signal-deep hover:opacity-80 transition-opacity">Security</a>
-            <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="text-signal-deep hover:opacity-80 transition-opacity flex items-center">
+            <a href="#features" className="text-signal-ink hover:text-signal-deep transition-colors">Features</a>
+            <a href="#security" className="text-signal-ink hover:text-signal-deep transition-colors">Security</a>
+            <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="text-signal-ink hover:text-signal-deep transition-colors flex items-center">
               <Code className="w-4 h-4 mr-1.5" />
               GitHub
             </a>
             
-            <div className="flex items-center text-signal-deep relative group cursor-pointer">
+            <div className="flex items-center text-signal-ink hover:text-signal-deep transition-colors relative group cursor-pointer">
               <Globe className="w-4 h-4 mr-1.5" />
               <span className="uppercase text-sm">{language}</span>
               <div className="absolute top-full right-0 mt-2 bg-signal-white border border-signal-fog rounded-lg shadow-signal p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto w-32">
@@ -44,7 +44,7 @@ export const LandingPage: React.FC = () => {
 
           <button 
             onClick={handleLaunch}
-            className="bg-signal-white border-[1.5px] border-signal-blue text-signal-blue px-4 py-2 rounded-[8px] font-semibold hover:bg-signal-blue/5 transition-colors duration-200"
+            className="bg-signal-white border-[1.5px] border-signal-blue text-signal-blue px-4 py-2 rounded-[8px] font-semibold hover:bg-signal-blue/10 transition-colors duration-200"
           >
             Open Web App
           </button>
@@ -63,7 +63,7 @@ export const LandingPage: React.FC = () => {
             </p>
             <button 
               onClick={handleLaunch}
-              className="bg-signal-white border-[1.5px] border-signal-blue text-signal-blue px-6 py-3 rounded-[8px] font-semibold hover:bg-signal-blue/5 transition-colors duration-200 shadow-signal flex items-center group"
+              className="bg-signal-white border-[1.5px] border-signal-blue text-signal-blue px-6 py-3 rounded-[8px] font-semibold hover:bg-signal-blue/10 transition-colors duration-200 shadow-signal flex items-center group"
             >
               Launch EzTalk Web
               <ChevronRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
@@ -74,7 +74,7 @@ export const LandingPage: React.FC = () => {
             <div className="bg-signal-white rounded-[16px] shadow-signal p-4 relative z-10 w-full max-w-[500px] mx-auto aspect-[4/3] flex flex-col border border-signal-fog/50 overflow-hidden transform md:rotate-2 md:hover:rotate-0 transition-all duration-500">
               {/* Mockup Chat Header */}
               <div className="flex items-center px-4 py-3 border-b border-signal-fog mb-4">
-                <div className="w-10 h-10 rounded-full bg-signal-mist/40" />
+                <div className="w-10 h-10 rounded-full bg-emerald-100" />
                 <div className="ml-3">
                   <div className="w-24 h-4 bg-signal-slate/20 rounded mb-2" />
                   <div className="w-16 h-3 bg-signal-slate/10 rounded" />
@@ -83,7 +83,7 @@ export const LandingPage: React.FC = () => {
               {/* Mockup Chat Bubbles */}
               <div className="flex-1 px-4 flex flex-col gap-4">
                 <div className="flex justify-end">
-                  <div className="bg-signal-blue text-signal-white px-4 py-2.5 rounded-l-2xl rounded-tr-2xl rounded-br-sm max-w-[75%]">
+                  <div className="bg-[#064e3b] text-signal-white px-4 py-2.5 rounded-l-2xl rounded-tr-2xl rounded-br-sm max-w-[75%]">
                     Hey! Is the new WebRTC audio ready?
                   </div>
                 </div>
