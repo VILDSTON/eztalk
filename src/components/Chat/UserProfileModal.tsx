@@ -247,15 +247,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <button
-                type="button"
-                onClick={onStartCall}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
-              >
-                <Phone className="w-5 h-5 text-neon-green mb-1" />
-                <span className="text-[11px] font-semibold text-gray-200">{t.chat.call}</span>
-              </button>
+            <div className={`grid ${user.handle !== '@ai' ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-4`}>
+              {user.handle !== '@ai' && (
+                <button
+                  type="button"
+                  onClick={onStartCall}
+                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
+                >
+                  <Phone className="w-5 h-5 text-neon-green mb-1" />
+                  <span className="text-[11px] font-semibold text-gray-200">{t.chat.call}</span>
+                </button>
+              )}
 
               <button
                 type="button"

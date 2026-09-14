@@ -92,7 +92,7 @@ function MainApp() {
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
+
     if (isMobile && !isStandalone) {
       const hideBannerUntil = localStorage.getItem('eztalk_hide_install_banner_until');
       if (!hideBannerUntil || Date.now() > parseInt(hideBannerUntil, 10)) {
@@ -1014,7 +1014,7 @@ function MainApp() {
 
     // Online users presence event
     const unsubOnline = socketService.onOnlineUsers((handles) => {
-      setOnlineHandles(handles);
+      setOnlineHandles(Array.from(new Set([...handles, '@ai'])));
     });
 
     // Typing state event
@@ -1868,7 +1868,7 @@ function MainApp() {
   );
 
   const mainContent = (
-    <div className="w-full h-full min-h-[100dvh] h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden select-none font-sans relative">
+    <div className="w-full h-full min-h-[100dvh] h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden font-sans relative">
       {/* Top Right In-App Notification Toast */}
       {toast && (
         <div

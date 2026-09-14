@@ -276,9 +276,9 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
           {isTyping && (
             <div className="flex flex-col items-start mb-2 animate-fade-in font-sans">
               <div className="bg-ez-received border border-ez-border/50 px-3.5 py-3 rounded-[16px] rounded-bl-sm flex items-center space-x-1.5 w-fit telegram-bubble-in shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce [animation-delay:0.16s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-green/70 animate-dot-bounce [animation-delay:0.32s]" />
+                <span className="w-1.5 h-1.5 rounded-full animate-dot-bounce opacity-80" style={{ backgroundColor: 'var(--ez-accent)' }} />
+                <span className="w-1.5 h-1.5 rounded-full animate-dot-bounce [animation-delay:0.16s] opacity-80" style={{ backgroundColor: 'var(--ez-accent)' }} />
+                <span className="w-1.5 h-1.5 rounded-full animate-dot-bounce [animation-delay:0.32s] opacity-80" style={{ backgroundColor: 'var(--ez-accent)' }} />
               </div>
             </div>
           )}

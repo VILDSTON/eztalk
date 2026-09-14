@@ -618,7 +618,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
         } max-w-full ${
           isMe ? 'items-end' : 'items-start'
-        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]`}
+        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -650,7 +650,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm touch-manipulation ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             isMe
@@ -661,8 +661,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         >
           {/* Forwarded Header */}
           {message.isForwarded && (
-            <div className="flex items-center space-x-1.5 text-[11px] text-neon-green/90 mb-1 font-semibold select-none">
-              <CornerUpRight className="w-3.5 h-3.5 text-neon-green shrink-0" />
+            <div className="flex items-center space-x-1.5 text-[11px] mb-1 font-semibold select-none" style={{ color: 'var(--ez-accent)' }}>
+              <CornerUpRight className="w-3.5 h-3.5 shrink-0 opacity-80" style={{ color: 'var(--ez-accent)' }} />
               <span>
                 Forwarded from <strong className="text-white font-mono">{message.forwardedFrom || 'Contact'}</strong>
               </span>
@@ -822,7 +822,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Text Content with Native Selection (Suppressed for call events to prevent duplicate raw text) */}
           {!callPresentation && message.text && (
-            <p className="whitespace-pre-wrap break-words word-break-all select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] selection:bg-neon-green selection:text-black">
+            <p className="whitespace-pre-wrap break-words word-break-all selection:bg-[var(--ez-accent)] selection:text-black">
               {(() => {
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = message.text.split(urlRegex);

@@ -306,16 +306,18 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (onStartCall) onStartCall();
-              }}
-              className="p-2 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title={t.chat?.voiceCall || "Voice Call"}
-            >
-              <Phone className="w-[18px] h-[18px]" />
-            </button>
+            {user?.handle !== '@ai' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onStartCall) onStartCall();
+                }}
+                className="p-2 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                title={t.chat?.voiceCall || "Voice Call"}
+              >
+                <Phone className="w-[18px] h-[18px]" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}

@@ -20,6 +20,7 @@ import { encryptMessage, decryptMessage } from './utils/crypto.js';
 import { authRateLimiter, uploadRateLimiter, apiRateLimiter, messageRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
+import { askEzTalkAI } from './services/aiService.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
 
@@ -279,6 +280,7 @@ async function connectDatabase() {
     isMongoConnected = false;
     readLocalDB();
     console.log('ℹ️ Running with high-performance Local JSON Database (MONGODB_URI not set).');
+    await seedAIUser();
     return;
   }
 
@@ -292,12 +294,44 @@ async function connectDatabase() {
     isMongoConnected = true;
     mongoConnectionError = null;
     console.log('✅ Connected to MongoDB Database successfully.');
+    await seedAIUser();
   } catch (err) {
     isMongoConnected = false;
     mongoConnectionError = err.message;
     console.error('❌ MongoDB Connection Error:', err.message);
     console.log('ℹ️ Running with high-performance Local JSON Database.');
     readLocalDB();
+    await seedAIUser();
+  }
+}
+
+async function seedAIUser() {
+  const aiData = {
+    handle: '@ai',
+    name: 'EzTalk AI',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=EzTalkAI',
+    bio: 'Your personal AI study buddy & homework assistant',
+    status: 'Online',
+    statusEmoji: '🤖',
+  };
+  
+  if (isMongoConnected) {
+    try {
+      const existing = await UserModel.findOne({ handle: '@ai' });
+      if (!existing) {
+        await UserModel.create({ ...aiData, id: 'user_ai', friends: [] });
+        console.log('AI User seeded in MongoDB');
+      }
+    } catch (err) {
+      console.error('Error seeding AI user in MongoDB', err);
+    }
+  } else {
+    const db = readLocalDB();
+    if (!db.users.find((u) => u.handle === '@ai')) {
+      db.users.unshift({ ...aiData, id: 'user_ai', friends: [] });
+      writeLocalDB(db);
+      console.log('AI User seeded in JSON DB');
+    }
   }
 }
 
@@ -1248,6 +1282,68 @@ const isBlockedBy = async (senderHandle, recipientHandle) => {
 };
 // -------------------------------------
 
+// --- AI Bot Processing Logic ---
+async function processAIBot(sHandle, userText) {
+  try {
+    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: true });
+    
+    // Fetch last 6 messages for context
+    let history = [];
+    const convKey = getConversationKey(sHandle, '@ai');
+    if (isMongoConnected) {
+       history = await MessageModel.find({ conversationKey: convKey })
+         .sort({ createdAt: -1 })
+         .limit(6)
+         .lean();
+    } else {
+       const db = readLocalDB();
+       history = (db.messages || [])
+         .filter(m => m.conversationKey === convKey)
+         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+         .slice(0, 6);
+    }
+    
+    const formattedHistory = history.reverse().map(m => ({
+       role: m.senderHandle === '@ai' ? 'model' : 'user',
+       parts: [{ text: decryptMessage(m.text || '') }]
+    }));
+
+    const replyText = await askEzTalkAI(userText, formattedHistory);
+    
+    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: false });
+    
+    const aiMessageData = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      conversationKey: convKey,
+      senderHandle: '@ai',
+      recipientHandle: sHandle,
+      text: encryptMessage(replyText),
+      isEdited: false,
+      isForwarded: false,
+      status: 'sent',
+      timestamp: 'Sent by AI',
+      createdAt: new Date().toISOString(),
+    };
+
+    if (isMongoConnected) {
+       const saved = await MessageModel.create(aiMessageData);
+       const formatted = formatMessage(saved);
+       io.to(sHandle).emit('new_message', formatted);
+       await upsertConversation('@ai', sHandle, formatted);
+    } else {
+       const db = readLocalDB();
+       db.messages.push(aiMessageData);
+       writeLocalDB(db);
+       const formatted = formatMessage(aiMessageData);
+       io.to(sHandle).emit('new_message', formatted);
+       await upsertConversation('@ai', sHandle, formatted);
+    }
+  } catch (err) {
+    console.error('AI Bot Error:', err);
+    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: false });
+  }
+}
+
 app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res) => {
   try {
     const {
@@ -1276,7 +1372,6 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     
     if (now < spamRecord.cooldownUntil) {
       const cooldownSeconds = Math.ceil((spamRecord.cooldownUntil - now) / 1000);
-      // Bug 2 fix: use correct socket room (sHandle, not user_${sHandle})
       io.to(sHandle).emit('spam_warning', { cooldownSeconds, message: 'Too many messages. Please wait.' });
       return res.status(429).json({ error: 'Too many messages. You are in cooldown.', cooldownSeconds });
     }
@@ -1307,7 +1402,6 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     const plainText = text || '';
     const encryptedText = encryptMessage(plainText);
 
-    // If id begins with temp_, generate real server id while preserving tempId for optimistic matching
     const realId = (id && !id.startsWith('temp_')) ? id : `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const effectiveTempId = tempId || (id && id.startsWith('temp_') ? id : null);
 
@@ -1318,7 +1412,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
       groupId: groupId || null,
       senderHandle: sHandle,
       recipientHandle: rHandle,
-      text: encryptedText, // AES-256-GCM ciphertext in database
+      text: encryptedText,
       attachment: attachment || null,
       replyTo: replyTo || null,
       callInfo: callInfo || null,
@@ -1343,7 +1437,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
         if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
         await upsertConversation(sHandle, rHandle, formatted);
       }
-      return res.json({ message: formatted });
+      res.json({ message: formatted });
     } else {
       const db = readLocalDB();
       db.messages.push(messageData);
@@ -1356,10 +1450,38 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
         if (sHandle && sHandle !== rHandle) io.to(sHandle).emit('new_message', formatted);
         await upsertConversation(sHandle, rHandle, formatted);
       }
-      return res.json({ message: formatted });
+      res.json({ message: formatted });
+    }
+    
+    // Trigger AI processing if recipient is the AI bot
+    if (rHandle === '@ai' && !groupId && plainText) {
+      processAIBot(sHandle, plainText);
+      
+      // Auto-read the message by the bot
+      setTimeout(async () => {
+        if (isMongoConnected) {
+          await MessageModel.updateMany(
+            { conversationKey: key, recipientHandle: '@ai', status: { $ne: 'read' } },
+            { $set: { status: 'read' } }
+          );
+        } else {
+          const db = readLocalDB();
+          let updated = false;
+          db.messages.forEach((m) => {
+            if (m.conversationKey === key && m.recipientHandle === '@ai' && m.status !== 'read') {
+              m.status = 'read';
+              updated = true;
+            }
+          });
+          if (updated) writeLocalDB(db);
+        }
+        io.to(sHandle).emit('messages_read', { conversationKey: key, readerHandle: '@ai' });
+      }, 500);
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 

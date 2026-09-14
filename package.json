@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.22.0",
     "@supabase/supabase-js": "^2.115.0",
     "@types/multer": "^2.2.0",
     "@types/react": "^18.3.12",
