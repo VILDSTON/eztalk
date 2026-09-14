@@ -245,7 +245,30 @@ export const en = {
     privacyPolicy: "Privacy Policy",
     termsOfService: "Terms of Service",
     privacyShort: "Transparent data processing. Direct P2P calls without media logs and strict TLS in transit.",
-    termsShort: "Service provided AS-IS. Fair usage guidelines, zero spam tolerance, and account safety."
+    termsShort: "Service provided AS-IS. Fair usage guidelines, zero spam tolerance, and account safety.",
+    aboutTitle: "About",
+    aboutP1: "EzTalk started as an indie open-source project with a single goal: to create a communication tool that respects your privacy and doesn't get in your way.",
+    aboutP2: "No tracking, no paywalls, and no hidden algorithms. Just pure, fast, and secure communication built on top of modern web technologies like WebRTC and WebSockets.",
+    aboutSource: "View the source code",
+    featGlobalTitle: "Global",
+    featGlobalDesc: "Connect with anyone, anywhere in the world seamlessly.",
+    featPrivateTitle: "Private",
+    featPrivateDesc: "Your data belongs to you. No sneaky trackers.",
+    featBeautifulTitle: "Beautiful",
+    featBeautifulDesc: "Crafted with attention to every pixel and animation.",
+    featOpenTitle: "Open",
+    featOpenDesc: "100% open source and community-driven.",
+    whatYouGetTitle: "What you get, from",
+    wyFriendsTitle: "Friends & groups",
+    wyFriendsDesc: "Add people by @username, build group chats, and manage who's on your list.",
+    wyMessagesTitle: "Messages",
+    wyMessagesDesc: "Send text, emojis, photos, files, voice and video notes — all in one timeline that keeps conversations easy to follow.",
+    wyAppearanceTitle: "Appearance",
+    wyAppearanceDesc: "Choose your theme — Green, Blue, Purple or let your system decide for you.",
+    wyWorksTitle: "Works on any device",
+    wyWorksDesc: "Connect with anyone on any device, anywhere, anytime.",
+    wyAdsTitle: "No Ads, No Trackers",
+    wyAdsDesc: "Enjoy a clean, ad-free messaging experience with no third-party tracking."
   }
 };
 

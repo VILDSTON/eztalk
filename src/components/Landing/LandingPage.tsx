@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot, Sun, Monitor, X } from 'lucide-react';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export const LandingPage: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const navigate = useLocalizedNavigate();
+  const navigateBase = useNavigate();
+  const location = useLocation();
 
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -33,6 +36,14 @@ export const LandingPage: React.FC = () => {
   const selectLang = (lang: 'en' | 'ru' | 'uz') => {
     setLanguage(lang);
     setIsLangOpen(false);
+    
+    // Update URL instantly to prevent desync or slow re-renders from App.tsx useEffect
+    const currentPath = location.pathname;
+    if (/^\/(en|ru|uz)(\/|$)/.test(currentPath)) {
+      navigateBase(currentPath.replace(/^\/(en|ru|uz)/, `/${lang}`), { replace: true });
+    } else {
+      navigateBase(`/${lang}${currentPath === '/' ? '' : currentPath}`, { replace: true });
+    }
   };
 
   return (
@@ -240,19 +251,19 @@ export const LandingPage: React.FC = () => {
           <div className="w-full md:w-1/2 flex flex-col items-start">
 
             <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-6">
-              About <span className="text-[#00e676]">EzTalk</span>
+              {t.landing.aboutTitle} <span className="text-[#00e676]">EzTalk</span>
             </h2>
 
             <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px] mb-6">
-              EzTalk started as an indie open-source project with a single goal: to create a communication tool that respects your privacy and doesn't get in your way.
+              {t.landing.aboutP1}
             </p>
 
             <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px] mb-8">
-              No tracking, no paywalls, and no hidden algorithms. Just pure, fast, and secure communication built on top of modern web technologies like WebRTC and WebSockets.
+              {t.landing.aboutP2}
             </p>
 
             <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="flex items-center text-white font-semibold hover:text-[#00e676] transition-colors group">
-              <span className="border-b-2 border-transparent group-hover:border-[#00e676] transition-all pb-0.5">View the source code</span>
+              <span className="border-b-2 border-transparent group-hover:border-[#00e676] transition-all pb-0.5">{t.landing.aboutSource}</span>
               <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
@@ -261,23 +272,23 @@ export const LandingPage: React.FC = () => {
             <div className="grid justify-items-center grid-cols-2 gap-20 sm:gap-16 w-full max-w-[460px]">
               <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg">
                 <Globe className="w-7 h-7 text-[#00e676] mb-4" />
-                <h4 className="text-white font-bold text-lg mb-2">Global</h4>
-                <p className="text-sm text-slate-400">Connect with anyone, anywhere in the world seamlessly.</p>
+                <h4 className="text-white font-bold text-lg mb-2">{t.landing.featGlobalTitle}</h4>
+                <p className="text-sm text-slate-400">{t.landing.featGlobalDesc}</p>
               </div>
               <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg translate-y-6">
                 <Shield className="w-7 h-7 text-[#00e676] mb-4" />
-                <h4 className="text-white font-bold text-lg mb-2">Private</h4>
-                <p className="text-sm text-slate-400">Your data belongs to you. No sneaky trackers.</p>
+                <h4 className="text-white font-bold text-lg mb-2">{t.landing.featPrivateTitle}</h4>
+                <p className="text-sm text-slate-400">{t.landing.featPrivateDesc}</p>
               </div>
               <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg -translate-y-6">
                 <Sun className="w-7 h-7 text-[#00e676] mb-4" />
-                <h4 className="text-white font-bold text-lg mb-2">Beautiful</h4>
-                <p className="text-sm text-slate-400">Crafted with attention to every pixel and animation.</p>
+                <h4 className="text-white font-bold text-lg mb-2">{t.landing.featBeautifulTitle}</h4>
+                <p className="text-sm text-slate-400">{t.landing.featBeautifulDesc}</p>
               </div>
               <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg">
                 <Code className="w-7 h-7 text-[#00e676] mb-4" />
-                <h4 className="text-white font-bold text-lg mb-2">Open</h4>
-                <p className="text-sm text-slate-400">100% open source and community-driven.</p>
+                <h4 className="text-white font-bold text-lg mb-2">{t.landing.featOpenTitle}</h4>
+                <p className="text-sm text-slate-400">{t.landing.featOpenDesc}</p>
               </div>
             </div>
           </div>
@@ -288,43 +299,43 @@ export const LandingPage: React.FC = () => {
       <section id="features-list" className="w-full bg-[#0a0d12] py-24 border-t border-white/5">
         <div className="max-w-[1200px] mx-auto px-6">
           <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-12 max-w-[560px]">
-            What you get, from <span className="text-[#00e676]">EzTalk</span>?
+            {t.landing.whatYouGetTitle} <span className="text-[#00e676]">EzTalk</span>?
           </h2>
           <div className="divide-y divide-white/10 border-t border-white/10">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
                 <Users className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Friends & groups</span>
+                <span className="text-white font-medium">{t.landing.wyFriendsTitle}</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Add people by @username, build group chats, and manage who's on your list.</p>
+              <p className="text-slate-400 text-[15px]">{t.landing.wyFriendsDesc}</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
                 <MessageSquare className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Messages</span>
+                <span className="text-white font-medium">{t.landing.wyMessagesTitle}</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Send text, emojis, photos, files, voice and video notes — all in one timeline that keeps conversations easy to follow.</p>
+              <p className="text-slate-400 text-[15px]">{t.landing.wyMessagesDesc}</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
                 <Sun className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Appearance</span>
+                <span className="text-white font-medium">{t.landing.wyAppearanceTitle}</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Choose your theme — Green, Blue, Purple or let your system decide for you.</p>
+              <p className="text-slate-400 text-[15px]">{t.landing.wyAppearanceDesc}</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
                 <Monitor className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Works on any device</span>
+                <span className="text-white font-medium">{t.landing.wyWorksTitle}</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Connect with anyone on any device, anywhere, anytime.</p>
+              <p className="text-slate-400 text-[15px]">{t.landing.wyWorksDesc}</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
                 <Shield className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">No Ads, No Trackers</span>
+                <span className="text-white font-medium">{t.landing.wyAdsTitle}</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Enjoy a clean, ad-free messaging experience with no third-party tracking.</p>
+              <p className="text-slate-400 text-[15px]">{t.landing.wyAdsDesc}</p>
             </div>
           </div>
         </div>
