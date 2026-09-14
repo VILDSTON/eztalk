@@ -90,6 +90,16 @@ function MainApp() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile && !isStandalone) {
+      const hideBannerUntil = localStorage.getItem('eztalk_hide_install_banner_until');
+      if (!hideBannerUntil || Date.now() > parseInt(hideBannerUntil, 10)) {
+        setShowPwaInstall(true);
+      }
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -110,6 +120,13 @@ function MainApp() {
         setShowPwaInstall(false);
       }
       setDeferredPrompt(null);
+    } else {
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isIOS) {
+        alert("To install on iOS:\n\n1. Tap the Share button (⍐) at the bottom.\n2. Scroll down and tap 'Add to Home Screen'.");
+      } else {
+        alert("To install:\n\nTap the browser menu (⋮) and select 'Install app' or 'Add to Home Screen'.");
+      }
     }
   };
 
