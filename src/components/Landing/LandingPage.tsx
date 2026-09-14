@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot, X } from 'lucide-react';
+import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot, Sun, Monitor, X } from 'lucide-react';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 
 export const LandingPage: React.FC = () => {
@@ -27,7 +27,7 @@ export const LandingPage: React.FC = () => {
 
   const handleInstallClick = () => {
     window.dispatchEvent(new Event('beforeinstallprompt'));
-    alert(t.pwa.installBannerText || 'Check your browser address bar or menu for the "Install" icon, or add the page to your Home Screen.');
+    alert(t.pwa?.installBannerText || 'Check your browser address bar or menu for the "Install" icon, or add the page to your Home Screen.');
   };
 
   const selectLang = (lang: 'en' | 'ru' | 'uz') => {
@@ -42,12 +42,12 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
             <img src="/icons/icon-192x192.png" alt="EzTalk Logo" className="w-8 h-8 rounded-lg object-cover" />
-            <span className="font-semibold text-lg tracking-tight">EzTalk</span>
+            <span className="font-bold text-lg tracking-tight text-[#00e676]">EzTalk</span>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-gray-300 hover:text-[#00e676] transition-colors">{t.landing.navFeatures}</a>
-            <a href="#security" className="text-gray-300 hover:text-[#00e676] transition-colors">{t.landing.navSecurity}</a>
+            <a href="#features-list" className="text-gray-300 hover:text-[#00e676] transition-colors">{t.landing.navFeatures}</a>
+            <a href="#about" className="text-gray-300 hover:text-[#00e676] transition-colors">{t.landing.navSecurity}</a>
             <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-[#00e676] transition-colors flex items-center">
               <Code className="w-4 h-4 mr-1.5" />
               {t.landing.navGithub}
@@ -143,7 +143,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Technical facts strip */}
+      {/* Technical facts strip — breaks the card-mockup rhythm, states what's real */}
       <section className="w-full bg-[#0a0d12] border-y border-white/10">
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
           <div className="py-8 sm:px-8 sm:first:pl-0">
@@ -161,7 +161,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* C. Feature Section 1 */}
+      {/* C. Feature Section 1 — call UI shown directly, no nested card */}
       <section id="features" className="w-full bg-[#0a0d12] py-24">
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-16">
           <div className="w-full md:w-1/2 flex flex-col items-start">
@@ -176,13 +176,13 @@ export const LandingPage: React.FC = () => {
           <div className="w-full md:w-1/2 flex items-center justify-center py-4">
             <div className="relative">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-[#00e676]/10 blur-3xl rounded-full z-0 pointer-events-none" />
-              <div className="bg-[#0a0d12] border border-white/10 rounded-[16px] p-6 shadow-2xl w-full max-w-[280px] flex flex-col items-center relative z-10">
+              <div className="bg-[#0a0d12] border border-white/10 rounded-[16px] p-6 shadow-2xl w-[280px] flex flex-col items-center relative z-10">
                 <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#0a0d12] shadow-sm mb-4">
                   <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Alex Rivera" className="w-full h-full object-cover" />
                 </div>
                 <h3 className="font-bold text-white text-lg mb-1">Alex Rivera</h3>
                 <p className="text-[#00e676] font-medium text-sm mb-8 animate-pulse">Incoming call...</p>
-                <div className="flex w-full justify-between px-2">
+                <div className="flex w-full justify-around px-2">
                   <div className="w-14 h-14 rounded-full bg-[#ff3b30] flex items-center justify-center text-white shadow-lg shadow-[#ff3b30]/20">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </div>
@@ -231,11 +231,64 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* About Section */}
+      <section id="about" className="w-full bg-[#07090d] py-24 border-t border-white/5 relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#00e676]/5 blur-[120px] rounded-full pointer-events-none translate-x-1/3 -translate-y-1/3" />
+
+        <div className="max-w-[1200px] mx-auto px-6 flex flex-col lg:flex-row items-center justify-between gap-16 relative z-10">
+          <div className="w-full md:w-1/2 flex flex-col items-start">
+
+            <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-6">
+              About <span className="text-[#00e676]">EzTalk</span>
+            </h2>
+
+            <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px] mb-6">
+              EzTalk started as an indie open-source project with a single goal: to create a communication tool that respects your privacy and doesn't get in your way.
+            </p>
+
+            <p className="text-[16px] text-slate-400 leading-[1.6] max-w-[460px] mb-8">
+              No tracking, no paywalls, and no hidden algorithms. Just pure, fast, and secure communication built on top of modern web technologies like WebRTC and WebSockets.
+            </p>
+
+            <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="flex items-center text-white font-semibold hover:text-[#00e676] transition-colors group">
+              <span className="border-b-2 border-transparent group-hover:border-[#00e676] transition-all pb-0.5">View the source code</span>
+              <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+            </a>
+          </div>
+
+          <div className="w-full md:w-1/2 flex items-center justify-center">
+            <div className="grid justify-items-center grid-cols-2 gap-20 sm:gap-16 w-full max-w-[460px]">
+              <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg">
+                <Globe className="w-7 h-7 text-[#00e676] mb-4" />
+                <h4 className="text-white font-bold text-lg mb-2">Global</h4>
+                <p className="text-sm text-slate-400">Connect with anyone, anywhere in the world seamlessly.</p>
+              </div>
+              <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg translate-y-6">
+                <Shield className="w-7 h-7 text-[#00e676] mb-4" />
+                <h4 className="text-white font-bold text-lg mb-2">Private</h4>
+                <p className="text-sm text-slate-400">Your data belongs to you. No sneaky trackers.</p>
+              </div>
+              <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg -translate-y-6">
+                <Sun className="w-7 h-7 text-[#00e676] mb-4" />
+                <h4 className="text-white font-bold text-lg mb-2">Beautiful</h4>
+                <p className="text-sm text-slate-400">Crafted with attention to every pixel and animation.</p>
+              </div>
+              <div className="bg-[#11161f] border border-white/10 rounded-2xl p-6 flex flex-col items-start hover:border-[#00e676]/30 transition-colors shadow-lg">
+                <Code className="w-7 h-7 text-[#00e676] mb-4" />
+                <h4 className="text-white font-bold text-lg mb-2">Open</h4>
+                <p className="text-sm text-slate-400">100% open source and community-driven.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Real feature list — shipped functionality, shown as a plain list, not more cards */}
-      <section id="security" className="w-full bg-[#0a0d12] py-24 border-t border-white/5">
+      <section id="features-list" className="w-full bg-[#0a0d12] py-24 border-t border-white/5">
         <div className="max-w-[1200px] mx-auto px-6">
           <h2 className="text-[32px] sm:text-[40px] font-extrabold leading-[1.14] text-white tracking-tight mb-12 max-w-[560px]">
-            What you get, from day one
+            What you get, from <span className="text-[#00e676]">EzTalk</span>?
           </h2>
           <div className="divide-y divide-white/10 border-t border-white/10">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
@@ -247,43 +300,59 @@ export const LandingPage: React.FC = () => {
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                <UserX className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Blocking that actually hides you</span>
+                <MessageSquare className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Messages</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Block someone and your avatar, bio, and online status disappear from their view — not just the message thread.</p>
+              <p className="text-slate-400 text-[15px]">Send text, emojis, photos, files, voice and video notes — all in one timeline that keeps conversations easy to follow.</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                <CalendarDays className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Dividers that make sense</span>
+                <Sun className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Appearance</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Conversations group by Today, Yesterday, and date — so scrolling back finds things fast.</p>
+              <p className="text-slate-400 text-[15px]">Choose your theme — Green, Blue, Purple or let your system decide for you.</p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
               <div className="flex items-center gap-3 sm:w-64 shrink-0">
-                <CircleDot className="w-5 h-5 text-[#00e676]" />
-                <span className="text-white font-medium">Unread counts that clear themselves</span>
+                <Monitor className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">Works on any device</span>
               </div>
-              <p className="text-slate-400 text-[15px]">Open a conversation and the badge is gone — no manual "mark as read."</p>
+              <p className="text-slate-400 text-[15px]">Connect with anyone on any device, anywhere, anytime.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8 py-6">
+              <div className="flex items-center gap-3 sm:w-64 shrink-0">
+                <Shield className="w-5 h-5 text-[#00e676]" />
+                <span className="text-white font-medium">No Ads, No Trackers</span>
+              </div>
+              <p className="text-slate-400 text-[15px]">Enjoy a clean, ad-free messaging experience with no third-party tracking.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* PWA Install CTA */}
-      <section className="w-full bg-[#0a0d12] border-t border-white/5 py-16 flex justify-center px-6">
-        <div className="bg-[#11161f] border border-white/10 rounded-2xl p-8 max-w-[800px] w-full flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+      <section id='get-started' className="w-full bg-[#0a0d12] border-t border-white/5 py-16 flex justify-center px-6">
+        <div className="bg-[#0a0d12] border border-white/10 rounded-2xl p-8 max-w-[800px] w-full flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <h3 className="text-2xl font-bold text-white mb-2">{t.landing.pwaTitle}</h3>
             <p className="text-slate-400">{t.landing.pwaSubtitle}</p>
           </div>
-          <button
-            onClick={handleInstallClick}
-            className="flex items-center whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg mt-4 md:mt-0"
-          >
-            <Download className="w-5 h-5 mr-2 text-[#00e676]" />
-            {t.landing.installBtn}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg"
+            >
+              <Download className="w-5 h-5 mr-2 text-[#00e676]" />
+              {t.landing.installBtn}
+            </button>
+            <button
+              onClick={handleLaunch}
+              className="flex items-center whitespace-nowrap bg-[#00e676] hover:brightness-110 text-black px-6 py-3 rounded-xl font-bold transition-all shadow-[0_0_20px_rgba(0,230,118,0.2)]"
+            >
+              {t.landing.launchBtn}
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -292,10 +361,8 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
           <div className="col-span-1 md:col-span-2 pr-8">
             <div className="flex items-center space-x-2 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <span className="font-semibold text-lg tracking-tight text-white">EzTalk</span>
+              <img src="/icons/icon-192x192.png" alt="EzTalk Logo" className="w-8 h-8 rounded-lg object-cover" />
+              <span className="font-bold text-lg tracking-tight text-[#00e676]">EzTalk</span>
             </div>
             <p className="text-sm text-slate-400 max-w-sm mb-6">
               {t.landing.footerDesc}
@@ -310,7 +377,7 @@ export const LandingPage: React.FC = () => {
             <ul className="space-y-3 text-sm">
               <li><button onClick={handleLaunch} className="hover:text-white transition-colors">{t.landing.openWebApp}</button></li>
               <li><button onClick={handleInstallClick} className="hover:text-white transition-colors">Desktop PWA</button></li>
-              <li><a href="https://github.com/VILDSTON/eztalk" className="hover:text-white transition-colors">Changelog</a></li>
+              <li><a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Changelog</a></li>
             </ul>
           </div>
 
@@ -322,7 +389,7 @@ export const LandingPage: React.FC = () => {
                 <p className="text-xs text-slate-500 leading-relaxed">{t.landing.privacyShort}</p>
               </div>
               <div>
-                <button onClick={() => setLegalModal('terms')} className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><FileText className="w-4 h-4 mr-1.5 text-slate-400" /> {t.landing.termsOfService}</button>
+                <button onClick={() => setLegalModal('terms')} className="hover:text-white transition-colors flex items-center font-medium text-white mb-1"><FileText className="w-4 h-4 mr-1.5 text-[#00e676]" /> {t.landing.termsOfService}</button>
                 <p className="text-xs text-slate-500 leading-relaxed">{t.landing.termsShort}</p>
               </div>
               <div className="pt-2">
