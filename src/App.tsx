@@ -2283,7 +2283,7 @@ function MainApp() {
 
       {/* PWA Install Banner */}
       {showPwaInstall && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] w-[90%] sm:w-auto max-w-sm bg-ez-elevated border border-ez-border shadow-glass rounded-2xl p-3 flex items-center justify-between gap-4 animate-fade-in backdrop-blur-md">
+        <div className="fixed bottom-6 sm:bottom-auto sm:top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] sm:w-auto max-w-sm bg-ez-elevated border border-ez-border shadow-glass-lg rounded-2xl p-3.5 flex items-center justify-between gap-4 animate-slide-up sm:animate-fade-in backdrop-blur-xl">
           <div className="flex-1">
             <p className="text-xs text-white font-medium">
               {t.pwa?.installBannerText || 'Install EzTalk Web for a faster, full-screen app experience.'}
