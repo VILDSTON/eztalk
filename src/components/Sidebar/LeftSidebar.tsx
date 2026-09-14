@@ -129,8 +129,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     <aside className="w-16 h-full bg-ez-base border-r border-ez-border/50 flex flex-col items-center justify-between py-3 select-none shrink-0 font-sans">
       {/* ─── Top: Brand Icon ─── */}
       <div className="flex flex-col items-center space-y-1 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-green/20 to-neon-green/5 border border-neon-green/30 flex items-center justify-center text-neon-green font-black text-sm shadow-neon-sm cursor-default select-none">
-          Ez
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center cursor-default select-none shadow-neon-sm bg-ez-elevated">
+          <img src="/favicon.svg" alt="EzTalk Logo" className="w-8 h-8 object-contain" />
         </div>
       </div>
 
