@@ -16,10 +16,6 @@ export const Analytics = {
 
   trackPageView(page: string) {
     if (this.isDntEnabled()) return;
-    if (import.meta.env.DEV) {
-      console.debug(`[Analytics] PageView: ${page}`);
-      return;
-    }
     // Plug-and-play with Plausible / Umami / GA4:
     if (typeof (window as any).plausible === 'function') {
       (window as any).plausible('pageview', { props: { path: page } });
@@ -28,10 +24,6 @@ export const Analytics = {
 
   trackEvent(eventName: string, props?: Record<string, string | number | boolean>) {
     if (this.isDntEnabled()) return;
-    if (import.meta.env.DEV) {
-      console.debug(`[Analytics] Event: ${eventName}`, props);
-      return;
-    }
     if (typeof (window as any).plausible === 'function') {
       (window as any).plausible(eventName, { props });
     }

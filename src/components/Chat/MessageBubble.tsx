@@ -109,6 +109,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // Link Preview State
   const [linkPreview, setLinkPreview] = useState<any>(null);
 
+  // External URL Confirmation State
+  const [externalUrl, setExternalUrl] = useState<string | null>(null);
+
+  const handleExternalLinkClick = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExternalUrl(url);
+  };
+
   const isMe =
     (currentUserHandle &&
       message.senderHandle &&
@@ -823,9 +832,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       <a
                         key={i}
                         href={part}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => handleExternalLinkClick(e, part)}
                         className="text-blue-400 hover:text-blue-300 underline cursor-pointer break-all"
                       >
                         {part}
@@ -842,9 +849,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {linkPreview && (
             <a 
               href={linkPreview.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => handleExternalLinkClick(e, linkPreview.url)}
               className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none cursor-pointer"
             >
               {linkPreview.image && (
@@ -1076,6 +1081,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onEdit={isMe && Boolean(message.text) && !callPresentation ? () => triggerEdit() : undefined}
         onDelete={onDelete ? () => triggerDelete() : undefined}
         onToggleReaction={onToggleReaction ? (emoji) => onToggleReaction(message.id, emoji) : undefined}
+      />
+
+      {/* External URL Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!externalUrl}
+        title={t?.chat?.externalLinkTitle || "Open External Link"}
+        message={`${t?.chat?.externalLinkWarning || "Are you sure you want to open this link?"}\n\n${externalUrl}`}
+        confirmText={t?.chat?.openLink || "Open Link"}
+        cancelText={t?.common?.cancel || "Cancel"}
+        onConfirm={() => {
+          if (externalUrl) {
+            window.open(externalUrl, '_blank', 'noopener,noreferrer');
+          }
+          setExternalUrl(null);
+        }}
+        onCancel={() => setExternalUrl(null)}
       />
     </>
   );

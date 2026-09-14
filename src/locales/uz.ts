@@ -227,4 +227,27 @@ export const uz: TranslationKeys = {
     installBannerText: 'Tezkor kirish va to‘liq ekran rejimi uchun EzTalk Web ilovasini o‘rnating',
     install: 'O‘rnatish',
   },
+  landing: {
+    navFeatures: "Imkoniyatlar",
+    navSecurity: "Xavfsizlik",
+    navGithub: "GitHub",
+    openWebApp: "Web App-ni ochish",
+    heroTitle: "Yengil va Tezkor.",
+    heroSubtitle: "Maxfiylik va yuqori tezlikka mo'ljallangan veb-messenjer. Ortiqcha narsalarsiz, kuzatuvlarsiz va kechikishlarsiz.",
+    launchBtn: "EzTalk Web-ni ishga tushirish",
+    feature1Title: "To'g'ridan-to'g'ri P2P Audio va Video",
+    feature1Desc: "Qo'ng'iroqlar WebRTC orqali to'g'ridan-to'g'ri brauzerlar orasida ulanadi. O'rta serverlarsiz toza va tiniq ovoz.",
+    feature2Title: "Soddalik uchun yaratilgan",
+    feature2Desc: "Ortiqcha og'ir tizimlarsiz. Xabarlarni bir zumda yetkazish uchun EzTalk Web toza WebSockets va yengil React-da qurilgan.",
+    pwaTitle: "Web App-ni o'rnatish (PWA)",
+    pwaSubtitle: "Ilovalar do'konisiz asosiy ekranga yoki ish stoliga tezkor kirish uchun qo'shing",
+    installBtn: "O'rnatish",
+    footerDesc: "Zamonaviy veb uchun tezkor, qulay va maxfiylikni hurmat qiluvchi ochiq kodli mustaqil messenjer loyihasi.",
+    productTitle: "Mahsulot",
+    legalTitle: "Xavfsizlik va Qoidalar",
+    privacyPolicy: "Maxfiylik siyosati",
+    termsOfService: "Foydalanish shartlari",
+    privacyShort: "Ma'lumotlarni shaffof qayta ishlash. To'g'ridan-to'g'ri P2P qo'ng'iroqlar va qat'iy TLS himoyasi.",
+    termsShort: "Xizmat 'boricha' taqdim etiladi. Halol foydalanish qoidalari va xavfsizlik kafolati."
+  }
 };

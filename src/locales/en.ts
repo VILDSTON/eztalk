@@ -224,6 +224,29 @@ export const en = {
     installBannerText: 'Install EzTalk Web for a faster, full-screen app experience',
     install: 'Install',
   },
+  landing: {
+    navFeatures: "Features",
+    navSecurity: "Security",
+    navGithub: "GitHub",
+    openWebApp: "Open Web App",
+    heroTitle: "Light and Fast.",
+    heroSubtitle: "A privacy-minded web messenger engineered for pure speed. No bloat, no tracking, zero lag.",
+    launchBtn: "Launch EzTalk Web",
+    feature1Title: "Direct P2P Audio & Video",
+    feature1Desc: "Calls connect directly between browsers via WebRTC. Real-time audio with crystal-clear voice clarity and zero relay servers.",
+    feature2Title: "Engineered for Simplicity",
+    feature2Desc: "No heavy frameworks dragging you down. We built EzTalk Web on raw WebSockets and lightweight React to deliver instant messages and low-latency feedback.",
+    pwaTitle: "Install Web App (PWA)",
+    pwaSubtitle: "Add to Home Screen or Desktop for instant access without app stores",
+    installBtn: "Install App",
+    footerDesc: "An indie open-source project dedicated to building a fast, accessible, and privacy-respecting messenger for the modern web.",
+    productTitle: "Product",
+    legalTitle: "Security & Legal",
+    privacyPolicy: "Privacy Policy",
+    termsOfService: "Terms of Service",
+    privacyShort: "Transparent data processing. Direct P2P calls without media logs and strict TLS in transit.",
+    termsShort: "Service provided AS-IS. Fair usage guidelines, zero spam tolerance, and account safety."
+  }
 };
 
 export type TranslationKeys = typeof en;
