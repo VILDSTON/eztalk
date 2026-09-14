@@ -24,6 +24,7 @@ import { useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react
 import { useLocalizedNavigate } from './hooks/useLocalizedNavigate';
 import { useTranslation } from './context/LanguageContext';
 import { LandingPage } from './components/Landing/LandingPage';
+import { BanScreen } from './components/UI/BanScreen';
 
 const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
 
@@ -121,10 +122,10 @@ function MainApp() {
 
   useEffect(() => {
     const path = location.pathname.toLowerCase();
-    
+
     const handleMatch = path.match(new RegExp(`^/${lang}/@([^/]+)`));
     const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
-    
+
     if (handleMatch) {
       navigate(`/t/direct/t/${handleMatch[1]}`, { replace: true });
       return;
@@ -180,7 +181,7 @@ function MainApp() {
           }
         }
       }
-    } catch {}
+    } catch { }
     return map;
   });
 
@@ -236,8 +237,8 @@ function MainApp() {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  
-  const [pinnedChats, setPinnedChats] = useState<string[]>(() => 
+
+  const [pinnedChats, setPinnedChats] = useState<string[]>(() =>
     currentUser ? ChatStorageService.getPinnedChats(currentUser.id) : []
   );
 
@@ -266,6 +267,20 @@ function MainApp() {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
+
+  useEffect(() => {
+    const handleBan = () => setIsBanned(true);
+    const handleUnban = () => setIsBanned(false);
+
+    window.addEventListener('ez:banned', handleBan);
+    window.addEventListener('ez:unbanned', handleUnban);
+
+    return () => {
+      window.removeEventListener('ez:banned', handleBan);
+      window.removeEventListener('ez:unbanned', handleUnban);
+    };
+  }, []);
 
   // Message pagination & Infinite scroll states
   const [hasMoreByChat, setHasMoreByChat] = useState<Record<string, boolean>>({});
@@ -298,7 +313,7 @@ function MainApp() {
   // Request browser notification permission on load
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => { });
     }
   }, []);
 
@@ -388,8 +403,8 @@ function MainApp() {
   const currentChatKey = selectedGroupId
     ? `group__${selectedGroupId}`
     : selectedUser && currentUser
-    ? getConversationKey(currentUser.handle, selectedUser.handle)
-    : '';
+      ? getConversationKey(currentUser.handle, selectedUser.handle)
+      : '';
 
   const messages = useMemo(() => {
     if (!currentChatKey) return [];
@@ -399,11 +414,11 @@ function MainApp() {
   // Mark unread messages as read when viewing a chat
   useEffect(() => {
     if (!currentUser || !currentChatKey || messages.length === 0) return;
-    
+
     const unreadMessages = messages.filter(
       (m) => m.senderHandle !== currentUser.handle && m.status !== 'read'
     );
-    
+
     if (unreadMessages.length > 0) {
       unreadMessages.forEach((m) => {
         socketService.markMessageRead(m.id, currentUser.handle, currentChatKey);
@@ -483,7 +498,7 @@ function MainApp() {
     if (selectedGroupId) {
       const convKey = `group__${selectedGroupId}`;
       currentChatKeyRef.current = convKey;
-      
+
       const cached = ChatStorageService.getConversation(convKey);
       if (!cached || cached.length === 0) {
         setIsFetchingChat(true);
@@ -495,7 +510,7 @@ function MainApp() {
       try {
         const res = await ApiService.getGroupMessages(selectedGroupId, undefined, 30);
         if (currentChatKeyRef.current !== convKey) return;
-        
+
         if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[convKey] || ChatStorageService.getConversations()[convKey] || [];
@@ -524,8 +539,8 @@ function MainApp() {
       if (!cached || cached.length === 0) {
         setIsFetchingChat(true);
       } else {
-         setMessagesByChat((prev) => ({ ...prev, [convKey]: cached }));
-         setIsFetchingChat(false);
+        setMessagesByChat((prev) => ({ ...prev, [convKey]: cached }));
+        setIsFetchingChat(false);
       }
 
       try {
@@ -611,7 +626,7 @@ function MainApp() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('eztalk_theme');
     const savedCompact = localStorage.getItem('eztalk_compact_mode') === 'true';
-    
+
     if (currentUser) {
       const serverTheme = currentUser.theme || currentUser.settings?.theme;
       const serverCompact = currentUser.settings?.compactMode;
@@ -991,7 +1006,7 @@ function MainApp() {
       if (!cUser) return;
       if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
         const sender = normalizeHandle(senderHandle);
-        
+
         // Clear any existing timeout for this sender
         if (typingTimeoutsRef.current[sender]) {
           clearTimeout(typingTimeoutsRef.current[sender]);
@@ -1056,10 +1071,10 @@ function MainApp() {
     const unsubHistoryCleared = socketService.onHistoryCleared(({ targetId, isGroup }) => {
       const cUser = currentUserRef.current;
       if (!cUser) return;
-      const convKey = isGroup 
+      const convKey = isGroup
         ? `group__${targetId}`
         : getConversationKey(cUser.handle, targetId);
-        
+
       setMessagesByChat((prev) => {
         const next = { ...prev };
         delete next[convKey];
@@ -1210,7 +1225,7 @@ function MainApp() {
 
   const handleSwitchAccount = async (targetAccount: User) => {
     socketService.disconnect();
-    
+
     setSelectedUserId('');
     setSelectedGroupId(null);
     setUnreadCounts({});
@@ -1232,7 +1247,7 @@ function MainApp() {
     setCurrentUser(userToSet);
     currentUserRef.current = userToSet;
     ChatStorageService.saveAuthUser(userToSet);
-    
+
     // Now that auth user is saved, load their conversations
     const userConvs = ChatStorageService.getConversations();
     setMessagesByChat(userConvs);
@@ -1299,8 +1314,8 @@ function MainApp() {
   const isSelectedUserMuted = selectedUser
     ? Boolean(mutedUsers[selectedUser.id] || mutedUsers[normalizeHandle(selectedUser.handle)])
     : selectedGroupId
-    ? Boolean(mutedUsers[selectedGroupId])
-    : false;
+      ? Boolean(mutedUsers[selectedGroupId])
+      : false;
   const isCurrentContactTyping = selectedUser
     ? Boolean(typingUsers[normalizeHandle(selectedUser.handle)])
     : false;
@@ -1317,7 +1332,7 @@ function MainApp() {
     await ApiService.clearChatHistory(targetIdOrHandle, isGroup);
 
     // 2. Client update
-    const convKey = isGroup 
+    const convKey = isGroup
       ? `group__${targetIdOrHandle}`
       : getConversationKey(currentUser?.handle || '', targetIdOrHandle);
 
@@ -1344,7 +1359,7 @@ function MainApp() {
   const handleDeleteChat = async (targetIdOrHandle: string, isGroup: boolean) => {
     // 1. Clear history completely
     await handleClearHistory(targetIdOrHandle, isGroup);
-    
+
     // 2. Remove from active chats if not a group
     if (!isGroup) {
       const handle = normalizeHandle(targetIdOrHandle);
@@ -1352,7 +1367,7 @@ function MainApp() {
       await ApiService.deleteConversation(handle);
       setActiveConversations((prev) => prev.filter(c => !c.participants.includes(handle)));
     }
-    
+
     // 3. Reset active dialogue and navigate away if it's currently open
     if (
       (isGroup && selectedGroupId === targetIdOrHandle) ||
@@ -1525,10 +1540,10 @@ function MainApp() {
         const updated = existing.map((m) =>
           m.id === failedMsg.id
             ? ({
-                ...m,
-                ...(serverMsg || {}),
-                status: isFailed ? ('failed' as const) : ('sent' as const),
-              } as Message)
+              ...m,
+              ...(serverMsg || {}),
+              status: isFailed ? ('failed' as const) : ('sent' as const),
+            } as Message)
             : m
         );
         ChatStorageService.saveConversation(convKey, updated);
@@ -1814,6 +1829,10 @@ function MainApp() {
   const token = localStorage.getItem('eztalk_token');
   const isAuth = Boolean(currentUser && token);
 
+  if (isBanned) {
+    return <BanScreen />;
+  }
+
   const authContent = (
     <>
       <AuthScreen
@@ -1984,16 +2003,16 @@ function MainApp() {
                 selectedGroupId
                   ? drafts[`group__${selectedGroupId}`] || ChatStorageService.getDraft(`group__${selectedGroupId}`)
                   : selectedUser
-                  ? drafts[getConversationKey(currentUser.handle, selectedUser.handle)] ||
+                    ? drafts[getConversationKey(currentUser.handle, selectedUser.handle)] ||
                     ChatStorageService.getDraft(getConversationKey(currentUser.handle, selectedUser.handle))
-                  : ''
+                    : ''
               }
               onDraftChange={(text) => {
                 const key = selectedGroupId
                   ? `group__${selectedGroupId}`
                   : selectedUser
-                  ? getConversationKey(currentUser.handle, selectedUser.handle)
-                  : '';
+                    ? getConversationKey(currentUser.handle, selectedUser.handle)
+                    : '';
                 if (key) {
                   setDrafts((prev) => ({ ...prev, [key]: text }));
                   ChatStorageService.saveDraft(key, text);
@@ -2195,10 +2214,10 @@ function MainApp() {
                   callInfo.duration && callInfo.duration > 0
                     ? 'outgoing'
                     : callInfo.type === 'declined'
-                    ? 'declined'
-                    : callInfo.type === 'missed'
-                    ? 'missed'
-                    : 'canceled';
+                      ? 'declined'
+                      : callInfo.type === 'missed'
+                        ? 'missed'
+                        : 'canceled';
 
                 const finalCallInfo = {
                   type: resolvedType,
@@ -2207,13 +2226,13 @@ function MainApp() {
 
                 const text = callInfo.duration
                   ? `📞 Voice Call (${Math.floor(callInfo.duration / 60)}:${(callInfo.duration % 60)
-                      .toString()
-                      .padStart(2, '0')})`
+                    .toString()
+                    .padStart(2, '0')})`
                   : resolvedType === 'missed'
-                  ? '📵 Missed Voice Call'
-                  : resolvedType === 'declined'
-                  ? '📞 Declined Call'
-                  : '📞 Canceled Call';
+                    ? '📵 Missed Voice Call'
+                    : resolvedType === 'declined'
+                      ? '📞 Declined Call'
+                      : '📞 Canceled Call';
 
                 ApiService.sendMessage(
                   currentUser.handle,

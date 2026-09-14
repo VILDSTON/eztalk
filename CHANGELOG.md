@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.14] - 2026-09-14
+
+### Added
+- **EzTalk Security System (ESS)**: Implemented robust rate-limiting and anti-spam system on the backend using the Token Bucket algorithm (5 token capacity, 1 token/sec refill). Triggers a 15-minute IP ban upon 10 strikes (e.g. rapid connection attempts or packet flooding).
+- **Ban Screen Overlay**: A fullscreen, un-closable warning screen that automatically locks out the user interface when they receive a socket-level ban. Includes a live countdown timer and manual reconnection mechanism.
+- **ESS Localization**: Added multi-language translations (English, Russian, Uzbek) for the new Ban Screen, including a mechanism to appeal false positive bans.
+
+### Fixed
+- **404 Routing Bug**: Fixed a routing issue where nested invalid paths (e.g., `/ru/about/sd`) would bypass the strict NotFound catch-all and render a blank screen instead of the 404 page.
+
 ## [0.9.13] - 2026-09-13
 
 ### Added

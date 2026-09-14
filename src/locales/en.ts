@@ -269,6 +269,14 @@ export const en = {
     wyWorksDesc: "Connect with anyone on any device, anywhere, anytime.",
     wyAdsTitle: "No Ads, No Trackers",
     wyAdsDesc: "Enjoy a clean, ad-free messaging experience with no third-party tracking."
+  },
+  ban: {
+    title: "Access Denied",
+    description: "You have been temporarily blocked by the EzTalk Security System for suspicious activity (spam or flood).",
+    timeRemaining: "TIME REMAINING",
+    checking: "Checking status...",
+    tryReconnect: "Try Reconnecting",
+    appeal: "Appeal Ban (False Positive)",
   }
 };
 

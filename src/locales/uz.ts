@@ -272,5 +272,13 @@ export const uz: TranslationKeys = {
     wyWorksDesc: "Istalgan qurilmada, istalgan joyda va istalgan vaqtda bog'laning.",
     wyAdsTitle: "Reklama va trekerlar yo'q",
     wyAdsDesc: "Reklamasiz va uchinchi tomon kuzatuvlarisiz toza muloqotdan zavqlaning."
+  },
+  ban: {
+    title: "Kirish Taqiqlangan",
+    description: "Sizning hisobingiz shubhali faoliyat (spam/flud) uchun EzTalk Xavfsizlik Tizimi tomonidan vaqtincha bloklandi.",
+    timeRemaining: "QOLGAN VAQT",
+    checking: "Holat tekshirilmoqda...",
+    tryReconnect: "Qayta ulanishga urinish",
+    appeal: "Xato ban ustidan shikoyat qilish",
   }
 };

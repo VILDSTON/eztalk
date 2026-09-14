@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import crypto from 'crypto';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -18,6 +19,7 @@ import { ConversationModel } from './models/Conversation.js';
 import { encryptMessage, decryptMessage } from './utils/crypto.js';
 import { authRateLimiter, uploadRateLimiter, apiRateLimiter, messageRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
+import ess from './security/essEngine.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
 
@@ -72,6 +74,8 @@ const io = new Server(server, {
   pingTimeout: 15000,
   pingInterval: 10000,
 });
+
+ess.attach(io);
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
@@ -352,6 +356,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+
 
 // Upload Attachment File or Audio (Supabase Storage on Render, uploads/ fallback on local PC)
 app.post('/api/upload', uploadRateLimiter, authenticateToken, (req, res) => {

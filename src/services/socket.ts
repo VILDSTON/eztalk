@@ -36,10 +36,28 @@ class SocketService {
         }
       };
 
-      this.socket.on('connect', handleJoin);
+      this.socket.on('connect', () => {
+        handleJoin();
+        window.dispatchEvent(new CustomEvent('ez:unbanned'));
+      });
       this.socket.io.on('reconnect', () => {
         handleJoin();
         window.dispatchEvent(new CustomEvent('ez:reconnect_sync'));
+        window.dispatchEvent(new CustomEvent('ez:unbanned'));
+      });
+
+      this.socket.on('connect_error', (err) => {
+        if (err.message.includes('Banned by ESS')) {
+          window.dispatchEvent(new CustomEvent('ez:banned'));
+        }
+      });
+
+      this.socket.on('error', (err) => {
+        if (err instanceof Error && err.message.includes('Banned by ESS')) {
+          window.dispatchEvent(new CustomEvent('ez:banned'));
+        } else if (typeof err === 'string' && err.includes('Banned by ESS')) {
+          window.dispatchEvent(new CustomEvent('ez:banned'));
+        }
       });
     } else if (this.socket.connected && this.currentHandle) {
       this.socket.emit('join', normalizeHandle(this.currentHandle));
