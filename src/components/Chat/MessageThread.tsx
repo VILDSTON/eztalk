@@ -213,12 +213,16 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
         {/* Message Canvas (Full width) */}
         <div className="w-full px-4 sm:px-6 flex flex-col flex-1">
           {/* Top spacer & Infinite Scroll Spinner */}
-          {isLoadingMore ? (
+          {isLoadingMore && hasMore ? (
             <div className="flex justify-center py-2.5 my-1 select-none">
               <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
                 <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
                 <span className="text-[11px] font-mono text-ez-muted">{t['chat.loadingEarlier'] || 'Loading earlier messages...'}</span>
               </div>
+            </div>
+          ) : !hasMore && messages.length > 0 ? (
+            <div className="flex justify-center py-4 my-1 select-none">
+              <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t['chat.startOfHistory'] || 'Начало истории'}</span>
             </div>
           ) : (
             <div className="flex-1 min-h-4" />

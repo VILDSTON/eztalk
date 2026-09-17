@@ -231,14 +231,14 @@ export class ApiService {
   static async getMessages(
     handle1: string,
     handle2: string,
-    cursor?: string,
+    before?: string,
     limit: number = 30
-  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
+  ): Promise<{ messages: Message[]; hasMore: boolean }> {
     try {
       const cleanH1 = encodeURIComponent(handle1.trim().toLowerCase());
       const cleanH2 = encodeURIComponent(handle2.trim().toLowerCase());
       const params = new URLSearchParams({ limit: String(limit) });
-      if (cursor) params.append('cursor', cursor);
+      if (before) params.append('before', before);
 
       const res = await fetch(`${API_BASE_URL}/messages/${cleanH1}/${cleanH2}?${params.toString()}`, {
         headers: getAuthHeaders(),
@@ -247,11 +247,10 @@ export class ApiService {
       const data = await handleResponse(res, 'Failed to fetch messages');
       return {
         messages: (data.messages || []).map((m: any) => ({ ...m, status: m.status || 'sent' })),
-        nextCursor: data.nextCursor || null,
         hasMore: Boolean(data.hasMore),
       };
     } catch {
-      return { messages: [], nextCursor: null, hasMore: false };
+      return { messages: [], hasMore: false };
     }
   }
 
@@ -272,12 +271,12 @@ export class ApiService {
   // Fetch messages for a group with cursor pagination
   static async getGroupMessages(
     groupId: string,
-    cursor?: string,
+    before?: string,
     limit: number = 30
-  ): Promise<{ messages: Message[]; nextCursor: string | null; hasMore: boolean }> {
+  ): Promise<{ messages: Message[]; hasMore: boolean }> {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
-      if (cursor) params.append('cursor', cursor);
+      if (before) params.append('before', before);
 
       const res = await fetch(`${API_BASE_URL}/groups/${groupId}/messages?${params.toString()}`, {
         headers: getAuthHeaders(),
@@ -285,11 +284,10 @@ export class ApiService {
       const data = await res.json();
       return {
         messages: (data.messages || []).map((m: any) => ({ ...m, status: m.status || 'sent' })),
-        nextCursor: data.nextCursor || null,
         hasMore: Boolean(data.hasMore),
       };
     } catch {
-      return { messages: [], nextCursor: null, hasMore: false };
+      return { messages: [], hasMore: false };
     }
   }
 

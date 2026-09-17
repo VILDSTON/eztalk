@@ -302,7 +302,6 @@ function MainApp() {
 
   // Message pagination & Infinite scroll states
   const [hasMoreByChat, setHasMoreByChat] = useState<Record<string, boolean>>({});
-  const [nextCursorByChat, setNextCursorByChat] = useState<Record<string, string | null>>({});
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isFetchingChat, setIsFetchingChat] = useState(false);
   const currentChatKeyRef = useRef<string>('');
@@ -562,7 +561,6 @@ function MainApp() {
           });
         }
         setHasMoreByChat((prev) => ({ ...prev, [convKey]: res.hasMore }));
-        setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
       } finally {
@@ -598,7 +596,6 @@ function MainApp() {
           });
         }
         setHasMoreByChat((prev) => ({ ...prev, [convKey]: res.hasMore }));
-        setNextCursorByChat((prev) => ({ ...prev, [convKey]: res.nextCursor }));
       } catch {
         // ignore
       } finally {
@@ -611,14 +608,26 @@ function MainApp() {
   const handleLoadMoreMessages = useCallback(async () => {
     const cUser = currentUserRef.current;
     if (!cUser || isLoadingMore || !currentChatKey) return;
-    const hasMore = hasMoreByChat[currentChatKey];
-    const cursor = nextCursorByChat[currentChatKey];
-    if (!hasMore || !cursor) return;
+    
+    // Default to true if not loaded yet
+    const hasMore = hasMoreByChat[currentChatKey] ?? true;
+    if (!hasMore) return;
+
+    const currentMessages = messagesByChat[currentChatKey] || [];
+    if (currentMessages.length === 0) return;
+
+    const before = currentMessages[0].createdAt;
+    if (!before) return;
 
     setIsLoadingMore(true);
     try {
       if (selectedGroupId) {
-        const res = await ApiService.getGroupMessages(selectedGroupId, cursor, 30);
+        const res = await ApiService.getGroupMessages(selectedGroupId, before, 30);
+        if (!res.hasMore || res.messages.length === 0) {
+          setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: false }));
+        } else {
+          setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
+        }
         if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[currentChatKey] || [];
@@ -632,10 +641,13 @@ function MainApp() {
             return { ...prev, [currentChatKey]: merged };
           });
         }
-        setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
-        setNextCursorByChat((prev) => ({ ...prev, [currentChatKey]: res.nextCursor }));
       } else if (selectedUser) {
-        const res = await ApiService.getMessages(cUser.handle, selectedUser.handle, cursor, 30);
+        const res = await ApiService.getMessages(cUser.handle, selectedUser.handle, before, 30);
+        if (!res.hasMore || res.messages.length === 0) {
+          setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: false }));
+        } else {
+          setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
+        }
         if (res.messages && res.messages.length > 0) {
           setMessagesByChat((prev) => {
             const existing = prev[currentChatKey] || [];
@@ -649,15 +661,13 @@ function MainApp() {
             return { ...prev, [currentChatKey]: merged };
           });
         }
-        setHasMoreByChat((prev) => ({ ...prev, [currentChatKey]: res.hasMore }));
-        setNextCursorByChat((prev) => ({ ...prev, [currentChatKey]: res.nextCursor }));
       }
     } catch (err) {
       console.error('Failed to load more messages:', err);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, currentChatKey, hasMoreByChat, nextCursorByChat, selectedGroupId, selectedUser]);
+  }, [isLoadingMore, currentChatKey, hasMoreByChat, messagesByChat, selectedGroupId, selectedUser]);
 
   // Apply user theme and density settings
   useEffect(() => {

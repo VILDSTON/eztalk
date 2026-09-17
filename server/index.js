@@ -1086,21 +1086,20 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
   try {
     const { groupId } = req.params;
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-    const cursor = req.query.cursor ? String(req.query.cursor) : null;
+    const before = req.query.before ? String(req.query.before) : null;
     const key = `group__${groupId}`;
 
     if (isMongoConnected) {
       const query = {
         $or: [{ conversationKey: key }, { groupId }],
       };
-      if (cursor) {
-        const cursorDate = new Date(cursor);
+      if (before) {
+        const cursorDate = new Date(before);
         if (!isNaN(cursorDate.getTime())) {
           query.createdAt = { $lt: cursorDate };
         }
       }
 
-      // Query limit + 1 to check for next page
       const messages = await MessageModel.find(query)
         .sort({ createdAt: -1 })
         .limit(limit + 1)
@@ -1108,19 +1107,17 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
 
       const hasMore = messages.length > limit;
       const pageMessages = hasMore ? messages.slice(0, limit) : messages;
-      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
 
       res.json({
         messages: pageMessages.reverse().map(formatMessage),
-        nextCursor,
         hasMore,
       });
     } else {
       const db = readLocalDB();
       let msgs = (db.messages || []).filter((m) => m.conversationKey === key || m.groupId === groupId);
 
-      if (cursor) {
-        const cursorTime = new Date(cursor).getTime();
+      if (before) {
+        const cursorTime = new Date(before).getTime();
         if (!isNaN(cursorTime)) {
           msgs = msgs.filter((m) => new Date(m.createdAt || 0).getTime() < cursorTime);
         }
@@ -1129,11 +1126,9 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
       msgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const hasMore = msgs.length > limit;
       const pageMessages = hasMore ? msgs.slice(0, limit) : msgs;
-      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
 
       res.json({
         messages: pageMessages.reverse().map(formatMessage),
-        nextCursor,
         hasMore,
       });
     }
@@ -1220,19 +1215,18 @@ app.get('/api/messages/:handle1/:handle2', authenticateToken, async (req, res) =
       return res.status(403).json({ error: 'Forbidden: You cannot read messages from this conversation' });
     }
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-    const cursor = req.query.cursor ? String(req.query.cursor) : null;
+    const before = req.query.before ? String(req.query.before) : null;
     const key = getConversationKey(handle1, handle2);
 
     if (isMongoConnected) {
       const query = { conversationKey: key };
-      if (cursor) {
-        const cursorDate = new Date(cursor);
+      if (before) {
+        const cursorDate = new Date(before);
         if (!isNaN(cursorDate.getTime())) {
           query.createdAt = { $lt: cursorDate };
         }
       }
 
-      // Query limit + 1 to check for next page
       const messages = await MessageModel.find(query)
         .sort({ createdAt: -1 })
         .limit(limit + 1)
@@ -1240,19 +1234,17 @@ app.get('/api/messages/:handle1/:handle2', authenticateToken, async (req, res) =
 
       const hasMore = messages.length > limit;
       const pageMessages = hasMore ? messages.slice(0, limit) : messages;
-      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
 
       res.json({
         messages: pageMessages.reverse().map(formatMessage),
-        nextCursor,
         hasMore,
       });
     } else {
       const db = readLocalDB();
       let msgs = (db.messages || []).filter((m) => m.conversationKey === key);
 
-      if (cursor) {
-        const cursorTime = new Date(cursor).getTime();
+      if (before) {
+        const cursorTime = new Date(before).getTime();
         if (!isNaN(cursorTime)) {
           msgs = msgs.filter((m) => new Date(m.createdAt || 0).getTime() < cursorTime);
         }
@@ -1261,11 +1253,9 @@ app.get('/api/messages/:handle1/:handle2', authenticateToken, async (req, res) =
       msgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const hasMore = msgs.length > limit;
       const pageMessages = hasMore ? msgs.slice(0, limit) : msgs;
-      const nextCursor = hasMore && pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
 
       res.json({
         messages: pageMessages.reverse().map(formatMessage),
-        nextCursor,
         hasMore,
       });
     }
