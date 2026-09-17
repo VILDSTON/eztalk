@@ -198,6 +198,23 @@ class SecurityEngine {
         }
       });
     });
+
+    // FIX (Medium): Periodic GC for ipStrikes — prevents unbounded memory growth
+    // from internet scanners & bots that probe the server but never actually connect again.
+    setInterval(() => {
+      const now = Date.now();
+      for (const [ip, record] of this.ipStrikes.entries()) {
+        // Prune if ban has expired AND strikes are below max (i.e. not a persistent offender)
+        if (record.banExpires < now && record.strikes < this.MAX_STRIKES) {
+          this.ipStrikes.delete(ip);
+        }
+        // If ban expired on a maxed-out offender, reset strikes so they get a fair restart
+        // after BAN_DURATION (they'll re-accumulate if they keep attacking)
+        if (record.banExpires > 0 && record.banExpires < now && record.strikes >= this.MAX_STRIKES) {
+          this.ipStrikes.delete(ip);
+        }
+      }
+    }, 10 * 60 * 1000); // Every 10 minutes
   }
 }
 

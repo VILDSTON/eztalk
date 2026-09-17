@@ -93,6 +93,15 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   durationRef.current = callDuration;
 
+  // FIX (Medium): Track component mount state to prevent RAF calling setState after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Real-time audio waveform visualizer
   const initAudioVisualizer = (stream: MediaStream) => {
     try {
@@ -117,7 +126,8 @@ export const CallModal: React.FC<CallModalProps> = ({
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       const updateWaveform = () => {
-        if (!analyserRef.current) return;
+        // FIX (Medium): Guard against calling setState on unmounted component
+        if (!analyserRef.current || !mountedRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
         const sampled = [
           Math.max(15, dataArray[1] / 3),
@@ -423,7 +433,12 @@ export const CallModal: React.FC<CallModalProps> = ({
         peerConnectionRef.current = null;
       }
     };
-  }, [isOpen]);
+  // FIX (High): Add user.handle, currentUser.handle, isInitiator to dependency array
+  // to prevent stale closure capturing old user/handle refs during an active call.
+  // This ensures handleEndCall, onCallAccepted, and processSignal always operate
+  // on the current user objects, not stale captures from when isOpen first became true.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user.handle, currentUser.handle, isInitiator]);
 
   useEffect(() => {
     if (callState === 'connected') {

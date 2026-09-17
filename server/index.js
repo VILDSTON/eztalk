@@ -22,7 +22,9 @@ import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
 import { askEzTalkAI } from './services/aiService.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
+  ? (() => { console.error('FATAL: JWT_SECRET environment variable is not set in production. Exiting.'); process.exit(1); })()
+  : 'eztalk_jwt_secret_dev_key_2026');
 const AI_BOT_ENABLED = false;
 
 // Force Google Public DNS for reliable MongoDB Atlas SRV resolution
@@ -662,8 +664,8 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
   }
 });
 
-// Get All Users
-app.get('/api/users', async (req, res) => {
+// Get All Users (authenticated — prevents anonymous user enumeration)
+app.get('/api/users', authenticateToken, async (req, res) => {
   try {
     if (isMongoConnected) {
       const users = await UserModel.find().lean();
@@ -981,7 +983,8 @@ app.post('/api/users/:handle/block', authenticateToken, async (req, res) => {
         if (!isBlocked) db.users[idx].blockedUsers.push(cleanTarget);
       }
       writeLocalDB(db);
-      io.emit('user_updated', db.users[idx]);
+      // FIX: Use formatUser() to strip password hash before broadcasting
+      io.emit('user_updated', formatUser(db.users[idx]));
       res.json({ success: true, blockedUsers: db.users[idx].blockedUsers });
     }
   } catch (err) {
@@ -1140,9 +1143,13 @@ app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async
 });
 
 // Get Last Messages for all conversations of a user (Decrypted on retrieval)
-app.get('/api/conversations/recent/:handle', async (req, res) => {
+app.get('/api/conversations/recent/:handle', authenticateToken, async (req, res) => {
   try {
     const rawHandle = normalizeHandle(req.params.handle);
+    // FIX: Enforce identity — callers can only fetch their own recent conversations
+    if (normalizeHandle(req.user.handle) !== rawHandle) {
+      return res.status(403).json({ error: 'Forbidden: You can only access your own conversations.' });
+    }
     const handleClean = rawHandle.toLowerCase();
 
     let allMessages = [];
@@ -1385,7 +1392,12 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
       forwardRestricted,
       timestamp,
     } = req.body;
-    const sHandle = normalizeHandle(senderHandle);
+    // FIX: Never trust req.body for sender identity — always derive from verified JWT
+    const sHandle = normalizeHandle(req.user.handle);
+    // If body explicitly provides a mismatching senderHandle, reject to prevent spoofing
+    if (senderHandle && normalizeHandle(senderHandle) !== sHandle) {
+      return res.status(403).json({ error: 'Forbidden: senderHandle does not match authenticated user.' });
+    }
     let key;
     let rHandle = null;
 
@@ -1481,24 +1493,29 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
       processAIBot(sHandle, plainText);
       
       // Auto-read the message by the bot
+      // FIX: Wrap in try/catch to prevent unhandled promise rejection crashing Node 18+
       setTimeout(async () => {
-        if (isMongoConnected) {
-          await MessageModel.updateMany(
-            { conversationKey: key, recipientHandle: '@ai', status: { $ne: 'read' } },
-            { $set: { status: 'read' } }
-          );
-        } else {
-          const db = readLocalDB();
-          let updated = false;
-          db.messages.forEach((m) => {
-            if (m.conversationKey === key && m.recipientHandle === '@ai' && m.status !== 'read') {
-              m.status = 'read';
-              updated = true;
-            }
-          });
-          if (updated) writeLocalDB(db);
+        try {
+          if (isMongoConnected) {
+            await MessageModel.updateMany(
+              { conversationKey: key, recipientHandle: '@ai', status: { $ne: 'read' } },
+              { $set: { status: 'read' } }
+            );
+          } else {
+            const db = readLocalDB();
+            let updated = false;
+            db.messages.forEach((m) => {
+              if (m.conversationKey === key && m.recipientHandle === '@ai' && m.status !== 'read') {
+                m.status = 'read';
+                updated = true;
+              }
+            });
+            if (updated) writeLocalDB(db);
+          }
+          io.to(sHandle).emit('messages_read', { conversationKey: key, readerHandle: '@ai' });
+        } catch (aiReadErr) {
+          console.error('[AI auto-read] Unhandled error:', aiReadErr);
         }
-        io.to(sHandle).emit('messages_read', { conversationKey: key, readerHandle: '@ai' });
       }, 500);
     }
   } catch (err) {
@@ -1513,9 +1530,16 @@ app.put('/api/messages/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { text } = req.body;
+    const callerHandle = normalizeHandle(req.user.handle);
     const encryptedText = encryptMessage(text || '');
 
     if (isMongoConnected) {
+      // FIX: Verify ownership before editing — prevents any user editing others' messages
+      const existing = await MessageModel.findOne({ id }).lean();
+      if (!existing) return res.status(404).json({ error: 'Message not found' });
+      if (normalizeHandle(existing.senderHandle) !== callerHandle) {
+        return res.status(403).json({ error: 'Forbidden: You can only edit your own messages.' });
+      }
       const updated = await MessageModel.findOneAndUpdate(
         { id },
         { $set: { text: encryptedText, isEdited: true } },
@@ -1526,15 +1550,16 @@ app.put('/api/messages/:id', authenticateToken, async (req, res) => {
     } else {
       const db = readLocalDB();
       const msg = db.messages.find((m) => m.id === id);
-      if (msg) {
-        msg.text = encryptedText;
-        msg.isEdited = true;
-        writeLocalDB(db);
-        io.emit('message_edited', { id, text, isEdited: true });
-        res.json({ message: formatMessage(msg) });
-      } else {
-        res.status(404).json({ error: 'Message not found' });
+      if (!msg) return res.status(404).json({ error: 'Message not found' });
+      // FIX: Ownership check for local DB path too
+      if (normalizeHandle(msg.senderHandle) !== callerHandle) {
+        return res.status(403).json({ error: 'Forbidden: You can only edit your own messages.' });
       }
+      msg.text = encryptedText;
+      msg.isEdited = true;
+      writeLocalDB(db);
+      io.emit('message_edited', { id, text, isEdited: true });
+      res.json({ message: formatMessage(msg) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1597,6 +1622,19 @@ app.delete('/api/messages/history/:id', authenticateToken, async (req, res) => {
     const targetHandle = normalizeHandle(id);
 
     if (isGroup) {
+      // FIX: Verify group membership before allowing bulk message deletion
+      let group = null;
+      if (isMongoConnected) {
+        group = await GroupModel.findOne({ id }).lean();
+      } else {
+        const dbCheck = readLocalDB();
+        group = (dbCheck.groups || []).find((g) => g.id === id) || null;
+      }
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+      if (!Array.isArray(group.memberHandles) || !group.memberHandles.map(normalizeHandle).includes(currentUserHandle)) {
+        return res.status(403).json({ error: 'Forbidden: You are not a member of this group.' });
+      }
+
       if (isMongoConnected) {
         await MessageModel.deleteMany({ groupId: id });
         io.emit('history_cleared', { targetId: id, isGroup: true });
@@ -1838,6 +1876,17 @@ app.post('/api/messages/clear', authenticateToken, async (req, res) => {
 const socketHandleMap = new Map(); // socket.id -> handle
 const disconnectTimers = new Map(); // handle -> timeoutId
 
+// FIX (Medium): Periodic cleanup of userSpamRecords to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [handle, record] of userSpamRecords.entries()) {
+    const allStale = record.timestamps.every((t) => now - t > 60000);
+    if (record.cooldownUntil < now && allStale) {
+      userSpamRecords.delete(handle);
+    }
+  }
+}, 5 * 60 * 1000);
+
 function getOnlineHandles() {
   return Array.from(new Set(socketHandleMap.values()));
 }
@@ -1860,8 +1909,14 @@ io.on('connection', (socket) => {
   socket.emit('online_users', getOnlineHandles());
 
   socket.on('join', (userHandle) => {
-    const handle = socket.verifiedHandle || normalizeHandle(userHandle);
-    if (!handle) return;
+    // FIX (High): Only trust JWT-verified handle — never fall back to client-supplied value
+    // Prevents unauthenticated sockets from injecting themselves into other users' rooms
+    const handle = socket.verifiedHandle;
+    if (!handle) {
+      // Allow unverified sockets to exist but not join any user room
+      // They'll be disconnected by ESS auth timeout
+      return;
+    }
 
     socket.join(handle);
     socketHandleMap.set(socket.id, handle);
@@ -1924,18 +1979,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  // FIX (High): Per-socket block cache — avoids a DB query on every keypress
+  // Cache is keyed by `sHandle:rHandle` and invalidated when user_updated fires on this socket
+  const blockCache = new Map();
+
+  // Invalidate block cache when any user profile changes (block/unblock may have changed)
+  socket.on('user_updated', () => blockCache.clear());
+
   socket.on('typing', async ({ senderHandle, recipientHandle, isTyping }) => {
     const rHandle = normalizeHandle(recipientHandle);
     const sHandle = socket.verifiedHandle || normalizeHandle(senderHandle);
-    if (rHandle) {
-      const blocked = await isBlockedBy(sHandle, rHandle);
-      if (blocked) return;
-      io.to(rHandle).emit('user_typing', {
-        senderHandle: sHandle,
-        recipientHandle: rHandle,
-        isTyping,
-      });
+    if (!rHandle || !sHandle) return;
+    const cacheKey = `${sHandle}:${rHandle}`;
+    let blocked = blockCache.get(cacheKey);
+    if (blocked === undefined) {
+      blocked = await isBlockedBy(sHandle, rHandle);
+      blockCache.set(cacheKey, blocked);
     }
+    if (blocked) return;
+    io.to(rHandle).emit('user_typing', {
+      senderHandle: sHandle,
+      recipientHandle: rHandle,
+      isTyping,
+    });
   });
 
   socket.on('call_user', async (data) => {
@@ -2069,7 +2135,7 @@ app.get('/api/link-preview', async (req, res) => {
     }
 
     const hostname = parsedUrl.hostname;
-    // SSRF Protections
+    // SSRF Protections — Step 1: reject known private hostnames by string
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
@@ -2079,6 +2145,19 @@ app.get('/api/link-preview', async (req, res) => {
       hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
     ) {
       return res.status(403).json({ error: 'Forbidden domain or IP' });
+    }
+
+    // SSRF Protections — Step 2: DNS rebinding defense
+    // Resolve hostname to IPs BEFORE fetching and reject any private/internal IP ranges
+    const PRIVATE_IP_REGEX = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|fc00:|fd|0\.0\.0\.0$)/;
+    try {
+      const resolvedAddresses = await dns.promises.resolve4(hostname);
+      if (resolvedAddresses.some((ip) => PRIVATE_IP_REGEX.test(ip))) {
+        return res.status(403).json({ error: 'Forbidden: hostname resolves to a private/internal IP address' });
+      }
+    } catch {
+      // DNS resolution failure (NXDOMAIN, timeout) — block the request
+      return res.status(403).json({ error: 'Forbidden: hostname could not be resolved' });
     }
 
     const controller = new AbortController();
