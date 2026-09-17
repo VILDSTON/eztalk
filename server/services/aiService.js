@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const SYSTEM_INSTRUCTION = "You are EzTalk AI, a fast, helpful, and friendly academic tutor & companion built directly into EzTalk Messenger. You help students with school homework (math, coding, languages, physics, essays). Answer clearly, step-by-step, with great markdown formatting. ALWAYS reply in the same language the user speaks (Russian, Uzbek, or English). IMPORTANT: DO NOT use LaTeX formatting like $ or $$ for math. Instead, use standard unicode characters (e.g., x, +, =, ², ³) or plain text so it renders correctly in a normal chat.";
+const SYSTEM_INSTRUCTION = "You are EzTalk AI, a concise, high-speed tutor & companion in EzTalk Messenger. Keep answers direct, fast, and helpful. Use clean Markdown. Match user language (Russian, Uzbek, English).";
 
 /**
  * Sends a message to EzTalk AI and retrieves the response.
@@ -18,8 +18,9 @@ export async function askEzTalkAI(userMessage, conversationHistory = []) {
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+    
+    const aiPromise = ai.models.generateContent({
+      model: 'gemini-2.5-flash',
       contents: [
         ...conversationHistory,
         {
@@ -29,9 +30,16 @@ export async function askEzTalkAI(userMessage, conversationHistory = []) {
       ],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
+        maxOutputTokens: 1024,
+        temperature: 0.7
       }
     });
 
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('AI_TIMEOUT')), 10000);
+    });
+
+    const response = await Promise.race([aiPromise, timeoutPromise]);
     let text = response.text || "I'm sorry, I couldn't process that.";
     
     // Post-processing to forcefully strip LaTeX math delimiters
@@ -40,6 +48,9 @@ export async function askEzTalkAI(userMessage, conversationHistory = []) {
 
     return text;
   } catch (error) {
+    if (error.message === 'AI_TIMEOUT') {
+      return "Извините, ответ занял слишком много времени. Попробуйте отправить вопрос еще раз!";
+    }
     console.error('[EzTalk AI] Error generating content:', error);
     return "Oops, something went wrong on my end. Please try again!";
   }

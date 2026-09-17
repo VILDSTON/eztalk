@@ -77,6 +77,8 @@ const io = new Server(server, {
 });
 
 ess.attach(io);
+ess.clearAllBans();
+
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
@@ -1283,65 +1285,81 @@ const isBlockedBy = async (senderHandle, recipientHandle) => {
 // -------------------------------------
 
 // --- AI Bot Processing Logic ---
+const aiQueues = new Map();
+
 async function processAIBot(sHandle, userText) {
-  try {
-    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: true });
-    
-    // Fetch last 6 messages for context
-    let history = [];
-    const convKey = getConversationKey(sHandle, '@ai');
-    if (isMongoConnected) {
-       history = await MessageModel.find({ conversationKey: convKey })
-         .sort({ createdAt: -1 })
-         .limit(6)
-         .lean();
-    } else {
-       const db = readLocalDB();
-       history = (db.messages || [])
-         .filter(m => m.conversationKey === convKey)
-         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-         .slice(0, 6);
-    }
-    
-    const formattedHistory = history.reverse().map(m => ({
-       role: m.senderHandle === '@ai' ? 'model' : 'user',
-       parts: [{ text: decryptMessage(m.text || '') }]
-    }));
-
-    const replyText = await askEzTalkAI(userText, formattedHistory);
-    
-    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: false });
-    
-    const aiMessageData = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      conversationKey: convKey,
-      senderHandle: '@ai',
-      recipientHandle: sHandle,
-      text: encryptMessage(replyText),
-      isEdited: false,
-      isForwarded: false,
-      status: 'sent',
-      timestamp: 'Sent by AI',
-      createdAt: new Date().toISOString(),
-    };
-
-    if (isMongoConnected) {
-       const saved = await MessageModel.create(aiMessageData);
-       const formatted = formatMessage(saved);
-       io.to(sHandle).emit('new_message', formatted);
-       await upsertConversation('@ai', sHandle, formatted);
-    } else {
-       const db = readLocalDB();
-       db.messages.push(aiMessageData);
-       writeLocalDB(db);
-       const formatted = formatMessage(aiMessageData);
-       io.to(sHandle).emit('new_message', formatted);
-       await upsertConversation('@ai', sHandle, formatted);
-    }
-  } catch (err) {
-    console.error('AI Bot Error:', err);
-    io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: false });
+  if (!aiQueues.has(sHandle)) {
+    aiQueues.set(sHandle, Promise.resolve());
   }
+
+  const currentQueue = aiQueues.get(sHandle);
+
+  const nextQueue = currentQueue.then(async () => {
+    const startTime = Date.now();
+    console.log(`[AI] Processing message from ${sHandle}...`);
+    try {
+      io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: true });
+      
+      // Fetch last 6 messages for context
+      let history = [];
+      const convKey = getConversationKey(sHandle, '@ai');
+      if (isMongoConnected) {
+         history = await MessageModel.find({ conversationKey: convKey })
+           .sort({ createdAt: -1 })
+           .limit(6)
+           .lean();
+      } else {
+         const db = readLocalDB();
+         history = (db.messages || [])
+           .filter(m => m.conversationKey === convKey)
+           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+           .slice(0, 6);
+      }
+      
+      const formattedHistory = history.reverse().map(m => ({
+         role: m.senderHandle === '@ai' ? 'model' : 'user',
+         parts: [{ text: decryptMessage(m.text || '') }]
+      }));
+
+      const replyText = await askEzTalkAI(userText, formattedHistory);
+      
+      const aiMessageData = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        conversationKey: convKey,
+        senderHandle: '@ai',
+        recipientHandle: sHandle,
+        text: encryptMessage(replyText),
+        isEdited: false,
+        isForwarded: false,
+        status: 'sent',
+        timestamp: 'Sent by AI',
+        createdAt: new Date().toISOString(),
+      };
+
+      if (isMongoConnected) {
+         const saved = await MessageModel.create(aiMessageData);
+         const formatted = formatMessage(saved);
+         io.to(sHandle).emit('new_message', formatted);
+         await upsertConversation('@ai', sHandle, formatted);
+      } else {
+         const db = readLocalDB();
+         db.messages.push(aiMessageData);
+         writeLocalDB(db);
+         const formatted = formatMessage(aiMessageData);
+         io.to(sHandle).emit('new_message', formatted);
+         await upsertConversation('@ai', sHandle, formatted);
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`[AI] Response sent in ${duration}ms`);
+    } catch (err) {
+      console.error('AI Bot Error:', err);
+    } finally {
+      io.to(sHandle).emit('user_typing', { senderHandle: '@ai', recipientHandle: sHandle, isTyping: false });
+    }
+  });
+
+  aiQueues.set(sHandle, nextQueue.catch(() => {}));
 }
 
 app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res) => {

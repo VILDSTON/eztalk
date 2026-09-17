@@ -5,12 +5,12 @@ class SecurityEngine {
     this.socketBuckets = new Map(); // SocketID -> { tokens: number, lastRefill: number }
     this.unauthTimers = new Map(); // SocketID -> NodeJS.Timeout
 
-    this.MAX_STRIKES = 10;
+    this.MAX_STRIKES = 30;
     this.BAN_DURATION = 15 * 60 * 1000; // 15 minutes
-    this.BUCKET_CAPACITY = 5;
-    this.REFILL_RATE = 1000; // 1 token per second (1000ms per token)
+    this.BUCKET_CAPACITY = 15;
+    this.REFILL_RATE = 1000 / 3; // 3 tokens per second
     // Enable Dry Run mode to just log events instead of dropping packets (Alpha Test)
-    this.ALPHA_DRY_RUN = false;
+    this.ALPHA_DRY_RUN = true;
   }
 
   _getIP(socket) {
@@ -56,7 +56,10 @@ class SecurityEngine {
     return false;
   }
 
-
+  clearAllBans() {
+    this.ipStrikes.clear();
+    console.log('[ESS] All bans and strikes cleared.');
+  }
 
   _consumeToken(socketId) {
     if (!this.socketBuckets.has(socketId)) {
@@ -150,9 +153,13 @@ class SecurityEngine {
           clearTimeout(this.unauthTimers.get(socketId));
         }
 
-        // WebRTC Immunity / Priority
-        const webrtcEvents = ['call-user', 'webrtc-signal', 'ice-candidate', 'ping', 'pong', 'answer-call', 'decline-call', 'end-call'];
-        if (webrtcEvents.includes(event)) {
+        // Whitelisted systemic and WebRTC events (no token cost)
+        const ignoredEvents = [
+          'typing', 'stop_typing', 'mark_read', 'ping', 'pong', 
+          'authenticate', 'join', 'call-user', 'webrtc-signal', 
+          'ice-candidate', 'answer-call', 'decline-call', 'end-call'
+        ];
+        if (ignoredEvents.includes(event)) {
           return next();
         }
 
