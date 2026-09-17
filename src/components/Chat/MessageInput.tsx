@@ -8,6 +8,7 @@ import { socketService } from '../../services/socket';
 
 interface MessageInputProps {
   recipientHandle?: string;
+  currentUserHandle?: string;
   replyingTo?: QuotedMessage | null;
   editingMessage?: { id: string; text: string } | null;
   enterToSend?: boolean;
@@ -25,6 +26,7 @@ interface MessageInputProps {
 
 export const MessageInput: React.FC<MessageInputProps> = ({
   recipientHandle,
+  currentUserHandle,
   replyingTo,
   editingMessage,
   enterToSend = true,
@@ -41,6 +43,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
 
   useEffect(() => {
     const socket = socketService.getSocket();
@@ -110,14 +114,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (peakSampleTimerRef.current) clearInterval(peakSampleTimerRef.current);
       if (draftDebounceTimerRef.current) clearTimeout(draftDebounceTimerRef.current);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => {});
       }
     };
   }, []);
 
+  const handleTypingNotification = () => {
+    if (!recipientHandle || !currentUserHandle || editingMessage) return;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socketService.sendTyping(currentUserHandle, recipientHandle, true);
+    }
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socketService.sendTyping(currentUserHandle, recipientHandle, false);
+    }, 2000);
+  };
+
   const handleInputChange = (val: string) => {
     setInputText(val);
+    handleTypingNotification();
+    
     if (onDraftChange) {
       if (draftDebounceTimerRef.current) clearTimeout(draftDebounceTimerRef.current);
       draftDebounceTimerRef.current = setTimeout(() => {

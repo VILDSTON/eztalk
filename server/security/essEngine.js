@@ -10,7 +10,7 @@ class SecurityEngine {
     this.BUCKET_CAPACITY = 15;
     this.REFILL_RATE = 1000 / 3; // 3 tokens per second
     // Enable Dry Run mode to just log events instead of dropping packets (Alpha Test)
-    this.ALPHA_DRY_RUN = true;
+    this.ALPHA_DRY_RUN = false;
   }
 
   _getIP(socket) {
@@ -172,9 +172,12 @@ class SecurityEngine {
           }
           
           if (this._isBanned(ip)) {
+            socket.emit('security_violation', { message: 'Banned by ESS: Rate limit / flood violation' });
             socket.disconnect(true);
             return next(new Error('Banned by ESS for packet spam'));
           }
+          
+          socket.emit('rate_limited', { message: 'Too many packets' });
           return next(new Error('Rate limit exceeded'));
         }
         

@@ -9,6 +9,7 @@ export interface UserSettings {
   accentColor?: string;
   enterToSend?: boolean;
   compactMode?: boolean;
+  contactAliases?: Record<string, string>;
 }
 
 export interface User {

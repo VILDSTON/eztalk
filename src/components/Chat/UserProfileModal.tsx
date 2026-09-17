@@ -11,6 +11,7 @@ import {
   Ban,
   Share2,
   Check,
+  Pencil,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
@@ -30,6 +31,7 @@ interface UserProfileModalProps {
   onToggleBlock?: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
+  onEditAlias?: () => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -46,6 +48,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onToggleBlock,
   onRemoveFriend,
   onAddFriend,
+  onEditAlias,
 }) => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [actionToConfirm, setActionToConfirm] = useState<'block' | 'unblock' | 'remove_friend' | null>(null);
@@ -213,12 +216,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 />
               </div>
 
-              <h3 className="text-lg font-bold text-white tracking-tight leading-tight flex items-center justify-center">
-                {user.name || user.handle}
-                {user.statusEmoji && (
-                  <span className="ml-1.5 text-base leading-none">{user.statusEmoji}</span>
-                )}
-              </h3>
+              <div className="relative inline-flex items-center justify-center mb-0.5">
+                <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
+                  {user.name || user.handle}
+                </h3>
+                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                  {user.statusEmoji && (
+                    <span className="text-base leading-none translate-y-[1px]">{user.statusEmoji}</span>
+                  )}
+                  {onEditAlias && (
+                    <button
+                      onClick={onEditAlias}
+                      className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                      title="Edit Contact Name"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
               <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
 
               {user.customStatusText && (

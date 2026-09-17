@@ -23,6 +23,7 @@ import ess from './security/essEngine.js';
 import { askEzTalkAI } from './services/aiService.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eztalk_jwt_secret_dev_key_2026';
+const AI_BOT_ENABLED = false;
 
 // Force Google Public DNS for reliable MongoDB Atlas SRV resolution
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -308,6 +309,8 @@ async function connectDatabase() {
 }
 
 async function seedAIUser() {
+  if (!AI_BOT_ENABLED) return;
+
   const aiData = {
     handle: '@ai',
     name: 'EzTalk AI',
@@ -1288,6 +1291,8 @@ const isBlockedBy = async (senderHandle, recipientHandle) => {
 const aiQueues = new Map();
 
 async function processAIBot(sHandle, userText) {
+  if (!AI_BOT_ENABLED) return;
+
   if (!aiQueues.has(sHandle)) {
     aiQueues.set(sHandle, Promise.resolve());
   }

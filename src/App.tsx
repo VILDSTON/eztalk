@@ -283,6 +283,7 @@ function MainApp() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [addFriendHandle, setAddFriendHandle] = useState<string>('');
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
 
@@ -369,19 +370,38 @@ function MainApp() {
     }
   }, [unreadCounts]);
 
+  const aliasedAllUsers = useMemo(() => {
+    return allUsers.map((u) => {
+      const alias = currentUser?.settings?.contactAliases?.[normalizeHandle(u.handle).toLowerCase()];
+      if (alias) {
+        return { ...u, name: alias };
+      }
+      return u;
+    });
+  }, [allUsers, currentUser?.settings?.contactAliases]);
+
   // Filter friends list (ONLY explicitly added friends)
-  const friendsList = allUsers.filter(
+  const friendsList = aliasedAllUsers.filter(
     (u) =>
       normalizeHandle(u.handle) !== normalizeHandle(currentUser?.handle || '') &&
       addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(u.handle))
   );
 
   // Filter chat list (Friends + active chats)
-  const chatUsers = allUsers.filter(
-    (u) =>
-      normalizeHandle(u.handle) !== normalizeHandle(currentUser?.handle || '') &&
-      (addedFriends.some((f) => normalizeHandle(f) === normalizeHandle(u.handle)) ||
-        activeConversations.some((c) => c.participants.includes(normalizeHandle(u.handle))))
+  const chatUsers = aliasedAllUsers.filter(
+    (u) => {
+      const handleClean = normalizeHandle(u.handle).toLowerCase();
+      const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
+      if (handleClean === myHandle) return false;
+      
+      const isFriend = addedFriends.some((f) => normalizeHandle(f).toLowerCase() === handleClean);
+      const hasActiveConv = activeConversations.some((c) => 
+        c.participants.map(p => normalizeHandle(p).toLowerCase()).includes(handleClean)
+      );
+      const hasMessages = Boolean(lastMessages[handleClean] || lastMessages[u.id]);
+      
+      return isFriend || hasActiveConv || hasMessages;
+    }
   );
 
   // Filter groups where currentUser is a member
@@ -403,8 +423,8 @@ function MainApp() {
     if (currentUser && normalizeHandle(currentUser.handle).toLowerCase() === cleanUrl) {
       return currentUser; // Saved Messages
     }
-    return allUsers.find(u => normalizeHandle(u.handle).toLowerCase() === cleanUrl) || null;
-  }, [urlChatId, allUsers, currentUser]);
+    return aliasedAllUsers.find(u => normalizeHandle(u.handle).toLowerCase() === cleanUrl) || null;
+  }, [urlChatId, aliasedAllUsers, currentUser]);
 
   selectedUserRef.current = selectedUser;
 
@@ -1753,14 +1773,35 @@ function MainApp() {
     }
   };
 
-  const handleAddNewFriend = async (newFriend: User) => {
+  const handleAddNewFriend = async (newFriend: User, alias?: string) => {
     if (!currentUser) return;
+    
+    const updateAliasSettings = (targetHandle: string) => {
+      const normalizedHandle = normalizeHandle(targetHandle).toLowerCase();
+      const currentAliases = currentUser.settings?.contactAliases || {};
+      const newAliases = { ...currentAliases };
+      
+      if (alias && alias.trim()) {
+        newAliases[normalizedHandle] = alias.trim();
+      } else {
+        delete newAliases[normalizedHandle];
+      }
+      
+      const newSettings = { ...currentUser.settings, contactAliases: newAliases };
+      handleUpdateCurrentUser({ ...currentUser, settings: newSettings });
+    };
+
     try {
       const registered = await ApiService.register(newFriend);
       const updated = ChatStorageService.upsertUser(registered);
       setAllUsers(updated);
       const friends = ChatStorageService.addFriend(currentUser.handle, registered.handle);
       setAddedFriends(friends);
+      
+      if (alias !== undefined) {
+        updateAliasSettings(registered.handle);
+      }
+
       setSelectedUserId(registered.id);
       setSelectedGroupId(null);
       await ApiService.toggleFriend(currentUser.handle, registered.handle, 'add');
@@ -1769,6 +1810,11 @@ function MainApp() {
       setAllUsers(updated);
       const friends = ChatStorageService.addFriend(currentUser.handle, newFriend.handle);
       setAddedFriends(friends);
+      
+      if (alias !== undefined) {
+        updateAliasSettings(newFriend.handle);
+      }
+
       setSelectedUserId(newFriend.id);
       setSelectedGroupId(null);
     }
@@ -1965,7 +2011,7 @@ function MainApp() {
             currentUser={currentUser}
             users={chatUsers}
             isLoading={isLoadingConversations}
-            allExistingUsers={allUsers}
+            allExistingUsers={aliasedAllUsers}
             groups={userGroups}
             unreadCounts={unreadCounts}
             onlineHandles={onlineHandles}
@@ -2162,11 +2208,16 @@ function MainApp() {
         <AddFriendModal
           isOpen={isAddFriendOpen}
           currentUser={currentUser}
-          existingUsers={allUsers}
-          onClose={() => setIsAddFriendOpen(false)}
-          onAddFriend={(friend) => {
-            handleAddNewFriend(friend);
+          existingUsers={aliasedAllUsers}
+          initialHandle={addFriendHandle}
+          onClose={() => {
             setIsAddFriendOpen(false);
+            setAddFriendHandle('');
+          }}
+          onAddFriend={(friend, alias) => {
+            handleAddNewFriend(friend, alias);
+            setIsAddFriendOpen(false);
+            setAddFriendHandle('');
           }}
         />
       )}

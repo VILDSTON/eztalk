@@ -48,6 +48,7 @@ interface ChatWindowProps {
   isLoadingInitial?: boolean;
   onLoadMore?: () => Promise<void>;
   onRetryMessage?: (message: Message) => void;
+  onEditAlias?: () => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -86,6 +87,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isLoadingInitial,
   onLoadMore,
   onRetryMessage,
+  onEditAlias,
 }) => {
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
@@ -145,6 +147,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onAddFriend={onAddFriend}
         onDeleteGroup={onDeleteGroup}
         onStartCall={onStartCall}
+        onEditAlias={onEditAlias}
       />
 
       {/* Blocked User Banner */}
@@ -271,6 +274,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       ) : (
         <MessageInput
           key={activeChatId || 'input'}
+          currentUserHandle={currentUserHandle}
           enterToSend={currentUser?.settings?.enterToSend !== false}
           initialDraft={draftText}
           onDraftChange={onDraftChange}

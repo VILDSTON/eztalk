@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Sparkles, AlertCircle, MessageSquarePlus } from 'lucide-react';
 import { User } from '../../types/chat';
 import { ApiService, CURATED_AVATARS } from '../../services/api';
@@ -8,62 +8,66 @@ interface AddFriendModalProps {
   isOpen: boolean;
   currentUser?: User | null;
   existingUsers?: User[];
+  initialHandle?: string;
   onClose: () => void;
-  onAddFriend: (newFriend: User) => void;
+  onAddFriend: (newFriend: User, alias?: string) => void;
 }
 
 export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   isOpen,
   currentUser,
   existingUsers = [],
+  initialHandle = '',
   onClose,
   onAddFriend,
 }) => {
-  const [handle, setHandle] = useState('');
+  const [handle, setHandle] = useState(initialHandle);
   const [name, setName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Live auto-suggestions capped strictly to maximum 3 results
+  // Auto-fill Custom Name if handle matches an existing user perfectly
+  useEffect(() => {
+    const cleanHandle = normalizeHandle(handle || '');
+    const exactMatch = existingUsers.find(u => normalizeHandle(u.handle) === cleanHandle);
+    if (exactMatch && exactMatch.name && !name) {
+      setName(exactMatch.name);
+    }
+  }, [handle, existingUsers, name]);
+
   const suggestedUsers = useMemo(() => {
-    const clean = handle.trim().toLowerCase().replace('@', '');
+    const clean = (handle || '').trim().toLowerCase().replace('@', '');
     if (!clean) return [];
     const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
     return existingUsers
       .filter(
         (u) =>
           normalizeHandle(u.handle).toLowerCase() !== myHandle &&
-          (u.handle.toLowerCase().includes(clean) || (u.name && u.name.toLowerCase().includes(clean)))
+          ((u.handle || '').toLowerCase().includes(clean) || (u.name && u.name.toLowerCase().includes(clean)))
       )
-      .slice(0, 3); // Maximum 3 results
+      .slice(0, 3);
   }, [handle, existingUsers, currentUser]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!handle.trim()) return;
-
-    const formattedHandle = normalizeHandle(handle);
+  const handleAction = async (useAlias: boolean) => {
+    if (!(handle || '').trim()) return;
+    const formattedHandle = normalizeHandle(handle || '');
 
     if (currentUser && normalizeHandle(currentUser.handle) === formattedHandle) {
       setErrorMessage('You cannot start a chat with yourself.');
       return;
     }
 
-    const existing = existingUsers.find((u) => normalizeHandle(u.handle) === formattedHandle);
-    if (existing) {
-      onAddFriend(existing);
-      onClose();
-      return;
-    }
-
     setLoading(true);
-
     try {
-      const remoteUser = await ApiService.getUserByHandle(formattedHandle);
-      if (remoteUser) {
-        onAddFriend(remoteUser);
+      let targetUser = existingUsers.find((u) => normalizeHandle(u.handle) === formattedHandle);
+      if (!targetUser) {
+        targetUser = await ApiService.getUserByHandle(formattedHandle);
+      }
+
+      if (targetUser) {
+        onAddFriend(targetUser, useAlias ? name.trim() : undefined);
         setHandle('');
         setName('');
         setErrorMessage('');
@@ -71,16 +75,17 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
         return;
       }
 
+      // If user doesn't exist remotely, create stub
       const randomAvatar = CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)];
       const createdUser = await ApiService.register({
-        name: name.trim() || formattedHandle.replace('@', ''),
+        name: formattedHandle.replace('@', ''),
         handle: formattedHandle,
         avatar: randomAvatar,
         status: 'Online',
         bio: 'New contact on EzTalk.',
       });
 
-      onAddFriend(createdUser);
+      onAddFriend(createdUser, useAlias ? name.trim() : undefined);
       setHandle('');
       setName('');
       setErrorMessage('');
@@ -88,17 +93,22 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
     } catch {
       const fallbackUser: User = {
         id: `user_${Date.now()}`,
-        name: name.trim() || formattedHandle.replace('@', ''),
+        name: formattedHandle.replace('@', ''),
         handle: formattedHandle,
         avatar: CURATED_AVATARS[0],
         status: 'Online',
         bio: 'New contact on EzTalk.',
       };
-      onAddFriend(fallbackUser);
+      onAddFriend(fallbackUser, useAlias ? name.trim() : undefined);
       onClose();
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleAction(true);
   };
 
   return (
@@ -202,19 +212,19 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
           <div className="pt-6 mt-auto flex space-x-3 shrink-0">
             <button
               type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-ez-hover hover:bg-ez-border text-gray-300 text-sm font-medium rounded-xl transition-colors duration-150 cursor-pointer"
+              onClick={() => handleAction(false)}
+              disabled={loading || !(handle || '').trim()}
+              className="flex-1 px-4 py-2.5 bg-ez-hover hover:bg-ez-border text-gray-300 text-sm font-medium rounded-xl transition-colors duration-150 cursor-pointer disabled:opacity-50"
             >
-              Cancel
+              Skip / Add without nickname
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !(handle || '').trim()}
               className="flex-1 px-4 py-2.5 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-sm hover:shadow-neon-md transition-colors duration-150 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{loading ? 'Searching...' : 'Start Chat'}</span>
+              <span>{loading ? 'Saving...' : 'Save'}</span>
             </button>
           </div>
         </form>

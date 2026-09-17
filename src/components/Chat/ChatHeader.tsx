@@ -26,6 +26,7 @@ interface ChatHeaderProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onStartCall?: () => void;
+  onEditAlias?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -47,6 +48,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onAddFriend,
   onDeleteGroup,
   onStartCall,
+  onEditAlias,
 }) => {
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -387,6 +389,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         }}
         onRemoveFriend={onRemoveFriend}
         onAddFriend={onAddFriend}
+        onEditAlias={() => {
+          setIsProfileOpen(false);
+          if (onEditAlias) onEditAlias();
+        }}
       />
     </>
   );

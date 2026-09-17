@@ -66,7 +66,7 @@ function getDateKey(createdAt?: string, timestamp?: string): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-export const MessageThread: React.FC<MessageThreadProps> = ({
+export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   messages,
   currentUserId,
   currentUserHandle,
@@ -305,4 +305,4 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
       )}
     </div>
   );
-};
+});
