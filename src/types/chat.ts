@@ -9,7 +9,6 @@ export interface UserSettings {
   accentColor?: string;
   enterToSend?: boolean;
   compactMode?: boolean;
-  contactAliases?: Record<string, string>;
 }
 
 export interface User {
@@ -30,6 +29,7 @@ export interface User {
   lastSeen?: string;
   friends?: string[];
   blockedUsers?: string[];
+  contactAliases?: Record<string, string>;
 }
 
 export interface Attachment {

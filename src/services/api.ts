@@ -205,6 +205,26 @@ export class ApiService {
     }
   }
 
+  // Update Contact Alias
+  static async setContactAlias(
+    userHandle: string,
+    targetHandle: string,
+    aliasName: string
+  ): Promise<Record<string, string> | null> {
+    try {
+      const cleanU = encodeURIComponent(userHandle.trim().toLowerCase());
+      const res = await fetch(`${API_BASE_URL}/users/${cleanU}/contacts/alias`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ targetHandle, aliasName }),
+      });
+      const data = await handleResponse(res, 'Failed to update alias');
+      return data.contactAliases || null;
+    } catch {
+      return null;
+    }
+  }
+
   // Upload attachment file (image, audio, document) to Cloudinary / server
   static async uploadFile(
     fileOrBlob: File | Blob,

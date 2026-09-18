@@ -216,24 +216,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 />
               </div>
 
-              <div className="relative inline-flex items-center justify-center mb-0.5">
-                <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
+              <div className="flex items-center justify-center gap-2 mb-0.5 w-full max-w-full px-10 relative">
+                <h3 className="text-lg font-bold text-white tracking-tight leading-tight truncate">
                   {user.name || user.handle}
                 </h3>
-                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                  {user.statusEmoji && (
-                    <span className="text-base leading-none translate-y-[1px]">{user.statusEmoji}</span>
-                  )}
-                  {onEditAlias && (
-                    <button
-                      onClick={onEditAlias}
-                      className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                      title="Edit Contact Name"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                {user.statusEmoji && (
+                  <span className="text-lg leading-none shrink-0">{user.statusEmoji}</span>
+                )}
+                
+                {onEditAlias && (
+                  <button
+                    onClick={onEditAlias}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Edit Contact Name"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
 

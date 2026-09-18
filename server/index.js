@@ -1081,6 +1081,59 @@ app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
   }
 });
 
+// Update Contact Alias
+app.patch('/api/users/:handle/contacts/alias', authenticateToken, async (req, res) => {
+  try {
+    const userHandle = normalizeHandle(req.params.handle);
+    const { targetHandle, aliasName } = req.body;
+    const cleanTarget = normalizeHandle(targetHandle);
+
+    if (req.user.handle !== userHandle) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (!cleanTarget) {
+      return res.status(400).json({ error: 'Target handle is required.' });
+    }
+
+    if (isMongoConnected) {
+      const user = await UserModel.findOne({ handle: userHandle });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      if (!user.contactAliases) user.contactAliases = {};
+      
+      if (!aliasName || aliasName.trim() === '') {
+        delete user.contactAliases[cleanTarget];
+      } else {
+        user.contactAliases[cleanTarget] = aliasName.trim();
+      }
+      
+      user.markModified('contactAliases');
+      await user.save();
+      
+      io.to(userHandle).emit('profile_updated', formatUser(user));
+      res.json({ success: true, contactAliases: user.contactAliases });
+    } else {
+      const db = readLocalDB();
+      const idx = db.users.findIndex((u) => u.handle.toLowerCase() === userHandle);
+      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+
+      if (!db.users[idx].contactAliases) db.users[idx].contactAliases = {};
+      
+      if (!aliasName || aliasName.trim() === '') {
+        delete db.users[idx].contactAliases[cleanTarget];
+      } else {
+        db.users[idx].contactAliases[cleanTarget] = aliasName.trim();
+      }
+
+      writeLocalDB(db);
+      io.to(userHandle).emit('profile_updated', formatUser(db.users[idx]));
+      res.json({ success: true, contactAliases: db.users[idx].contactAliases });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get Messages for a Group (Cursor pagination, Decrypted on retrieval)
 app.get(['/api/groups/:groupId/messages', '/api/messages/group/:groupId'], async (req, res) => {
   try {

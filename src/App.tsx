@@ -371,13 +371,13 @@ function MainApp() {
 
   const aliasedAllUsers = useMemo(() => {
     return allUsers.map((u) => {
-      const alias = currentUser?.settings?.contactAliases?.[normalizeHandle(u.handle).toLowerCase()];
+      const alias = currentUser?.contactAliases?.[normalizeHandle(u.handle).toLowerCase()];
       if (alias) {
         return { ...u, name: alias };
       }
       return u;
     });
-  }, [allUsers, currentUser?.settings?.contactAliases]);
+  }, [allUsers, currentUser?.contactAliases]);
 
   // Filter friends list (ONLY explicitly added friends)
   const friendsList = aliasedAllUsers.filter(
@@ -1788,7 +1788,7 @@ function MainApp() {
     
     const updateAliasSettings = (targetHandle: string) => {
       const normalizedHandle = normalizeHandle(targetHandle).toLowerCase();
-      const currentAliases = currentUser.settings?.contactAliases || {};
+      const currentAliases = currentUser.contactAliases || {};
       const newAliases = { ...currentAliases };
       
       if (alias && alias.trim()) {
@@ -1797,8 +1797,7 @@ function MainApp() {
         delete newAliases[normalizedHandle];
       }
       
-      const newSettings = { ...currentUser.settings, contactAliases: newAliases };
-      handleUpdateCurrentUser({ ...currentUser, settings: newSettings });
+      handleUpdateCurrentUser({ ...currentUser, contactAliases: newAliases });
     };
 
     try {
@@ -2124,6 +2123,12 @@ function MainApp() {
               isLoadingInitial={isFetchingChat}
               onLoadMore={handleLoadMoreMessages}
               onRetryMessage={handleRetryMessage}
+              onEditAlias={() => {
+                if (selectedUser) {
+                  setAddFriendHandle(selectedUser.handle);
+                  setIsAddFriendOpen(true);
+                }
+              }}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none telegram-chat-bg relative overflow-hidden">

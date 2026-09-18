@@ -107,6 +107,10 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    contactAliases: {
+      type: Object,
+      default: {},
+    },
   },
   {
     timestamps: true,

@@ -51,8 +51,15 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   if (!isOpen) return null;
 
   const handleAction = async (useAlias: boolean) => {
-    if (!(handle || '').trim()) return;
-    const formattedHandle = normalizeHandle(handle || '');
+    let currentHandle = handle || '';
+    if (!currentHandle.trim()) return;
+    
+    if (!currentHandle.startsWith('@')) {
+      currentHandle = '@' + currentHandle;
+      setHandle(currentHandle);
+    }
+    
+    const formattedHandle = normalizeHandle(currentHandle);
 
     if (currentUser && normalizeHandle(currentUser.handle) === formattedHandle) {
       setErrorMessage('You cannot start a chat with yourself.');
@@ -67,40 +74,20 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
       }
 
       if (targetUser) {
+        if (useAlias && name.trim() && currentUser) {
+          ApiService.setContactAlias(currentUser.handle, formattedHandle, name.trim());
+        }
         onAddFriend(targetUser, useAlias ? name.trim() : undefined);
         setHandle('');
         setName('');
         setErrorMessage('');
         onClose();
         return;
+      } else {
+        setErrorMessage('User not found. Check the @handle and try again.');
       }
-
-      // If user doesn't exist remotely, create stub
-      const randomAvatar = CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)];
-      const createdUser = await ApiService.register({
-        name: formattedHandle.replace('@', ''),
-        handle: formattedHandle,
-        avatar: randomAvatar,
-        status: 'Online',
-        bio: 'New contact on EzTalk.',
-      });
-
-      onAddFriend(createdUser, useAlias ? name.trim() : undefined);
-      setHandle('');
-      setName('');
-      setErrorMessage('');
-      onClose();
     } catch {
-      const fallbackUser: User = {
-        id: `user_${Date.now()}`,
-        name: formattedHandle.replace('@', ''),
-        handle: formattedHandle,
-        avatar: CURATED_AVATARS[0],
-        status: 'Online',
-        bio: 'New contact on EzTalk.',
-      };
-      onAddFriend(fallbackUser, useAlias ? name.trim() : undefined);
-      onClose();
+      setErrorMessage('User not found. Check the @handle and try again.');
     } finally {
       setLoading(false);
     }
@@ -148,18 +135,25 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                 Username Handle
               </label>
-              <div className="relative">
+              <div className="relative flex items-center">
                 <input
                   type="text"
                   required
                   value={handle}
                   onChange={(e) => {
-                    setHandle(e.target.value);
+                    let val = e.target.value;
+                    if (val && !val.startsWith('@') && !val.includes('@')) {
+                      val = '@' + val;
+                    }
+                    setHandle(val);
                     setErrorMessage('');
                   }}
-                  placeholder="@username (e.g. @test3 or @test4)"
+                  placeholder="@username (e.g. @test3)"
                   className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
                 />
+                {loading && (
+                  <div className="absolute right-3 w-4 h-4 rounded-full border-2 border-[var(--ez-accent)] border-t-transparent animate-spin" />
+                )}
               </div>
             </div>
 
