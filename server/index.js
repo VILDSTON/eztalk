@@ -90,6 +90,16 @@ ess.clearAllBans();
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 
+// ESS: Защита HTTP API — блокировка запросов от забаненных IP адресов
+app.use((req, res, next) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  const clientIp = (forwarded ? forwarded.split(',')[0].trim() : req.ip) || req.socket?.remoteAddress;
+  if (clientIp && ess.isBanned(clientIp)) {
+    return res.status(403).json({ error: 'Access denied: Temporarily banned by ESS for suspicious activity' });
+  }
+  next();
+});
+
 // Force HTTPS in production (Render, Vercel, Fly.io, etc.)
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
@@ -508,6 +518,15 @@ app.get('/api/health', (req, res) => {
     isMongoConnected,
     mongoConfigured: Boolean(process.env.MONGODB_URI),
     mongoError: isMongoConnected ? null : mongoConnectionError,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ESS Security stats endpoint
+app.get('/api/security/stats', (req, res) => {
+  res.json({
+    status: 'active',
+    ...ess.getStats(),
     timestamp: new Date().toISOString(),
   });
 });

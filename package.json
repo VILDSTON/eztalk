@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "server": "node server/index.js",
+    "devb": "node server/index.js",
+    "dev:backend": "node server/index.js",
     "client": "vite",
     "dev": "concurrently \"node server/index.js\" \"vite\"",
     "build": "vite build",

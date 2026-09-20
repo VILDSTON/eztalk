@@ -57,6 +57,28 @@ class SecurityEngine {
     return false;
   }
 
+  isBanned(ip) {
+    return this._isBanned(ip);
+  }
+
+  unban(ip) {
+    this.ipStrikes.delete(ip);
+  }
+
+  getStats() {
+    let bannedCount = 0;
+    const now = Date.now();
+    for (const record of this.ipStrikes.values()) {
+      if (record.banExpires > now) bannedCount++;
+    }
+    return {
+      trackedIPs: this.ipStrikes.size,
+      bannedIPs: bannedCount,
+      activeSockets: this.socketBuckets.size,
+      activeIPs: this.ipConnections.size,
+    };
+  }
+
   clearAllBans() {
     this.ipStrikes.clear();
     console.log('[ESS] All bans and strikes cleared.');
@@ -115,8 +137,8 @@ class SecurityEngine {
       const connections = this.ipConnections.get(ip);
       connections.add(socketId);
 
-      // Strike: > 5 connections from single IP
-      if (connections.size > 5) {
+      // Strike: > 20 connections from single IP (allow multi-tab / shared Wi-Fi)
+      if (connections.size > 20) {
         this._addStrike(ip, 2);
         if (!this.ALPHA_DRY_RUN && this._isBanned(ip)) {
           // Disconnect all sockets from this IP
@@ -134,38 +156,40 @@ class SecurityEngine {
         lastRefill: Date.now()
       });
 
-      // Strike: Handshake auth timeout
+      // Idle unauthenticated connection cleanup (15s grace period)
+      // Disconnects ghost connections without penalizing innocent visitors on login/about screens
       const authTimeout = setTimeout(() => {
-        // Wait, socket.io doesn't easily expose if user "authenticated" in custom logic,
-        // but typically they send an 'authenticate' or similar event, or we just rely on
-        // joining a room or saving a handle. We assume auth is done if they joined their personal room.
-        // For EzTalk, users send their handle on connection query or via an event.
-        // Actually, EzTalk sends handle in query or a 'register' event?
-        // We will just wait 5 seconds. If they don't do meaningful action, +2 strikes.
-        // To integrate non-intrusively, we will just add a custom flag `isAuthenticated`
-        if (!socket.isAuthenticated) {
-          this._addStrike(ip, 2);
-          if (!this.ALPHA_DRY_RUN && this._isBanned(ip)) {
-            socket.disconnect(true);
-          }
+        if (!socket.isAuthenticated && !socket.verifiedHandle) {
+          socket.disconnect(true);
         }
-      }, 5000);
+      }, 15000);
       
       this.unauthTimers.set(socketId, authTimeout);
 
       // Packet spam protection via wildcard middleware
       socket.use(([event, ...args], next) => {
         // Allow authentication/registration events to pass without strict token check
-        if (event === 'authenticate' || event === 'join') {
+        if (event === 'authenticate' || event === 'join' || event === 'join_group') {
           socket.isAuthenticated = true;
-          clearTimeout(this.unauthTimers.get(socketId));
+          const timer = this.unauthTimers.get(socketId);
+          if (timer) {
+            clearTimeout(timer);
+            this.unauthTimers.delete(socketId);
+          }
         }
 
         // Whitelisted systemic and WebRTC events (no token cost)
         const ignoredEvents = [
           'typing', 'stop_typing', 'mark_read', 'ping', 'pong', 
-          'authenticate', 'join', 'call-user', 'webrtc-signal', 
-          'ice-candidate', 'answer-call', 'decline-call', 'end-call'
+          'authenticate', 'join', 'join_group', 'save_draft', 'update_status', 'user_updated',
+          // WebRTC calls & signaling (supports both underscore and hyphenated variants)
+          'call_user', 'call-user', 
+          'webrtc_signal', 'webrtc-signal', 
+          'ice_candidate', 'ice-candidate', 
+          'answer_call', 'answer-call', 
+          'accept_call', 'accept-call', 
+          'decline_call', 'decline-call', 
+          'end_call', 'end-call'
         ];
         if (ignoredEvents.includes(event)) {
           return next();
@@ -207,22 +231,26 @@ class SecurityEngine {
       });
     });
 
-    // FIX (Medium): Periodic GC for ipStrikes — prevents unbounded memory growth
-    // from internet scanners & bots that probe the server but never actually connect again.
+    // Periodic strike decay & cleanup (every 2 minutes)
+    // 1. Decays accumulated strikes for good behavior (-1 strike every 2 min)
+    // 2. Prunes expired bans so users can reconnect cleanly
     setInterval(() => {
       const now = Date.now();
       for (const [ip, record] of this.ipStrikes.entries()) {
-        // Prune if ban has expired AND strikes are below max (i.e. not a persistent offender)
-        if (record.banExpires < now && record.strikes < this.MAX_STRIKES) {
+        // If ban has expired, reset record
+        if (record.banExpires > 0 && record.banExpires <= now) {
           this.ipStrikes.delete(ip);
+          continue;
         }
-        // If ban expired on a maxed-out offender, reset strikes so they get a fair restart
-        // after BAN_DURATION (they'll re-accumulate if they keep attacking)
-        if (record.banExpires > 0 && record.banExpires < now && record.strikes >= this.MAX_STRIKES) {
-          this.ipStrikes.delete(ip);
+        // If IP is not currently banned, decay strikes gradually
+        if (record.banExpires <= now) {
+          record.strikes = Math.max(0, record.strikes - 1);
+          if (record.strikes === 0) {
+            this.ipStrikes.delete(ip);
+          }
         }
       }
-    }, 10 * 60 * 1000); // Every 10 minutes
+    }, 2 * 60 * 1000); // Every 10 minutes
   }
 }
 
