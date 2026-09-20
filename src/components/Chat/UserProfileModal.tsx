@@ -12,6 +12,8 @@ import {
   Share2,
   Check,
   Pencil,
+  Play,
+  Music,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
@@ -62,6 +64,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [actionToConfirm, setActionToConfirm] = useState<'block' | 'unblock' | 'remove_friend' | null>(null);
   const { t, language } = useTranslation();
   const [isCopied, setIsCopied] = useState(false);
+  const [showAllMedia, setShowAllMedia] = useState(false);
 
   // Закрытие по клавише Escape
   useEffect(() => {
@@ -374,8 +377,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {/* Shared Media */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-ez-muted uppercase tracking-wider">{t.chat.sharedMedia}</span>
-                <span className="text-[10px] font-mono text-ez-muted">{sharedAttachments.length} {t.chat.items}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-ez-muted uppercase tracking-wider">{t.chat.sharedMedia}</span>
+                  <span className="text-[10px] font-mono text-ez-muted">({sharedAttachments.length})</span>
+                </div>
+                {sharedAttachments.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllMedia((prev) => !prev)}
+                    className="text-[11px] font-semibold text-[var(--ez-accent)] hover:brightness-125 transition-all duration-150 cursor-pointer"
+                  >
+                    {showAllMedia
+                      ? ((t.chat as any)?.showLess || 'Show less')
+                      : ((t.chat as any)?.seeAll || `See all (${sharedAttachments.length})`)}
+                  </button>
+                )}
               </div>
 
               {sharedAttachments.length === 0 ? (
@@ -383,20 +399,53 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   {t.chat.noMediaShared}
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-2">
-                  {sharedAttachments.slice(0, 8).map((att, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => att.type === 'image' && setPreviewAttachment(att)}
-                      className="h-16 rounded-xl overflow-hidden bg-black/30 border border-ez-border/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-150"
-                    >
-                      {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <FileText className="w-6 h-6 text-neon-green" />
-                      )}
-                    </div>
-                  ))}
+                <div className={`grid grid-cols-4 gap-2 transition-all ${showAllMedia ? 'max-h-64 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
+                  {(showAllMedia ? sharedAttachments : sharedAttachments.slice(0, 8)).map((att, idx) => {
+                    const isLastHiddenSlot = !showAllMedia && idx === 7 && sharedAttachments.length > 8;
+                    const remainingCount = sharedAttachments.length - 7;
+
+                    return (
+                      <div
+                        key={att.id || idx}
+                        onClick={() => {
+                          if (isLastHiddenSlot) {
+                            setShowAllMedia(true);
+                            return;
+                          }
+                          if (att.type === 'image' || att.type === 'video') {
+                            setPreviewAttachment(att);
+                          } else {
+                            handleDirectDownload(att.url, att.name);
+                          }
+                        }}
+                        className="relative h-16 rounded-xl overflow-hidden bg-black/30 border border-ez-border/30 flex items-center justify-center cursor-pointer hover:opacity-90 hover:border-white/20 transition-all duration-150 group"
+                        title={att.name}
+                      >
+                        {att.type === 'image' ? (
+                          <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                        ) : att.type === 'video' ? (
+                          <div className="relative w-full h-full bg-black flex items-center justify-center">
+                            <video src={att.url} className="w-full h-full object-cover opacity-80" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play className="w-5 h-5 text-white fill-white/80" />
+                            </div>
+                          </div>
+                        ) : att.type === 'audio' ? (
+                          <Music className="w-5 h-5 text-[var(--ez-accent)]" />
+                        ) : (
+                          <FileText className="w-6 h-6 text-neon-green" />
+                        )}
+
+                        {/* Overlay on 8th item when more than 8 exist */}
+                        {isLastHiddenSlot && (
+                          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-white font-bold text-sm tracking-wide z-10 hover:bg-black/65 transition-colors">
+                            <span>+{remainingCount}</span>
+                            <span className="text-[9px] font-normal text-gray-300">{(t.chat as any)?.more || 'more'}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -461,11 +510,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               >
                 <X className="w-5 h-5" />
               </button>
-              <img
-                src={previewAttachment.url}
-                alt={previewAttachment.name}
-                className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-ez-border"
-              />
+              {previewAttachment.type === 'video' ? (
+                <video
+                  src={previewAttachment.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl border border-ez-border"
+                />
+              ) : (
+                <img
+                  src={previewAttachment.url}
+                  alt={previewAttachment.name}
+                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-ez-border"
+                />
+              )}
               <div className="mt-3 flex items-center space-x-3 bg-ez-surface/90 px-4 py-2 rounded-xl border border-ez-border/50">
                 <span className="text-xs font-medium text-white truncate max-w-xs">{previewAttachment.name}</span>
                 <button
