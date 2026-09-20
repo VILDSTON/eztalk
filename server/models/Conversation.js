@@ -38,7 +38,7 @@ conversationSchema.pre('save', function (next) {
       this.lastMessage.replyTo.text = encryptMessage(this.lastMessage.replyTo.text);
     }
   }
-  next();
+  if (typeof next === 'function') next();
 });
 
 conversationSchema.pre('findOneAndUpdate', function (next) {
@@ -52,7 +52,7 @@ conversationSchema.pre('findOneAndUpdate', function (next) {
       lm.replyTo.text = encryptMessage(lm.replyTo.text);
     }
   }
-  next();
+  if (typeof next === 'function') next();
 });
 
 export const ConversationModel = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);

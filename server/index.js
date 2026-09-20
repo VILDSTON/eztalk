@@ -44,7 +44,9 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://eztalk.onrender.com',
   process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
 ].filter(Boolean);
 
 const corsOptions = {
@@ -58,7 +60,9 @@ const corsOptions = {
     const isAllowed =
       allowedOrigins.includes(cleanOrigin) ||
       cleanOrigin.endsWith('.vercel.app') ||
-      cleanOrigin.includes('vercel.app');
+      cleanOrigin.includes('vercel.app') ||
+      cleanOrigin.endsWith('.onrender.com') ||
+      cleanOrigin.includes('onrender.com');
 
     if (isAllowed) {
       return callback(null, true);

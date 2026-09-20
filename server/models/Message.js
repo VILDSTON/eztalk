@@ -118,21 +118,20 @@ messageSchema.pre('save', function (next) {
   if (this.replyTo && typeof this.replyTo === 'object' && this.replyTo.text && !isEncrypted(this.replyTo.text)) {
     this.replyTo.text = encryptMessage(this.replyTo.text);
   }
-  next();
+  if (typeof next === 'function') next();
 });
 
 messageSchema.pre('insertMany', function (next, docs) {
-  if (Array.isArray(docs)) {
-    for (const doc of docs) {
-      if (doc.text && !isEncrypted(doc.text)) {
-        doc.text = encryptMessage(doc.text);
-      }
-      if (doc.replyTo && typeof doc.replyTo === 'object' && doc.replyTo.text && !isEncrypted(doc.replyTo.text)) {
-        doc.replyTo.text = encryptMessage(doc.replyTo.text);
-      }
+  const documents = Array.isArray(next) ? next : (Array.isArray(docs) ? docs : []);
+  for (const doc of documents) {
+    if (doc.text && !isEncrypted(doc.text)) {
+      doc.text = encryptMessage(doc.text);
+    }
+    if (doc.replyTo && typeof doc.replyTo === 'object' && doc.replyTo.text && !isEncrypted(doc.replyTo.text)) {
+      doc.replyTo.text = encryptMessage(doc.replyTo.text);
     }
   }
-  next();
+  if (typeof next === 'function') next();
 });
 
 messageSchema.pre('findOneAndUpdate', function (next) {
@@ -149,7 +148,7 @@ messageSchema.pre('findOneAndUpdate', function (next) {
       update.text = encryptMessage(update.text);
     }
   }
-  next();
+  if (typeof next === 'function') next();
 });
 
 export const MessageModel = mongoose.models.Message || mongoose.model('Message', messageSchema);
