@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Check, AlertCircle, Globe, Palette, Upload } from 'lucide-react';
 import { User } from '../../types/chat';
-import { normalizeHandle } from '../../utils/chatStorage';
+import { normalizeHandle, sanitizeDisplayName } from '../../utils/chatStorage';
 import { compressAvatar } from '../../utils/imageCompressor';
 
 interface EditProfileModalProps {
@@ -12,14 +12,7 @@ interface EditProfileModalProps {
   onSave: (updatedUser: User) => void;
 }
 
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-];
+import { PRESET_AVATARS } from '../../constants/avatars';
 
 const PRESET_BANNERS = [
   'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)',
@@ -59,7 +52,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setName(currentUser.name || '');
+      setName(sanitizeDisplayName(currentUser.name || ''));
       setHandle(currentUser.handle.replace('@', ''));
       setBio(currentUser.bio || '');
       setStatusEmoji(currentUser.statusEmoji || '🚀');
@@ -108,9 +101,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     e.preventDefault();
     if (isHandleTaken) return;
 
+    const cleanName = sanitizeDisplayName(name).trim();
+
     const updated: User = {
       ...currentUser,
-      name: name.trim() || 'User',
+      name: cleanName || 'User',
       handle: formattedHandle || currentUser.handle,
       bio: bio.trim(),
       status: currentUser.status,
@@ -146,7 +141,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-ez-muted hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -223,17 +218,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Name & Handle Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                Display Name (No Emojis)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                  Display Name (No Emojis)
+                </label>
+                <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
+              </div>
               <input
                 type="text"
                 required
+                maxLength={25}
                 value={name}
-                onChange={(e) => {
-                  const clean = e.target.value.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
-                  setName(clean);
-                }}
+                onChange={(e) => setName(sanitizeDisplayName(e.target.value))}
                 placeholder="Your Name"
                 className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
@@ -270,7 +266,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   key={emoji}
                   type="button"
                   onClick={() => setStatusEmoji(emoji)}
-                  className={`flex-1 py-1.5 rounded-lg text-base hover:scale-110 transition-transform duration-100 ${
+                  className={`flex-1 py-1.5 rounded-full text-base hover:scale-110 transition-all duration-100 ${
                     statusEmoji === emoji ? 'bg-white/15 shadow-sm' : 'opacity-60 hover:opacity-100'
                   }`}
                 >

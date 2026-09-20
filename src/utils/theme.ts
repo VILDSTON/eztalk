@@ -45,6 +45,13 @@ export const THEME_OPTIONS: ThemeOption[] = [
     glow: '#F43F5E',
     sentColor: '#4D1224',
   },
+  {
+    id: 'slate',
+    name: 'Deep Gray',
+    color: '#94A3B8',
+    glow: '#CBD5E1',
+    sentColor: '#272D37',
+  },
 ];
 
 export function applyTheme(themeId: string = 'neon') {

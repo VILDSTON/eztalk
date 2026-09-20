@@ -60,8 +60,14 @@ export const ru: TranslationKeys = {
     accounts: 'Аккаунты',
     signOut: 'Выйти',
     personal: 'Личные',
+    friends: 'Друзья',
     groups: 'Группы',
     online: 'В сети',
+    about: 'О сервисе EzTalk',
+    switchAccounts: 'Сменить аккаунт',
+    removeFromDevice: 'Удалить с устройства',
+    appSubtitle: 'Быстрый и легкий мессенджер',
+    cloud: 'Облако',
   },
   chat: {
     online: 'в сети',
@@ -151,6 +157,8 @@ export const ru: TranslationKeys = {
     externalLinkWarning: 'Убедитесь, что вы доверяете этому сайту, прежде чем продолжить.',
     openLink: 'Перейти',
     spamCooldown: 'Слишком много сообщений. Ждите {seconds}с',
+    forwardedFrom: 'Переслано от',
+    copied: 'Скопировано!',
   },
   calls: {
     incomingCall: 'Входящий звонок',
@@ -222,6 +230,7 @@ export const ru: TranslationKeys = {
   profile: {
     shareProfile: 'Поделиться профилем',
     linkCopied: 'Ссылка скопирована!',
+    editName: 'Изменить имя',
   },
   pwa: {
     installBannerText: 'Установите приложение EzTalk Web для быстрого доступа и работы в полноэкранном режиме',
@@ -267,7 +276,7 @@ export const ru: TranslationKeys = {
     wyMessagesTitle: "Сообщения",
     wyMessagesDesc: "Отправляйте текст, эмодзи, фото, файлы, голосовые и видео сообщения — всё в одной удобной ленте.",
     wyAppearanceTitle: "Внешний вид",
-    wyAppearanceDesc: "Выберите свою тему — Зелёную, Синюю, Фиолетовую или позвольте системе решить за вас.",
+    wyAppearanceDesc: "Выберите свою тему — Изумрудную, Синюю, Фиолетовую, Глубокую серую или позвольте системе решить за вас.",
     wyWorksTitle: "Работает на любом устройстве",
     wyWorksDesc: "Общайтесь с кем угодно на любом устройстве, где угодно и когда угодно.",
     wyAdsTitle: "Без рекламы и трекеров",

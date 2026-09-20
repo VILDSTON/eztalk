@@ -21,6 +21,7 @@ import {
 import { User } from '../../types/chat';
 import { THEME_OPTIONS, applyTheme, applyCompactMode } from '../../utils/theme';
 import { playMessageChime } from '../../utils/callSounds';
+import { sanitizeDisplayName } from '../../utils/chatStorage';
 
 interface TelegramSettingsModalProps {
   isOpen: boolean;
@@ -30,14 +31,17 @@ interface TelegramSettingsModalProps {
   onLogout?: () => void;
 }
 
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-];
+import { PRESET_AVATARS } from '../../constants/avatars';
+import { useTranslation } from '../../context/LanguageContext';
+
+const THEME_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
+  neon: { en: 'Neon Green', ru: 'Изумрудный', uz: 'Yashil' },
+  cyan: { en: 'Cyber Blue', ru: 'Кибер Синий', uz: 'Moviy' },
+  purple: { en: 'Purple Night', ru: 'Фиолетовый', uz: 'Binafsha' },
+  amber: { en: 'Sunset Amber', ru: 'Янтарный', uz: 'Qahrabo' },
+  rose: { en: 'Ruby Glow', ru: 'Рубиновый', uz: 'Yoqut' },
+  slate: { en: 'Deep Gray', ru: 'Глубокий серый', uz: 'To‘q kulrang' },
+};
 
 const PRESET_BANNERS = [
   { id: 'dark', label: 'Obsidian Night', gradient: 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)' },
@@ -57,6 +61,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   onSaveProfile,
   onLogout,
 }) => {
+  const { language } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
   // Profile Form state
@@ -113,7 +118,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setName(currentUser.name || '');
+      setName(sanitizeDisplayName(currentUser.name || ''));
       setBio(currentUser.bio || '');
       setAvatar(currentUser.avatar || PRESET_AVATARS[0]);
       setBanner(currentUser.banner || PRESET_BANNERS[0].gradient);
@@ -171,10 +176,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
   const handleSave = () => {
     const selectedColor = THEME_OPTIONS.find((a) => a.id === selectedAccent)?.color || '#10B981';
+    const cleanName = sanitizeDisplayName(name).trim();
 
     const updated: User = {
       ...currentUser,
-      name: name.trim() || currentUser.handle,
+      name: cleanName || currentUser.handle,
       bio: bio.trim(),
       avatar,
       banner,
@@ -289,7 +295,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
             title="Close Settings (Esc)"
           >
             <X className="w-5 h-5" />
@@ -297,8 +303,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-4 sm:px-6 py-2 sm:py-2.5 shrink-0">
-          <div className="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-0.5">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-3 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-0.5 w-full">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -307,7 +313,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap text-xs ${
+                  className={`shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap text-xs select-none ${
                     isActive
                       ? 'bg-neon-green text-black font-extrabold shadow-neon-sm'
                       : 'text-gray-300 hover:text-white hover:bg-white/5 font-medium'
@@ -447,13 +453,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               {/* Name & Custom Status Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                    Display Name
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
+                      Display Name (No Emojis)
+                    </label>
+                    <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
+                  </div>
                   <input
                     type="text"
+                    maxLength={25}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => setName(sanitizeDisplayName(e.target.value))}
                     placeholder="Your Display Name"
                     className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
@@ -529,10 +539,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={playTestChime}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-neon-green font-bold transition-colors duration-150 cursor-pointer flex items-center space-x-1 border border-neon-green/20"
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-neon-green/20 text-neon-green transition-colors duration-150 cursor-pointer flex items-center justify-center border border-neon-green/20"
                     title="Preview Chime"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   </button>
                   <button
                     type="button"
@@ -632,7 +642,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-2.5">
                   Vibrant Accent Theme
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                   {THEME_OPTIONS.map((th) => (
                     <button
                       key={th.id}
@@ -645,7 +655,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       }`}
                     >
                       <div className="w-7 h-7 rounded-full transition-transform duration-150" style={{ backgroundColor: th.color, boxShadow: `0 0 12px ${th.glow}70` }} />
-                      <span className="text-xs font-bold text-white truncate">{th.name}</span>
+                      <span className="text-xs font-bold text-white truncate">{THEME_NAMES[th.id]?.[language as 'en' | 'ru' | 'uz'] || th.name}</span>
                     </button>
                   ))}
                 </div>

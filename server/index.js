@@ -16,7 +16,7 @@ import { UserModel } from './models/User.js';
 import { MessageModel } from './models/Message.js';
 import { GroupModel } from './models/Group.js';
 import { ConversationModel } from './models/Conversation.js';
-import { encryptMessage, decryptMessage } from './utils/crypto.js';
+import { encryptMessage, decryptMessage, isEncrypted } from './utils/crypto.js';
 import { authRateLimiter, uploadRateLimiter, apiRateLimiter, messageRateLimiter } from './utils/rateLimiter.js';
 import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
@@ -121,7 +121,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/eztalk
 
 // Normalized handle helper
 export function normalizeHandle(handle) {
-  if (!handle) return '';
+  if (!handle || typeof handle !== 'string') return '';
   const trimmed = handle.trim().toLowerCase();
   return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
 }
@@ -181,16 +181,22 @@ const upload = multer({
 
 let isMongoConnected = false;
 
-// Preset Guaranteed Working Avatars
+// Preset Guaranteed Working EzTalk Branded Avatars
+function createEzTalkSvg(strokeColor, glowColor = strokeColor, bgColor = '#0A0D14') {
+  const safeId = strokeColor.replace(/[^a-zA-Z0-9]/g, '');
+  return `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" rx="60" fill="${bgColor}"/><defs><radialGradient id="glow_${safeId}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${glowColor}" stop-opacity="0.28"/><stop offset="100%" stop-color="${glowColor}" stop-opacity="0"/></radialGradient></defs><circle cx="60" cy="58" r="44" fill="url(#glow_${safeId})"/><path d="M50 34C36.7452 34 26 44.7452 26 58C26 71.2548 36.7452 82 50 82H52L46 96L64 86C82 86 94 76 94 58C94 44.7452 83.2548 34 70 34H50Z" stroke="${strokeColor}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="48" cy="58" r="4.5" fill="${strokeColor}"/><circle cx="60" cy="58" r="4.5" fill="${strokeColor}"/><circle cx="72" cy="58" r="4.5" fill="${strokeColor}"/></svg>`;
+}
+const toUri = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg.trim())}`;
+
 export const CURATED_AVATARS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  toUri(createEzTalkSvg('#00E599')),
+  toUri(createEzTalkSvg('#A855F7')),
+  toUri(createEzTalkSvg('#00D2FF')),
+  toUri(createEzTalkSvg('#F59E0B')),
+  toUri(createEzTalkSvg('#FF3366')),
+  toUri(createEzTalkSvg('#10B981')),
+  toUri(createEzTalkSvg('#E4E4E7')),
+  toUri(createEzTalkSvg('#FBBF24')),
 ];
 
 // Helper functions for Local JSON Store
@@ -286,6 +292,7 @@ async function connectDatabase() {
     readLocalDB();
     console.log('ℹ️ Running with high-performance Local JSON Database (MONGODB_URI not set).');
     await seedAIUser();
+    await migratePlaintextMessages();
     return;
   }
 
@@ -300,6 +307,7 @@ async function connectDatabase() {
     mongoConnectionError = null;
     console.log('✅ Connected to MongoDB Database successfully.');
     await seedAIUser();
+    await migratePlaintextMessages();
   } catch (err) {
     isMongoConnected = false;
     mongoConnectionError = err.message;
@@ -307,6 +315,7 @@ async function connectDatabase() {
     console.log('ℹ️ Running with high-performance Local JSON Database.');
     readLocalDB();
     await seedAIUser();
+    await migratePlaintextMessages();
   }
 }
 
@@ -349,6 +358,21 @@ async function upsertConversation(sHandle, rHandle, messageData) {
   const p = [sHandle, rHandle].sort();
   const convId = `conv_${p[0]}_${p[1]}`;
 
+  // Encrypt lastMessage text and replyTo.text so it's NEVER in plaintext in DB
+  let encryptedLastMessage = null;
+  if (messageData && typeof messageData === 'object') {
+    encryptedLastMessage = {
+      ...messageData,
+      text: isEncrypted(messageData.text) ? messageData.text : encryptMessage(messageData.text || ''),
+    };
+    if (encryptedLastMessage.replyTo && typeof encryptedLastMessage.replyTo === 'object' && encryptedLastMessage.replyTo.text) {
+      encryptedLastMessage.replyTo = {
+        ...encryptedLastMessage.replyTo,
+        text: isEncrypted(encryptedLastMessage.replyTo.text) ? encryptedLastMessage.replyTo.text : encryptMessage(encryptedLastMessage.replyTo.text),
+      };
+    }
+  }
+
   if (isMongoConnected) {
     try {
       await ConversationModel.findOneAndUpdate(
@@ -356,7 +380,7 @@ async function upsertConversation(sHandle, rHandle, messageData) {
         {
           $set: {
             participants: p,
-            lastMessage: messageData,
+            lastMessage: encryptedLastMessage,
           },
           $pull: { deletedBy: { $in: p } },
         },
@@ -377,10 +401,96 @@ async function upsertConversation(sHandle, rHandle, messageData) {
       };
       db.conversations.push(conv);
     }
-    conv.lastMessage = messageData;
+    conv.lastMessage = encryptedLastMessage;
     conv.updatedAt = new Date().toISOString();
     conv.deletedBy = conv.deletedBy.filter((h) => h !== sHandle && h !== rHandle);
     writeLocalDB(db);
+  }
+}
+
+// Автоматическая миграция: шифрование существующих открытых сообщений в MongoDB и LocalDB
+async function migratePlaintextMessages() {
+  try {
+    if (isMongoConnected) {
+      // 1. Шифрование сообщений в MessageModel
+      const cursor = MessageModel.find({ text: { $exists: true, $ne: '' } }).cursor();
+      let updatedMessages = 0;
+      for await (const doc of cursor) {
+        let changed = false;
+        if (doc.text && !isEncrypted(doc.text)) {
+          doc.text = encryptMessage(doc.text);
+          changed = true;
+        }
+        if (doc.replyTo && typeof doc.replyTo === 'object' && doc.replyTo.text && !isEncrypted(doc.replyTo.text)) {
+          doc.replyTo.text = encryptMessage(doc.replyTo.text);
+          doc.markModified('replyTo');
+          changed = true;
+        }
+        if (changed) {
+          await doc.save();
+          updatedMessages++;
+        }
+      }
+      if (updatedMessages > 0) {
+        console.log(`🔒 [Crypto Migration] Encrypted ${updatedMessages} existing plaintext messages in MongoDB.`);
+      }
+
+      // 2. Шифрование превью в ConversationModel
+      const convCursor = ConversationModel.find({ 'lastMessage.text': { $exists: true, $ne: '' } }).cursor();
+      let updatedConvs = 0;
+      for await (const conv of convCursor) {
+        let changed = false;
+        if (conv.lastMessage && conv.lastMessage.text && !isEncrypted(conv.lastMessage.text)) {
+          conv.lastMessage.text = encryptMessage(conv.lastMessage.text);
+          changed = true;
+        }
+        if (conv.lastMessage && conv.lastMessage.replyTo && typeof conv.lastMessage.replyTo === 'object' && conv.lastMessage.replyTo.text && !isEncrypted(conv.lastMessage.replyTo.text)) {
+          conv.lastMessage.replyTo.text = encryptMessage(conv.lastMessage.replyTo.text);
+          changed = true;
+        }
+        if (changed) {
+          conv.markModified('lastMessage');
+          await conv.save();
+          updatedConvs++;
+        }
+      }
+      if (updatedConvs > 0) {
+        console.log(`🔒 [Crypto Migration] Encrypted ${updatedConvs} existing conversation previews in MongoDB.`);
+      }
+    } else {
+      const db = readLocalDB();
+      let changed = false;
+      if (Array.isArray(db.messages)) {
+        db.messages.forEach((m) => {
+          if (m.text && !isEncrypted(m.text)) {
+            m.text = encryptMessage(m.text);
+            changed = true;
+          }
+          if (m.replyTo && typeof m.replyTo === 'object' && m.replyTo.text && !isEncrypted(m.replyTo.text)) {
+            m.replyTo.text = encryptMessage(m.replyTo.text);
+            changed = true;
+          }
+        });
+      }
+      if (Array.isArray(db.conversations)) {
+        db.conversations.forEach((c) => {
+          if (c.lastMessage && c.lastMessage.text && !isEncrypted(c.lastMessage.text)) {
+            c.lastMessage.text = encryptMessage(c.lastMessage.text);
+            changed = true;
+          }
+          if (c.lastMessage && c.lastMessage.replyTo && typeof c.lastMessage.replyTo === 'object' && c.lastMessage.replyTo.text && !isEncrypted(c.lastMessage.replyTo.text)) {
+            c.lastMessage.replyTo.text = encryptMessage(c.lastMessage.replyTo.text);
+            changed = true;
+          }
+        });
+      }
+      if (changed) {
+        writeLocalDB(db);
+        console.log('🔒 [Crypto Migration] Encrypted existing plaintext records in local database.');
+      }
+    }
+  } catch (err) {
+    console.error('🔒 [Crypto Migration] Error:', err.message);
   }
 }
 
@@ -493,10 +603,17 @@ function formatUser(u) {
 function formatMessage(m) {
   if (!m) return null;
   const obj = typeof m.toObject === 'function' ? m.toObject() : { ...m };
-  return {
+  const formatted = {
     ...obj,
     text: decryptMessage(obj.text || ''),
   };
+  if (formatted.replyTo && typeof formatted.replyTo === 'object' && formatted.replyTo.text) {
+    formatted.replyTo = {
+      ...formatted.replyTo,
+      text: decryptMessage(formatted.replyTo.text),
+    };
+  }
+  return formatted;
 }
 
 // Auth Login (Rate-limited against brute-force attacks)
@@ -731,14 +848,22 @@ app.get('/api/conversations', authenticateToken, async (req, res) => {
       const convs = await ConversationModel.find({
         participants: currentHandle,
         deletedBy: { $ne: currentHandle }
-      }).sort({ updatedAt: -1 });
-      return res.json({ conversations: convs });
+      }).sort({ updatedAt: -1 }).lean();
+      const formattedConvs = convs.map((c) => ({
+        ...c,
+        lastMessage: c.lastMessage ? formatMessage(c.lastMessage) : null,
+      }));
+      return res.json({ conversations: formattedConvs });
     } else {
       const db = readLocalDB();
       const convs = db.conversations
         .filter((c) => c.participants.includes(currentHandle) && !c.deletedBy.includes(currentHandle))
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      return res.json({ conversations: convs });
+      const formattedConvs = convs.map((c) => ({
+        ...c,
+        lastMessage: c.lastMessage ? formatMessage(c.lastMessage) : null,
+      }));
+      return res.json({ conversations: formattedConvs });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -839,7 +964,9 @@ app.all(['/api/users/profile', '/api/users/settings'], authenticateToken, async 
         ...(Array.isArray(friends) && { friends: friends.map(normalizeHandle) }),
       };
 
-      const query = id ? { _id: id } : { handle: prevHandle };
+      const query = (id && mongoose.Types.ObjectId.isValid(id))
+        ? { $or: [{ _id: id }, { handle: prevHandle }] }
+        : { handle: prevHandle };
       const updated = await UserModel.findOneAndUpdate(
         query,
         { $set: updateData },
@@ -1093,6 +1220,9 @@ app.patch('/api/users/:handle/contacts/alias', authenticateToken, async (req, re
     }
     if (!cleanTarget) {
       return res.status(400).json({ error: 'Target handle is required.' });
+    }
+    if (typeof aliasName === 'string' && aliasName.trim().length > 50) {
+      return res.status(400).json({ error: 'Alias must be 50 characters or less.' });
     }
 
     if (isMongoConnected) {
@@ -1478,7 +1608,15 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     }
 
     const plainText = text || '';
-    const encryptedText = encryptMessage(plainText);
+    const encryptedText = isEncrypted(plainText) ? plainText : encryptMessage(plainText);
+
+    let encryptedReplyTo = replyTo || null;
+    if (encryptedReplyTo && typeof encryptedReplyTo === 'object' && encryptedReplyTo.text && !isEncrypted(encryptedReplyTo.text)) {
+      encryptedReplyTo = {
+        ...encryptedReplyTo,
+        text: encryptMessage(encryptedReplyTo.text),
+      };
+    }
 
     const realId = (id && !id.startsWith('temp_')) ? id : `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const effectiveTempId = tempId || (id && id.startsWith('temp_') ? id : null);
@@ -1492,7 +1630,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
       recipientHandle: rHandle,
       text: encryptedText,
       attachment: attachment || null,
-      replyTo: replyTo || null,
+      replyTo: encryptedReplyTo,
       callInfo: callInfo || null,
       reactions: {},
       isEdited: false,

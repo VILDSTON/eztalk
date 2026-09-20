@@ -75,6 +75,7 @@ function renderMessagePreview(msg: Message, currentHandle?: string, t?: any) {
 interface FriendsListProps {
   currentUser?: User | null;
   users: User[];
+  addedFriends?: string[];
   isLoading?: boolean;
   allExistingUsers?: User[];
   groups?: Group[];
@@ -100,6 +101,7 @@ interface FriendsListProps {
 export const FriendsList: React.FC<FriendsListProps> = ({
   currentUser,
   users,
+  addedFriends = [],
   isLoading = false,
   allExistingUsers = [],
   groups = [],
@@ -126,7 +128,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'online'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'friends' | 'groups' | 'online'>('all');
   const [groupToDelete, setGroupToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -178,8 +180,17 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return onlineHandles.some((h) => normalizeHandle(h).toLowerCase() === normalizeHandle(handle).toLowerCase());
   };
 
+  const isUserFriend = (handle: string) => {
+    const clean = normalizeHandle(handle).toLowerCase();
+    return (
+      (currentUser?.friends && currentUser.friends.some((f) => normalizeHandle(f).toLowerCase() === clean)) ||
+      addedFriends.some((f) => normalizeHandle(f).toLowerCase() === clean)
+    );
+  };
+
   const matchedUsers = users.filter((u) => {
     if (activeTab === 'online' && !isUserOnline(u.handle)) return false;
+    if (activeTab === 'friends' && !isUserFriend(u.handle)) return false;
     if (!cleanQuery) return true;
     return (
       u.handle.toLowerCase().replace('@', '').includes(cleanQuery) ||
@@ -243,7 +254,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   const tabs = [
     { id: 'all' as const, label: t.sidebar.allChats },
-    { id: 'direct' as const, label: t.sidebar.personal },
+    { id: 'friends' as const, label: t.sidebar.friends },
     { id: 'groups' as const, label: t.sidebar.groups },
     { id: 'online' as const, label: t.sidebar.online },
   ];
@@ -255,7 +266,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           <button
             type="button"
             onClick={onOpenMenu}
-            className="p-2 text-ez-muted hover:text-white rounded-xl hover:bg-white/5 transition-colors duration-150 cursor-pointer shrink-0"
+            className="w-9 h-9 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
             title={t.common.openMenu}
           >
             <Menu className="w-5 h-5" />
@@ -274,7 +285,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 text-ez-muted hover:text-white cursor-pointer"
+                className="absolute right-2.5 w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -288,7 +299,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`py-2.5 px-3 border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+              className={`shrink-0 py-2.5 px-3 border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-neon-green text-neon-green'
                   : 'border-transparent text-ez-muted hover:text-gray-200'
@@ -300,7 +311,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-2 pb-28 space-y-0.5">
-          {(activeTab === 'all' || activeTab === 'direct') && currentUser && !cleanQuery && (
+          {activeTab === 'all' && currentUser && !cleanQuery && (
             (() => {
               const savedLastMsg = lastMessages['saved_messages'] || lastMessages[normalizeHandle(currentUser.handle).toLowerCase()];
               const isSelected = Boolean(currentUser?.id && selectedUserId && (selectedUserId === currentUser.id || normalizeHandle(selectedUserId) === normalizeHandle(currentUser.handle))) && !selectedGroupId;
@@ -413,7 +424,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         e.stopPropagation();
                         setGroupToDelete({ id: group.id, name: group.name });
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-opacity duration-150 cursor-pointer shrink-0"
+                      className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-150 cursor-pointer shrink-0"
                       title="Delete Group"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -424,7 +435,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             })}
 
           {/* User Chats */}
-          {isLoading && (activeTab === 'all' || activeTab === 'direct') && Array.from({ length: 5 }).map((_, i) => (
+          {isLoading && (activeTab === 'all' || activeTab === 'friends') && Array.from({ length: 5 }).map((_, i) => (
             <div key={`skeleton-${i}`} className="flex items-center p-2.5 space-x-3 mb-1 bg-white/[0.01] rounded-2xl animate-pulse">
               <div className="w-10 h-10 rounded-full bg-ez-border/30 shrink-0" />
               <div className="flex-1 space-y-2 py-1">
@@ -434,7 +445,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             </div>
           ))}
 
-          {!isLoading && (activeTab === 'all' || activeTab === 'direct' || activeTab === 'online') &&
+          {!isLoading && (activeTab === 'all' || activeTab === 'friends' || activeTab === 'online') &&
             filteredUsers.map((user) => {
               const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
               const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));
@@ -482,6 +493,9 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                           <span className="text-[13px] font-bold text-white truncate tracking-tight">
                             {user.name || user.handle}
                           </span>
+                          {user.statusEmoji && (
+                            <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
+                          )}
                           {pinnedChats.includes(handleClean) && <Bookmark className="w-3 h-3 text-neon-green shrink-0 fill-neon-green" />}
                         </div>
                         {lastMsg && (
@@ -525,7 +539,12 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-[13px] font-bold text-white truncate">{user.name || user.handle}</span>
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <span className="text-[13px] font-bold text-white truncate">{user.name || user.handle}</span>
+                        {user.statusEmoji && (
+                          <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-neon-green font-mono truncate">{user.handle}</span>
                     </div>
                   </div>
@@ -553,7 +572,15 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             </div>
           )}
 
-          {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && activeTab !== 'groups' && (
+          {activeTab === 'friends' && filteredUsers.length === 0 && (
+            <div className="text-center py-12 px-4 text-xs text-ez-muted">
+              <Users className="w-8 h-8 mx-auto text-ez-border mb-2" />
+              <p className="font-semibold text-gray-400">No Friends Found</p>
+              <p className="mt-1 text-ez-muted">Add friends by their @handle to start chatting.</p>
+            </div>
+          )}
+
+          {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && activeTab !== 'groups' && activeTab !== 'friends' && (
             <div className="text-center py-12 px-4 text-xs text-ez-muted">
               <p className="font-semibold text-gray-400">No chats found</p>
               <p className="mt-1 text-ez-muted">Search for people by handle or start a new conversation.</p>

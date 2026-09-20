@@ -86,7 +86,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -186,9 +186,14 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
                       )}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs font-bold text-white group-hover:text-neon-green transition-colors truncate">
-                        {u.name || u.handle}
-                      </span>
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <span className="text-xs font-bold text-white group-hover:text-neon-green transition-colors truncate">
+                          {u.name || u.handle}
+                        </span>
+                        {u.statusEmoji && (
+                          <span className="text-[11px] shrink-0 select-none leading-none">{u.statusEmoji}</span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-ez-muted font-mono truncate">{u.handle}</span>
                     </div>
                   </div>

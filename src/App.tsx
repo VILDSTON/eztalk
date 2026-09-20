@@ -10,8 +10,9 @@ import { TelegramSettingsModal } from './components/Settings/TelegramSettingsMod
 import { CreateGroupModal } from './components/Groups/CreateGroupModal';
 import { EditProfileModal } from './components/Profile/EditProfileModal';
 import { AddFriendModal } from './components/Sidebar/AddFriendModal';
+import { EditContactNameModal } from './components/Chat/EditContactNameModal';
 import { User, Group, Message, Attachment, QuotedMessage } from './types/chat';
-import { ChatStorageService, getConversationKey, normalizeHandle } from './utils/chatStorage';
+import { ChatStorageService, getConversationKey, normalizeHandle, sanitizeDisplayName } from './utils/chatStorage';
 import { ApiService } from './services/api';
 import { socketService } from './services/socket';
 import { callSoundService, playMessageChime } from './utils/callSounds';
@@ -25,6 +26,7 @@ import { useLocalizedNavigate } from './hooks/useLocalizedNavigate';
 import { useTranslation } from './context/LanguageContext';
 import { LandingPage } from './components/Landing/LandingPage';
 import { BanScreen } from './components/UI/BanScreen';
+import { DEFAULT_AVATAR } from './constants/avatars';
 
 const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
 
@@ -72,8 +74,9 @@ function MainApp() {
     return <RootRedirect />;
   }
 
-  const match = useMatch('/:lang/t/direct/t/:chatId');
-  const urlChatId = match?.params.chatId;
+  const match = useMatch('/:lang/t/direct/:chatId');
+  const legacyMatch = useMatch('/:lang/t/direct/t/:chatId');
+  const urlChatId = match?.params.chatId || legacyMatch?.params.chatId;
 
   // Authentication & Global Users State
   const [currentUser, setCurrentUser] = useState<User | null>(() => ChatStorageService.getAuthUser());
@@ -84,6 +87,7 @@ function MainApp() {
     isOpen: false,
     tab: 'privacy',
   });
+  const [editingAliasUser, setEditingAliasUser] = useState<User | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
 
   const [showPwaInstall, setShowPwaInstall] = useState(false);
@@ -143,12 +147,18 @@ function MainApp() {
     const handleMatch = path.match(new RegExp(`^/${lang}/@([^/]+)`));
     const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
 
+    const legacyDirectMatch = path.match(new RegExp(`^/${lang}/t/direct/t/([^/]+)`));
+
+    if (legacyDirectMatch) {
+      navigate(`/t/direct/${legacyDirectMatch[1]}`, { replace: true });
+      return;
+    }
     if (handleMatch) {
-      navigate(`/t/direct/t/${handleMatch[1]}`, { replace: true });
+      navigate(`/t/direct/${handleMatch[1]}`, { replace: true });
       return;
     }
     if (chatMatch) {
-      navigate(`/t/direct/t/${chatMatch[1]}`, { replace: true });
+      navigate(`/t/direct/${chatMatch[1]}`, { replace: true });
       return;
     }
 
@@ -209,20 +219,20 @@ function MainApp() {
     if (!id) {
       navigate('/t/direct');
     } else {
-      navigate(`/t/direct/t/${id}`);
+      navigate(`/t/direct/${id}`);
     }
   }, [navigate]);
 
   const setSelectedGroupId = useCallback((id: string | null) => {
     if (id) {
-      navigate(`/t/direct/t/${id}`);
+      navigate(`/t/direct/${id}`);
     }
   }, [navigate]);
 
   useEffect(() => {
     if (!currentUser) {
       if (urlChatId) {
-        sessionStorage.setItem('eztalk_redirect_after_login', `/t/direct/t/${urlChatId}`);
+        sessionStorage.setItem('eztalk_redirect_after_login', `/t/direct/${urlChatId}`);
       }
     } else {
       const pendingRedirect = sessionStorage.getItem('eztalk_redirect_after_login');
@@ -339,13 +349,10 @@ function MainApp() {
     if (!currentUser?.handle) return;
     const token = localStorage.getItem('eztalk_token');
     if (!token) {
-      // Background re-authentication to obtain fresh JWT token
-      ApiService.login(currentUser.handle).catch(() => {
-        // If background login fails (e.g. 400 or 401), clear invalid session to prevent spam loops
-        ChatStorageService.saveAuthUser(null);
-        setCurrentUser(null);
-        window.dispatchEvent(new CustomEvent('ez:unauthorized'));
-      });
+      const savedToken = ChatStorageService.getAccountToken(currentUser.handle);
+      if (savedToken) {
+        localStorage.setItem('eztalk_token', savedToken);
+      }
     }
   }, [currentUser?.handle]);
 
@@ -918,7 +925,7 @@ function MainApp() {
 
         const sender = allUsersRef.current.find((u) => normalizeHandle(u.handle) === sHandle);
         const senderName = sender?.name || sHandle;
-        const senderAvatar = sender?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+        const senderAvatar = sender?.avatar || DEFAULT_AVATAR;
         const senderId = sender?.id || sHandle;
 
         // 2. In-App Floating Toasts: Render animated floating toast if enabled and chat is NOT open
@@ -1243,6 +1250,11 @@ function MainApp() {
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
   const handleLogin = (user: User) => {
+    const activeToken = (user as any).token || localStorage.getItem('eztalk_token');
+    if (activeToken) {
+      ChatStorageService.setAccountToken(user.handle, activeToken);
+      localStorage.setItem('eztalk_token', activeToken);
+    }
     setSelectedUserId('');
     setSelectedGroupId(null);
     setMessagesByChat(ChatStorageService.getConversations());
@@ -1251,6 +1263,7 @@ function MainApp() {
     setCurrentUser(user);
     currentUserRef.current = user;
     ChatStorageService.saveAuthUser(user);
+    ChatStorageService.addMyAccount(user);
     setMyAccounts(ChatStorageService.getMyAccounts());
     if (Array.isArray(user.friends) && user.friends.length > 0) {
       setAddedFriends(user.friends.map(normalizeHandle));
@@ -1273,6 +1286,15 @@ function MainApp() {
   const handleSwitchAccount = async (targetAccount: User) => {
     socketService.disconnect();
 
+    // Switch active JWT token for target account
+    const targetToken =
+      (targetAccount as any).token ||
+      ChatStorageService.getAccountToken(targetAccount.handle);
+    if (targetToken) {
+      localStorage.setItem('eztalk_token', targetToken);
+      (targetAccount as any).token = targetToken;
+    }
+
     setSelectedUserId('');
     setSelectedGroupId(null);
     setUnreadCounts({});
@@ -1281,7 +1303,13 @@ function MainApp() {
     setActiveSection('chats');
     setIsDrawerOpen(false);
 
-    let userToSet = targetAccount;
+    const storedAccounts = ChatStorageService.getMyAccounts();
+    const latestAccount =
+      storedAccounts.find(
+        (a) => normalizeHandle(a.handle).toLowerCase() === normalizeHandle(targetAccount.handle).toLowerCase()
+      ) || targetAccount;
+
+    let userToSet = latestAccount;
     try {
       const freshProfile = await ApiService.getProfile(targetAccount.handle);
       if (freshProfile) {
@@ -1294,6 +1322,7 @@ function MainApp() {
     setCurrentUser(userToSet);
     currentUserRef.current = userToSet;
     ChatStorageService.saveAuthUser(userToSet);
+    ChatStorageService.addMyAccount(userToSet);
 
     // Now that auth user is saved, load their conversations
     const userConvs = ChatStorageService.getConversations();
@@ -1346,6 +1375,10 @@ function MainApp() {
 
   const handleLogout = () => {
     socketService.disconnect();
+    if (currentUser?.handle) {
+      ChatStorageService.removeAccountToken(currentUser.handle);
+    }
+    localStorage.removeItem('eztalk_token');
     setCurrentUser(null);
     ChatStorageService.saveAuthUser(null);
     setSelectedUserId('');
@@ -1356,6 +1389,40 @@ function MainApp() {
     setUnreadCounts({});
     setAddedFriends([]);
     setActiveChatHandles([]);
+  };
+
+  const handleAddAccount = () => {
+    // 1. Preserve current account in myAccounts list with its token so user can easily switch back
+    if (currentUser) {
+      ChatStorageService.addMyAccount(currentUser);
+      const activeToken = localStorage.getItem('eztalk_token');
+      if (activeToken && currentUser.handle) {
+        ChatStorageService.setAccountToken(currentUser.handle, activeToken);
+      }
+    }
+
+    // 2. Disconnect socket
+    socketService.disconnect();
+
+    // 3. Clear active auth credentials
+    localStorage.removeItem('eztalk_token');
+    ChatStorageService.saveAuthUser(null);
+    setCurrentUser(null);
+    currentUserRef.current = null;
+
+    // 4. Reset in-memory chat session
+    setSelectedUserId('');
+    setSelectedGroupId(null);
+    setMessagesByChat({});
+    setLastMessages({});
+    setDrafts({});
+    setUnreadCounts({});
+    setAddedFriends([]);
+    setActiveChatHandles([]);
+    setIsDrawerOpen(false);
+
+    // 5. Navigate straight to login route
+    navigate('/login');
   };
 
   const isSelectedUserMuted = selectedUser
@@ -1632,7 +1699,7 @@ function MainApp() {
       id: Date.now().toString(),
       senderName: targetGroup ? targetGroup.name : (targetUser?.name || targetUser?.handle || 'Recipient'),
       senderHandle: targetGroup ? targetGroup.name : (targetUser?.handle || 'Recipient'),
-      senderAvatar: targetGroup ? targetGroup.avatar : (targetUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'),
+      senderAvatar: targetGroup ? targetGroup.avatar : (targetUser?.avatar || DEFAULT_AVATAR),
       text: `↪ Forwarded message from ${originalSender}`,
       groupId: targetGroupId,
     });
@@ -1752,6 +1819,16 @@ function MainApp() {
     if (confirm(`Remove ${clean} from your friends list?`)) {
       setAddedFriends((prev) => prev.filter((f) => normalizeHandle(f) !== clean));
       ChatStorageService.removeFriend(currentUser.handle, clean);
+
+      // Reset custom alias to normal/default when friend is removed
+      const normalizedTarget = clean.toLowerCase();
+      if (currentUser.contactAliases && currentUser.contactAliases[normalizedTarget]) {
+        const newAliases = { ...currentUser.contactAliases };
+        delete newAliases[normalizedTarget];
+        handleUpdateCurrentUser({ ...currentUser, contactAliases: newAliases });
+        ApiService.setContactAlias(currentUser.handle, clean, '').catch(() => {});
+      }
+
       if (selectedUser && normalizeHandle(selectedUser.handle) === clean) {
         setSelectedUserId('');
       }
@@ -1763,6 +1840,30 @@ function MainApp() {
       } catch {
         // ignore
       }
+    }
+  };
+
+  const handleSaveContactAlias = async (targetHandle: string, newAlias: string) => {
+    if (!currentUser) return;
+    const cleanTarget = normalizeHandle(targetHandle);
+    const normalizedKey = cleanTarget.toLowerCase();
+    const cleanAlias = sanitizeDisplayName(newAlias).trim();
+
+    const currentAliases = currentUser.contactAliases || {};
+    const newAliases = { ...currentAliases };
+
+    if (cleanAlias) {
+      newAliases[normalizedKey] = cleanAlias;
+    } else {
+      delete newAliases[normalizedKey];
+    }
+
+    handleUpdateCurrentUser({ ...currentUser, contactAliases: newAliases });
+
+    try {
+      await ApiService.setContactAlias(currentUser.handle, cleanTarget, cleanAlias);
+    } catch (err) {
+      console.error('Failed to save contact alias on server:', err);
     }
   };
 
@@ -1835,6 +1936,8 @@ function MainApp() {
     setCurrentUser(updated);
     currentUserRef.current = updated;
     ChatStorageService.saveAuthUser(updated);
+    ChatStorageService.addMyAccount(updated);
+    ChatStorageService.upsertUser(updated);
     setMyAccounts(ChatStorageService.getMyAccounts());
     setAllUsers((prev) =>
       prev.map((u) =>
@@ -1849,6 +1952,8 @@ function MainApp() {
         setCurrentUser(serverUser);
         currentUserRef.current = serverUser;
         ChatStorageService.saveAuthUser(serverUser);
+        ChatStorageService.addMyAccount(serverUser);
+        ChatStorageService.upsertUser(serverUser);
         setMyAccounts(ChatStorageService.getMyAccounts());
       }
       socketService.updateStatus(updated);
@@ -1860,6 +1965,7 @@ function MainApp() {
   };
 
   const handleRemoveAccount = (acc: User) => {
+    ChatStorageService.removeAccountToken(acc.handle);
     const updated = ChatStorageService.removeMyAccount(acc.handle);
     setMyAccounts(updated);
   };
@@ -1910,6 +2016,10 @@ function MainApp() {
       <AuthScreen
         onLogin={(u) => { handleLogin(u); navigate('/t/direct', { replace: true }); }}
         onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
+        onCancel={myAccounts.length > 0 ? () => {
+          handleSwitchAccount(myAccounts[0]);
+          navigate('/t/direct');
+        } : undefined}
       />
       <LegalModal
         isOpen={legalModal.isOpen}
@@ -1975,7 +2085,7 @@ function MainApp() {
                 e.stopPropagation();
                 setToast(null);
               }}
-              className="text-ez-muted hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+              className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -1994,7 +2104,7 @@ function MainApp() {
             onSelectSection={(sec) => {
               setActiveSection(sec);
               if (sec === 'saved' && currentUser) {
-                navigate(`/t/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/t/direct/${normalizeHandle(currentUser.handle).replace('@', '')}`);
               }
             }}
             onOpenAddFriend={() => setIsAddFriendOpen(true)}
@@ -2002,13 +2112,13 @@ function MainApp() {
             onOpenEditProfile={() => setIsEditProfileOpen(true)}
             onSelectSavedMessages={() => {
               if (currentUser) {
-                navigate(`/t/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/t/direct/${normalizeHandle(currentUser.handle).replace('@', '')}`);
                 setActiveSection('saved');
               }
             }}
             onSwitchUser={handleSwitchAccount}
             onRemoveAccount={handleRemoveAccount}
-            onAddAccount={() => setCurrentUser(null)}
+            onAddAccount={handleAddAccount}
             onLogout={handleLogout}
           />
         </div>
@@ -2019,6 +2129,7 @@ function MainApp() {
             key={currentUser?.id || 'guest'}
             currentUser={currentUser}
             users={chatUsers}
+            addedFriends={addedFriends}
             isLoading={isLoadingConversations}
             allExistingUsers={aliasedAllUsers}
             groups={userGroups}
@@ -2031,13 +2142,13 @@ function MainApp() {
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               const handle = normalizeHandle(u.handle);
-              navigate(`/t/direct/t/${handle.replace('@', '')}`);
+              navigate(`/t/direct/${handle.replace('@', '')}`);
               setActiveSection(currentUser && (handle === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
               setUnreadCounts((prev) => ({ ...prev, [handle]: 0, [u.id || handle]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, handle])]);
             }}
             onSelectGroup={(g) => {
-              navigate(`/t/direct/t/${g.id}`);
+              navigate(`/t/direct/${g.id}`);
               setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
@@ -2123,10 +2234,12 @@ function MainApp() {
               isLoadingInitial={isFetchingChat}
               onLoadMore={handleLoadMoreMessages}
               onRetryMessage={handleRetryMessage}
+              currentAlias={selectedUser ? currentUser?.contactAliases?.[normalizeHandle(selectedUser.handle).toLowerCase()] : undefined}
+              originalName={selectedUser ? allUsers.find((u) => normalizeHandle(u.handle) === normalizeHandle(selectedUser.handle))?.name : undefined}
+              onSaveAlias={(newAlias) => selectedUser && handleSaveContactAlias(selectedUser.handle, newAlias)}
               onEditAlias={() => {
                 if (selectedUser) {
-                  setAddFriendHandle(selectedUser.handle);
-                  setIsAddFriendOpen(true);
+                  setEditingAliasUser(selectedUser);
                 }
               }}
             />
@@ -2171,7 +2284,7 @@ function MainApp() {
           handleUpdateCurrentUser({ ...currentUser, status: st });
         }}
         onSwitchAccount={handleSwitchAccount}
-        onAddAccount={() => setCurrentUser(null)}
+        onAddAccount={handleAddAccount}
         onRemoveAccount={handleRemoveAccount}
         onLogout={handleLogout}
         onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
@@ -2233,6 +2346,21 @@ function MainApp() {
             handleAddNewFriend(friend, alias);
             setIsAddFriendOpen(false);
             setAddFriendHandle('');
+          }}
+        />
+      )}
+
+      {/* Edit Contact Name / Alias Modal */}
+      {editingAliasUser && currentUser && (
+        <EditContactNameModal
+          isOpen={Boolean(editingAliasUser)}
+          user={editingAliasUser}
+          currentAlias={currentUser.contactAliases?.[normalizeHandle(editingAliasUser.handle).toLowerCase()]}
+          originalName={allUsers.find((u) => normalizeHandle(u.handle) === normalizeHandle(editingAliasUser.handle))?.name}
+          onClose={() => setEditingAliasUser(null)}
+          onSave={(newAlias) => {
+            handleSaveContactAlias(editingAliasUser.handle, newAlias);
+            setEditingAliasUser(null);
           }}
         />
       )}
@@ -2364,7 +2492,7 @@ function MainApp() {
             </button>
             <button
               onClick={closePwaBanner}
-              className="p-1.5 text-ez-muted hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              className="w-7 h-7 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

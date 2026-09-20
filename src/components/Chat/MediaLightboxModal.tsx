@@ -106,7 +106,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 title="Zoom Out (-)"
               >
                 <ZoomOut className="w-4 h-4" />
@@ -114,7 +114,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
-                className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 title="Zoom In (+)"
               >
                 <ZoomIn className="w-4 h-4" />
@@ -122,7 +122,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
               <button
                 type="button"
                 onClick={() => setRotation((r) => (r + 90) % 360)}
-                className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 title="Rotate (90°)"
               >
                 <RotateCw className="w-4 h-4" />
@@ -132,7 +132,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
           <button
             type="button"
             onClick={handleDownload}
-            className="p-1.5 rounded-xl text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors cursor-pointer"
             title="Download Media"
           >
             <Download className="w-4 h-4" />
@@ -141,7 +141,7 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             title="Close (Esc)"
           >
             <X className="w-4 h-4" />

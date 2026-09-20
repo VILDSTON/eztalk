@@ -14,13 +14,7 @@ interface CreateGroupModalProps {
   onCreateGroup: (name: string, avatar: string, memberHandles: string[]) => void;
 }
 
-const GROUP_AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=150&auto=format&fit=crop&q=80',
-];
+import { GROUP_AVATAR_PRESETS } from '../../constants/avatars';
 
 export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   isOpen,
@@ -128,7 +122,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

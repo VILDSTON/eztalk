@@ -467,7 +467,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={onCancelReply}
-              className="text-ez-muted hover:text-white p-1 rounded cursor-pointer"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -484,7 +484,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={onCancelEdit}
-              className="text-ez-muted hover:text-white p-1 rounded cursor-pointer"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -503,7 +503,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   key={emoji}
                   type="button"
                   onClick={() => addEmoji(emoji)}
-                  className="text-xl hover:scale-125 p-1.5 rounded-xl hover:bg-white/10 transition-transform duration-100 cursor-pointer"
+                  className="w-9 h-9 flex items-center justify-center text-xl hover:scale-125 rounded-full hover:bg-white/10 transition-all duration-100 cursor-pointer"
                 >
                   {emoji}
                 </button>
@@ -534,7 +534,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               type="button"
               onClick={() => setCurrentAttachment(null)}
               aria-label="Remove attachment"
-              className="text-ez-muted hover:text-white p-1 rounded cursor-pointer"
+              className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -564,7 +564,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={cancelRecording}
-                className="p-1.5 rounded-full text-ez-muted hover:text-rose-400 hover:bg-white/10 cursor-pointer transition-colors duration-150 shrink-0"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-rose-400 hover:bg-white/10 cursor-pointer transition-colors duration-150 shrink-0"
                 title={(t as any)?.chat?.cancel || "Cancel"}
               >
                 <Trash2 className="w-4 h-4" />
@@ -605,7 +605,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 placeholder={cooldownSeconds > 0 
                   ? t.chat.spamCooldown?.replace('{seconds}', String(cooldownSeconds)) || `Too many messages. Wait ${cooldownSeconds}s`
                   : editingMessage ? t.chat.editPlaceholder : t.chat.placeholder}
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-white placeholder-ez-muted font-sans leading-normal disabled:opacity-50"
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-base text-white placeholder-ez-muted font-sans leading-normal disabled:opacity-50 touch-manipulation"
               />
               <button
                 type="button"

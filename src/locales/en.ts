@@ -57,8 +57,14 @@ export const en = {
     accounts: 'Accounts',
     signOut: 'Sign Out',
     personal: 'Personal',
+    friends: 'Friends',
     groups: 'Groups',
     online: 'Online',
+    about: 'About EzTalk',
+    switchAccounts: 'Switch Accounts',
+    removeFromDevice: 'Remove from device',
+    appSubtitle: 'Fast and Light Messenger',
+    cloud: 'Cloud',
   },
   chat: {
     online: 'online',
@@ -148,6 +154,8 @@ export const en = {
     externalLinkWarning: 'Make sure you trust this domain before proceeding.',
     openLink: 'Open Link',
     spamCooldown: 'Too many messages. Wait {seconds}s',
+    forwardedFrom: 'Forwarded from',
+    copied: 'Copied!',
   },
   calls: {
     incomingCall: 'Incoming Call',
@@ -219,6 +227,7 @@ export const en = {
   profile: {
     shareProfile: 'Share Profile',
     linkCopied: 'Link copied!',
+    editName: 'Change Name',
   },
   pwa: {
     installBannerText: 'Install EzTalk Web for a faster, full-screen app experience',
@@ -264,7 +273,7 @@ export const en = {
     wyMessagesTitle: "Messages",
     wyMessagesDesc: "Send text, emojis, photos, files, voice and video notes — all in one timeline that keeps conversations easy to follow.",
     wyAppearanceTitle: "Appearance",
-    wyAppearanceDesc: "Choose your theme — Green, Blue, Purple or let your system decide for you.",
+    wyAppearanceDesc: "Choose your theme — Green, Blue, Purple, Deep Gray or let your system decide for you.",
     wyWorksTitle: "Works on any device",
     wyWorksDesc: "Connect with anyone on any device, anywhere, anytime.",
     wyAdsTitle: "No Ads, No Trackers",

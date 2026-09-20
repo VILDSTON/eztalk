@@ -52,7 +52,7 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
       if (!isNaN(d.getTime())) {
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
       }
-    } catch {}
+    } catch { }
   }
   if (fallbackText && (fallbackText.includes(':') || fallbackText.includes('M'))) {
     return fallbackText;
@@ -97,6 +97,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // Desktop Context Menu State (>= 640px)
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   // Audio & Waveform player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -254,7 +255,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (match) {
       const url = match[1];
       const cacheKey = `linkPreview_${url}`;
-      
+
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         if (cached !== 'error') {
@@ -262,9 +263,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }
         return;
       }
-      
+
       const abortController = new AbortController();
-      
+
       fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { signal: abortController.signal })
         .then(res => {
           if (!res.ok) throw new Error('Preview fetch failed');
@@ -283,7 +284,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             sessionStorage.setItem(cacheKey, 'error');
           }
         });
-        
+
       return () => abortController.abort();
     }
   }, [message.text, callPresentation]);
@@ -376,7 +377,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       activeAudioElement = audioRef.current;
       activeAudioStop = () => setIsPlaying(false);
 
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => { });
       setIsPlaying(true);
     }
   };
@@ -406,7 +407,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setAudioProgress(percentage * 100);
     setCurrentTimeSec(Math.floor(audioRef.current.currentTime));
     if (!isPlaying) {
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => { });
       setIsPlaying(true);
     }
   };
@@ -431,13 +432,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     isHorizontalSwipeRef.current = false;
     hasHaptickedRef.current = false;
+    longPressTriggeredRef.current = false;
 
-    // Start mobile 450ms long press timer
+    // Standard mobile 500ms long press timer
     longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
       if ('vibrate' in navigator) {
         try {
-          navigator.vibrate(20);
-        } catch {}
+          navigator.vibrate(25);
+        } catch { }
       }
       const isMobile = window.innerWidth < 640;
       if (isMobile) {
@@ -459,7 +462,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }
         setContextMenuPos({ x, y });
       }
-    }, 350);
+    }, 500);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -468,8 +471,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
 
-    // Cancel long press if moved > 28px
-    if (Math.abs(dx) > 28 || Math.abs(dy) > 28) {
+    // Cancel long press if finger moved > 12px (prevents accidental trigger while scrolling)
+    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -493,31 +496,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         if ('vibrate' in navigator) {
           try {
             navigator.vibrate(10);
-          } catch {}
+          } catch { }
         }
         hasHaptickedRef.current = true;
       }
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+
+    // If long press was triggered, suppress synthetic click event to prevent ghost clicks on sheet buttons
+    if (longPressTriggeredRef.current) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      longPressTriggeredRef.current = false;
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      isHorizontalSwipeRef.current = false;
+      touchStartPosRef.current = null;
+      return;
     }
 
     if (swipeOffset <= -55) {
       triggerReply();
     }
 
-    if (isMobileSheetOpen) {
-      setSwipeOffset(0);
-      setIsSwiping(false);
-    } else {
-      setSwipeOffset(0);
-      setIsSwiping(false);
-    }
-    
+    setSwipeOffset(0);
+    setIsSwiping(false);
     isHorizontalSwipeRef.current = false;
     touchStartPosRef.current = null;
   };
@@ -555,7 +565,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       ? `${callPresentation.title} (${callPresentation.subtitle})`
       : message.text || message.attachment?.url || message.attachment?.name || '';
     if (content) {
-      navigator.clipboard.writeText(content).catch(() => {});
+      navigator.clipboard.writeText(content).catch(() => { });
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     }
@@ -614,11 +624,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <>
       <div
         id={`message-${message.id}`}
-        className={`group/bubble relative flex flex-col ${
-          formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
-        } max-w-full ${
-          isMe ? 'items-end' : 'items-start'
-        } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans touch-manipulation`}
+        className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
+          } max-w-full ${isMe ? 'items-end' : 'items-start'
+          } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -650,13 +658,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm touch-manipulation ${
-            isSwiping ? '' : 'transition-transform duration-200 ease-out'
-          } ${
-            isMe
-              ? 'bg-ez-sent text-white border border-neon-green/15 rounded-br-sm telegram-bubble-out'
+          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm touch-manipulation ${isSwiping ? '' : 'transition-transform duration-200 ease-out'
+            } ${isMe
+              ? 'bg-ez-sent text-white border border-neon-green/20 rounded-br-sm telegram-bubble-out'
               : 'bg-ez-received text-slate-100 border border-ez-border/50 rounded-bl-sm telegram-bubble-in'
-          }`}
+            }`}
           style={{ transform: `translateX(${swipeOffset}px)` }}
         >
           {/* Forwarded Header */}
@@ -664,7 +670,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div className="flex items-center space-x-1.5 text-[11px] mb-1 font-semibold select-none" style={{ color: 'var(--ez-accent)' }}>
               <CornerUpRight className="w-3.5 h-3.5 shrink-0 opacity-80" style={{ color: 'var(--ez-accent)' }} />
               <span>
-                Forwarded from <strong className="text-white font-mono">{message.forwardedFrom || 'Contact'}</strong>
+                {t.chat.forwardedFrom || 'Forwarded from'}{' '}
+                <strong className="text-white font-mono">{message.forwardedFrom || t.chat.friend || 'Contact'}</strong>
               </span>
             </div>
           )}
@@ -681,9 +688,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   setTimeout(() => target.classList.remove('animate-flash-highlight'), 1500);
                 }
               }}
-              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none cursor-pointer hover:opacity-80 transition-opacity ${
-                isMe ? 'bg-black/20 border-neon-green' : 'bg-black/25 border-neon-green'
-              }`}
+              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none cursor-pointer hover:opacity-80 transition-opacity ${isMe ? 'bg-black/20 border-neon-green' : 'bg-black/25 border-neon-green'
+                }`}
             >
               <span className="font-bold block text-[11px] text-neon-green">{message.replyTo.senderHandle}</span>
               <span className="text-gray-300 italic text-[11px] truncate block">{message.replyTo.text}</span>
@@ -715,11 +721,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     return (
                       <div
                         key={idx}
-                        className={`flex-1 rounded-full transition-all duration-75 ${
-                          isPassed
+                        className={`flex-1 rounded-full transition-all duration-75 ${isPassed
                             ? 'bg-neon-green shadow-neon-dot'
                             : 'bg-white/20 group-hover/wave:bg-white/35'
-                        }`}
+                          }`}
                         style={{ height: `${Math.max(15, height)}%` }}
                       />
                     );
@@ -811,7 +816,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     e.stopPropagation();
                     onCallBack();
                   }}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all duration-150 cursor-pointer shadow-xs shrink-0 group/callbtn ml-2"
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all duration-150 cursor-pointer shadow-xs shrink-0 group/callbtn ml-2"
                   title="Call back"
                 >
                   <Phone className="w-3.5 h-3.5 transition-transform duration-150 group-hover/callbtn:scale-110" />
@@ -847,7 +852,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Link Preview Card */}
           {linkPreview && (
-            <a 
+            <a
               href={linkPreview.url}
               onClick={(e) => handleExternalLinkClick(e, linkPreview.url)}
               className="block mt-2 mb-1 rounded-lg border border-white/10 bg-black/20 overflow-hidden hover:bg-black/30 transition-colors select-none cursor-pointer"
@@ -920,9 +925,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Floating Reaction Badges (attached cleanly to the bottom edge of the bubble) */}
           {formattedReactions.length > 0 && (
             <div
-              className={`absolute -bottom-2 ${
-                isMe ? 'right-2' : 'left-2'
-              } flex items-center gap-1 z-20 select-none`}
+              className={`absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'
+                } flex items-center gap-1 z-20 select-none`}
             >
               {formattedReactions.map((reaction, idx) => (
                 <button
@@ -932,11 +936,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     e.stopPropagation();
                     if (onToggleReaction) onToggleReaction(message.id, reaction.emoji);
                   }}
-                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${
-                    reaction.hasReacted
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${reaction.hasReacted
                       ? 'bg-ez-surface border-neon-green/40 text-neon-green font-semibold shadow-xs'
                       : 'bg-ez-elevated border-white/10 text-gray-200 hover:bg-ez-hover hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <span className="text-[13px] leading-none">{reaction.emoji}</span>
                   {reaction.count > 1 && (
@@ -981,12 +984,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         if ('vibrate' in navigator) {
                           try {
                             navigator.vibrate(15);
-                          } catch {}
+                          } catch { }
                         }
                         if (onToggleReaction) onToggleReaction(message.id, emoji);
                         setContextMenuPos(null);
                       }}
-                      className="p-1 hover:scale-125 active:scale-130 transition-transform duration-100 text-base cursor-pointer rounded-lg hover:bg-white/10"
+                      className="w-7 h-7 flex items-center justify-center hover:scale-125 active:scale-130 transition-all duration-100 text-base cursor-pointer rounded-full hover:bg-white/10"
                     >
                       {emoji}
                     </button>
@@ -999,7 +1002,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                 >
                   <CornerUpLeft className="w-4 h-4 text-neon-green" />
-                  <span className="font-medium">Reply</span>
+                  <span className="font-medium">{t.chat.reply}</span>
                 </button>
 
                 {!message.forwardRestricted && !message.isSecret && (
@@ -1009,7 +1012,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                   >
                     <CornerUpRight className="w-4 h-4 text-neon-green" />
-                    <span className="font-medium">Forward</span>
+                    <span className="font-medium">{t.chat.forward}</span>
                   </button>
                 )}
 
@@ -1020,7 +1023,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                   >
                     {copied ? <Check className="w-4 h-4 text-neon-green" /> : <Copy className="w-4 h-4 text-gray-300" />}
-                    <span className="font-medium">{copied ? 'Copied!' : 'Copy Text'}</span>
+                    <span className="font-medium">{copied ? (t.chat.copied || t.chat.copiedToClipboard) : t.chat.copyText}</span>
                   </button>
                 )}
 
@@ -1031,7 +1034,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                   >
                     <Edit2 className="w-4 h-4 text-amber-400" />
-                    <span className="font-medium">Edit</span>
+                    <span className="font-medium">{t.chat.edit}</span>
                   </button>
                 )}
 
@@ -1045,7 +1048,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-neon-green hover:text-white hover:bg-neon-green/10 transition-colors cursor-pointer text-left"
                   >
                     <Phone className="w-4 h-4 text-neon-green" />
-                    <span className="font-medium">Call Back</span>
+                    <span className="font-medium">{t.calls?.callBack || 'Call Back'}</span>
                   </button>
                 )}
 
@@ -1058,7 +1061,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span className="font-medium">Delete Message</span>
+                      <span className="font-medium">{t.chat.deleteMessage}</span>
                     </button>
                   </>
                 )}
@@ -1077,10 +1080,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onClose={() => setIsMobileSheetOpen(false)}
         onReply={() => triggerReply()}
         onForward={!message.forwardRestricted && !message.isSecret ? () => triggerForward() : undefined}
-        onCopy={Boolean(message.text) || Boolean(callPresentation) ? () => handleCopyText() : undefined}
+        onCopy={() => handleCopyText()}
         onEdit={isMe && Boolean(message.text) && !callPresentation ? () => triggerEdit() : undefined}
         onDelete={onDelete ? () => triggerDelete() : undefined}
         onToggleReaction={onToggleReaction ? (emoji) => onToggleReaction(message.id, emoji) : undefined}
+        onCallBack={callPresentation && onCallBack ? () => onCallBack() : undefined}
       />
 
       {/* External URL Confirmation Modal */}

@@ -9,6 +9,7 @@ class SecurityEngine {
     this.BAN_DURATION = 15 * 60 * 1000; // 15 minutes
     this.BUCKET_CAPACITY = 15;
     this.REFILL_RATE = 1000 / 3; // 3 tokens per second
+    this.MAX_BUCKETS = 10000;
     // Enable Dry Run mode to just log events instead of dropping packets (Alpha Test)
     this.ALPHA_DRY_RUN = false;
   }
@@ -97,6 +98,13 @@ class SecurityEngine {
     });
 
     io.on('connection', (socket) => {
+      // Prevent memory exhaustion under DDoS
+      if (this.socketBuckets.size >= this.MAX_BUCKETS) {
+        if (this.ALPHA_DRY_RUN) console.warn('[ESS ALPHA] MAX_BUCKETS reached, rejecting connection.');
+        socket.disconnect(true);
+        return;
+      }
+
       const ip = this._getIP(socket);
       const socketId = socket.id;
 

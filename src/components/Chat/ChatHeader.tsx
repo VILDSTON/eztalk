@@ -5,6 +5,7 @@ import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
 import { useTranslation } from '../../context/LanguageContext';
 import { TranslationKeys } from '../../locales/en';
+import { DEFAULT_AVATAR } from '../../constants/avatars';
 
 // Relative time formatting removed per UX requirements.
 interface ChatHeaderProps {
@@ -26,7 +27,10 @@ interface ChatHeaderProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onStartCall?: () => void;
+  currentAlias?: string;
+  originalName?: string;
   onEditAlias?: () => void;
+  onSaveAlias?: (newAlias: string) => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -48,7 +52,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onAddFriend,
   onDeleteGroup,
   onStartCall,
+  currentAlias,
+  originalName,
   onEditAlias,
+  onSaveAlias,
 }) => {
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -117,7 +124,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="p-1.5 -ml-1 text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 md:hidden"
+              className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -145,7 +152,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={onDeleteGroup}
-              className="p-2 rounded-full hover:text-red-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:text-red-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
               title={t.groups?.deleteGroup || "Delete group"}
             >
               <Trash2 className="w-4 h-4" />
@@ -165,7 +172,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="p-1.5 -ml-1 text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 md:hidden"
+              className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -190,7 +197,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="p-1.5 -ml-1 text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 md:hidden"
+              className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -205,7 +212,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   }
 
   // ─── User Chat Header ───
-  const fallbackAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const fallbackAvatar = DEFAULT_AVATAR;
 
   return (
     <>
@@ -224,7 +231,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={handleCloseSearch}
-              className="p-1.5 rounded-full text-ez-muted hover:text-white cursor-pointer"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -242,7 +249,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   e.stopPropagation();
                   onBack();
                 }}
-                className="p-1.5 -ml-1 text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 md:hidden"
+                className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -270,10 +277,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center space-x-1.5 min-w-0">
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
                   {user.name || user.handle || 'User'}
                 </span>
+                {user.statusEmoji && (
+                  <span className="text-sm shrink-0 select-none leading-none" title="Status">{user.statusEmoji}</span>
+                )}
                 {isMuted && (
                   <span title={t.chat?.notificationsMuted || "Notifications muted"}>
                     <BellOff className="w-3.5 h-3.5 text-ez-muted" />
@@ -281,7 +291,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 )}
               </div>
               <span
-                className={`text-[11px] font-mono leading-tight ${
+                className={`text-[10px] sm:text-[11px] font-mono leading-tight truncate max-w-[140px] sm:max-w-none ${
                   isBlocked
                     ? 'text-rose-400 font-semibold'
                     : isTyping
@@ -303,7 +313,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={() => setShowSearch(true)}
-              className="p-2 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
               title={t.chat.searchInChat}
             >
               <Search className="w-[18px] h-[18px]" />
@@ -314,7 +324,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onClick={() => {
                   if (onStartCall) onStartCall();
                 }}
-                className="p-2 rounded-full text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
                 title={t.chat?.voiceCall || "Voice Call"}
               >
                 <Phone className="w-[18px] h-[18px]" />
@@ -323,7 +333,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
             >
               <MoreVertical className="w-[18px] h-[18px]" />
             </button>
@@ -389,10 +399,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         }}
         onRemoveFriend={onRemoveFriend}
         onAddFriend={onAddFriend}
-        onEditAlias={() => {
-          setIsProfileOpen(false);
-          if (onEditAlias) onEditAlias();
-        }}
+        currentAlias={currentAlias}
+        originalName={originalName}
+        onEditAlias={onEditAlias}
+        onSaveAlias={onSaveAlias}
       />
     </>
   );

@@ -24,10 +24,11 @@ export interface MobileMessageActionSheetProps {
   onClose: () => void;
   onReply: () => void;
   onForward?: () => void;
-  onCopy: () => void;
+  onCopy?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onToggleReaction?: (emoji: string) => void;
+  onCallBack?: () => void;
 }
 
 const EMOJI_OPTIONS = ['❤️', '👍', '😂', '🔥', '😮', '👏', '🚀'];
@@ -44,14 +45,29 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
   onEdit,
   onDelete,
   onToggleReaction,
+  onCallBack,
 }) => {
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isInteractive, setIsInteractive] = useState(false);
   const { t } = useTranslation();
 
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
+
+  // Prevent ghost clicks upon opening: only allow taps after animation completes (220ms)
+  useEffect(() => {
+    if (isOpen) {
+      setIsInteractive(false);
+      const timer = setTimeout(() => {
+        setIsInteractive(true);
+      }, 220);
+      return () => clearTimeout(timer);
+    } else {
+      setIsInteractive(false);
+    }
+  }, [isOpen]);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
@@ -132,28 +148,26 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
-      // If click is outside the sheet, close it
+    const handleGlobalMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.action-sheet-content')) {
         handleClose();
       }
     };
-    document.addEventListener('mousedown', handleGlobalClick);
-    document.addEventListener('touchstart', handleGlobalClick, { passive: true });
+    document.addEventListener('mousedown', handleGlobalMouseDown);
     return () => {
-      document.removeEventListener('mousedown', handleGlobalClick);
-      document.removeEventListener('touchstart', handleGlobalClick);
+      document.removeEventListener('mousedown', handleGlobalMouseDown);
     };
   }, [isOpen, handleClose]);
 
   if (!isOpen || !message || typeof document === 'undefined') return null;
 
-  const hasCopyableContent = Boolean(message.text || message.attachment?.url || message.attachment?.name);
+  const hasCopyableContent = Boolean(message.text || message.attachment?.url || message.attachment?.name || message.callInfo);
   const canEdit = isMe && Boolean(message.text);
   const canForward = !message.forwardRestricted && !message.isSecret;
 
   const handleEmojiClick = (emoji: string) => {
+    if (!isInteractive) return;
     if ('vibrate' in navigator) {
       try {
         navigator.vibrate(15);
@@ -177,9 +191,6 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
 
       {/* Slide-Up Bottom Sheet */}
       <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
           isDragging ? '' : 'transition-transform duration-200 ease-out'
         } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
@@ -189,11 +200,17 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
             : dragY > 0
             ? `translateY(${dragY}px)`
             : 'translateY(0px)',
+          pointerEvents: isInteractive ? 'auto' : 'none',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Grabber Handle */}
-        <div className="pt-2.5 pb-1.5 flex justify-center cursor-grab active:cursor-grabbing">
+        {/* Grabber Handle & Drag Zone (touch events isolated here) */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="pt-3 pb-2 flex justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+        >
           <div className="w-10 h-1 bg-white/20 rounded-full" />
         </div>
 
@@ -243,7 +260,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
               key={emoji}
               type="button"
               onClick={() => handleEmojiClick(emoji)}
-              className="p-2 text-2xl hover:scale-125 active:scale-130 transition-transform duration-150 cursor-pointer rounded-xl active:bg-white/10"
+              className="w-10 h-10 flex items-center justify-center text-2xl hover:scale-125 active:scale-130 transition-transform duration-150 cursor-pointer rounded-full hover:bg-white/10 active:bg-white/10"
               title={`React ${emoji}`}
             >
               {emoji}
@@ -253,6 +270,23 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
 
         {/* Action Items List (Minimum 48px Touch Targets) */}
         <div className="px-2 space-y-0.5">
+          {/* Call Back */}
+          {message.callInfo && onCallBack && (
+            <button
+              type="button"
+              onClick={() => {
+                onCallBack();
+                handleClose();
+              }}
+              className="w-full min-h-[48px] flex items-center space-x-3.5 px-4 py-3 rounded-2xl text-neon-green hover:bg-neon-green/10 active:bg-neon-green/20 transition-colors cursor-pointer text-left font-semibold"
+            >
+              <div className="w-8 h-8 rounded-xl bg-neon-green/15 flex items-center justify-center text-neon-green shrink-0">
+                <Phone className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium">{t?.chat?.call || 'Call Back'}</span>
+            </button>
+          )}
+
           {/* Reply */}
           <button
             type="button"
@@ -286,14 +320,14 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
           )}
 
           {/* Copy Text */}
-          {hasCopyableContent && (
+          {hasCopyableContent && onCopy && (
             <button
               type="button"
               onClick={() => {
-                onCopy();
+                if (onCopy) onCopy();
                 setTimeout(() => {
                   handleClose();
-                }, 400);
+                }, 350);
               }}
               className="w-full min-h-[48px] flex items-center space-x-3.5 px-4 py-3 rounded-2xl text-slate-100 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-left"
             >

@@ -9,6 +9,18 @@ class UserCache {
   private cache: Map<string, CacheEntry> = new Map();
   private readonly TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+  constructor() {
+    // Active eviction every 10 minutes to prevent unbounded memory growth
+    setInterval(() => {
+      const now = Date.now();
+      for (const [handle, entry] of this.cache.entries()) {
+        if (now - entry.timestamp > this.TTL) {
+          this.cache.delete(handle);
+        }
+      }
+    }, 10 * 60 * 1000);
+  }
+
   set(handle: string, user: User): void {
     this.cache.set(handle, {
       user,

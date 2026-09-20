@@ -16,6 +16,7 @@ import {
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
 import { ConfirmModal } from '../Common/ConfirmModal';
+import { EditContactNameModal } from './EditContactNameModal';
 
 interface UserProfileModalProps {
   user: User;
@@ -31,7 +32,10 @@ interface UserProfileModalProps {
   onToggleBlock?: () => void;
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
+  currentAlias?: string;
+  originalName?: string;
   onEditAlias?: () => void;
+  onSaveAlias?: (newAlias: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -48,8 +52,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onToggleBlock,
   onRemoveFriend,
   onAddFriend,
+  currentAlias,
+  originalName,
   onEditAlias,
+  onSaveAlias,
 }) => {
+  const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [actionToConfirm, setActionToConfirm] = useState<'block' | 'unblock' | 'remove_friend' | null>(null);
   const { t, language } = useTranslation();
@@ -80,7 +88,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleShareProfile = async () => {
     const profileUrl = `${window.location.origin}/${language}/@${user.handle.replace('@', '')}`;
-    
+
     const copyToClipboard = async (url: string) => {
       try {
         await navigator.clipboard.writeText(url);
@@ -92,7 +100,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     };
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
+
     if (isMobile && navigator.share) {
       try {
         await navigator.share({
@@ -179,7 +187,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           type="button"
           onClick={onClose}
           aria-label="Close user profile"
-          className="absolute top-3 right-3 z-30 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md transition-all duration-150 cursor-pointer shadow-glass border border-white/10 hover:scale-105"
+          className="absolute top-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-full text-white/80 hover:text-white bg-black/50 hover:bg-black/70 backdrop-blur-md transition-all duration-150 cursor-pointer shadow-glass border border-white/10 hover:scale-105"
         >
           <X className="w-4 h-4" />
         </button>
@@ -187,127 +195,179 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
           {/* Banner */}
           <div
-            className="h-24 sm:h-28 w-full shrink-0 relative bg-cover bg-center"
+            className={`h-28 sm:h-32 w-full shrink-0 relative bg-cover bg-center overflow-hidden ${isImageBanner ? 'cursor-pointer group' : ''}`}
+            onClick={() => {
+              if (isImageBanner && user.banner) {
+                setPreviewAttachment({
+                  id: 'banner-preview',
+                  name: `${user.name || user.handle}'s Background`,
+                  url: user.banner,
+                  type: 'image',
+                  size: '',
+                });
+              }
+            }}
             style={
               isImageBanner
                 ? { backgroundImage: `url(${user.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : { background: bannerStyle }
             }
+            title={isImageBanner ? 'Click to view full background' : undefined}
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-ez-elevated to-transparent opacity-80" />
+            {/* Ambient radial glow — only shown when user has no custom banner */}
+            {!user.banner && (
+              <>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,var(--ez-accent-glow),transparent_70%)]" />
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
+              </>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-ez-elevated via-ez-elevated/20 to-transparent pointer-events-none" />
           </div>
 
           {/* Profile Body */}
-          <div className="px-6 pb-6 pt-0 flex-1 flex flex-col">
-            <div className="flex flex-col items-center text-center -mt-12 mb-4 relative z-20">
-              <div className="relative mb-2 shrink-0">
-                <div className="w-20 h-20 min-w-[80px] min-h-[80px] rounded-full overflow-hidden border-4 border-ez-elevated bg-ez-surface shadow-glass shrink-0">
+          <div className="px-5 pb-6 pt-0 flex-1 flex flex-col">
+            <div className="flex flex-col items-center text-center -mt-14 mb-5 relative z-20">
+              {/* Avatar with accent glow ring */}
+              <div className="relative mb-3 shrink-0">
+                <div className="absolute -inset-1 rounded-full bg-[var(--ez-accent)] opacity-30 blur-md" />
+                <div
+                  onClick={() => {
+                    if (user.avatar) {
+                      setPreviewAttachment({
+                        id: 'avatar-preview',
+                        name: `${user.name || user.handle}'s Avatar`,
+                        url: user.avatar,
+                        type: 'image',
+                        size: '',
+                      });
+                    }
+                  }}
+                  className="relative w-20 h-20 sm:w-24 sm:h-24 min-w-[80px] min-h-[80px] rounded-full overflow-hidden bg-ez-surface shadow-neon-sm shrink-0 cursor-pointer hover:scale-105 transition-transform duration-150"
+                  title="Click to view full avatar"
+                >
                   <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
                 </div>
                 <div
-                  className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${
-                    isBlocked
-                      ? 'bg-rose-500'
-                      : isUserOnline
+                  className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${isBlocked
+                    ? 'bg-rose-500'
+                    : isUserOnline
                       ? 'bg-neon-green-glow shadow-neon-dot'
                       : 'bg-ez-muted'
-                  }`}
+                    }`}
                   title={isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
                 />
               </div>
 
+              {/* Name row */}
               <div className="flex items-center justify-center gap-2 mb-0.5 w-full max-w-full px-10 relative">
-                <h3 className="text-lg font-bold text-white tracking-tight leading-tight truncate">
+                {user.statusEmoji && (
+                  <span className="text-xl leading-none shrink-0 opacity-0 pointer-events-none select-none" aria-hidden="true">
+                    {user.statusEmoji}
+                  </span>
+                )}
+                <h3 className="text-xl font-bold text-white tracking-tight leading-tight truncate text-center">
                   {user.name || user.handle}
                 </h3>
                 {user.statusEmoji && (
-                  <span className="text-lg leading-none shrink-0">{user.statusEmoji}</span>
+                  <span className="text-xl leading-none shrink-0">{user.statusEmoji}</span>
                 )}
-                
-                {onEditAlias && (
+                {isFriend && (onEditAlias || onSaveAlias) && (
                   <button
-                    onClick={onEditAlias}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-xl text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    title="Edit Contact Name"
+                    type="button"
+                    onClick={() => {
+                      if (onSaveAlias) {
+                        setIsEditNameOpen(true);
+                      } else if (onEditAlias) {
+                        onEditAlias();
+                      }
+                    }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    title={t.profile?.editName || 'Edit Contact Name'}
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-              <p className="text-xs font-mono font-bold text-neon-green mt-0.5">{user.handle}</p>
 
+              {/* Handle */}
+              <p className="text-xs font-mono font-bold text-[var(--ez-accent)] mt-0.5 tracking-wide">{user.handle}</p>
+
+              {/* Custom status */}
               {user.customStatusText && (
                 <p className="text-[13px] text-gray-200 mt-1.5 font-medium italic">
                   "{user.customStatusText}"
                 </p>
               )}
 
+              {/* Online / offline label */}
               <span
-                className={`text-[11px] font-mono mt-1 ${
-                  isBlocked
-                    ? 'text-rose-400 font-semibold'
-                    : isUserOnline
-                    ? 'text-neon-green font-medium'
+                className={`text-[11px] font-mono mt-1 ${isBlocked
+                  ? 'text-rose-400 font-semibold'
+                  : isUserOnline
+                    ? 'text-[var(--ez-accent)] font-medium'
                     : 'text-ez-muted'
-                }`}
+                  }`}
               >
                 {isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
               </span>
 
+              {/* Bio */}
               {user.bio && (
-                <p className="text-xs text-gray-300 mt-2 px-3 py-1.5 bg-white/5 rounded-xl border border-ez-border/50 max-w-xs leading-relaxed">
-                  {user.bio}
-                </p>
+                <div className="mt-3 w-full max-w-xs">
+                  <p className="text-[13px] text-gray-300 px-4 py-2.5 bg-white/5 rounded-2xl border-l-2 border-[var(--ez-accent)] border-t border-r border-b border-t-white/5 border-r-white/5 border-b-white/5 leading-relaxed text-left">
+                    {user.bio}
+                  </p>
+                </div>
               )}
             </div>
 
-            {/* Actions */}
-            <div className={`grid ${user.handle !== '@ai' ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-4`}>
+            {/* Action Buttons */}
+            <div className={`grid ${user.handle !== '@ai' ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-5`}>
               {user.handle !== '@ai' && (
                 <button
                   type="button"
                   onClick={onStartCall}
-                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
+                  className="group flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-150 active:scale-95 cursor-pointer"
                 >
-                  <Phone className="w-5 h-5 text-neon-green mb-1" />
-                  <span className="text-[11px] font-semibold text-gray-200">{t.chat.call}</span>
+                  <Phone className="w-5 h-5 text-[var(--ez-accent)] mb-1.5" />
+                  <span className="text-[10px] font-semibold text-gray-200">{t.chat.call}</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={onToggleNotifications}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-colors duration-150 cursor-pointer ${isMuted
-                  ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
-                  : 'bg-ez-surface hover:bg-ez-hover border-ez-border/50 text-gray-200'
+                className={`group flex flex-col items-center justify-center py-3 px-1 rounded-2xl border transition-all duration-150 active:scale-95 cursor-pointer ${isMuted
+                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-gray-200'
                   }`}
               >
-                {isMuted ? <BellOff className="w-5 h-5 mb-1" /> : <Bell className="w-5 h-5 text-neon-green mb-1" />}
-                <span className="text-[11px] font-semibold">{isMuted ? t.chat.muted : t.chat.mute}</span>
+                {isMuted ? <BellOff className="w-5 h-5 mb-1.5" /> : <Bell className="w-5 h-5 text-[var(--ez-accent)] mb-1.5" />}
+                <span className="text-[10px] font-semibold">{isMuted ? t.chat.muted : t.chat.mute}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleShareProfile}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer relative"
+                className="group flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-150 active:scale-95 cursor-pointer"
                 title={t.profile?.shareProfile || 'Share Profile'}
               >
                 {isCopied ? (
-                  <Check className="w-5 h-5 text-neon-green mb-1" />
+                  <Check className="w-5 h-5 text-[var(--ez-accent)] mb-1.5" />
                 ) : (
-                  <Share2 className="w-5 h-5 text-neon-green mb-1" />
+                  <Share2 className="w-5 h-5 text-[var(--ez-accent)] mb-1.5" />
                 )}
-                <span className="text-[11px] font-semibold text-gray-200">{isCopied ? (t.profile?.linkCopied || 'Copied!') : (t.profile?.shareProfile || 'Share')}</span>
+                <span className="text-[10px] font-semibold text-gray-200">{isCopied ? (t.profile?.linkCopied || 'Copied!') : (t.profile?.shareProfile || 'Share')}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportChat}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-ez-surface hover:bg-ez-hover border border-ez-border/50 hover:border-neon-green/30 transition-colors duration-150 cursor-pointer"
+                className="group flex flex-col items-center justify-center py-3 px-1 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-150 active:scale-95 cursor-pointer"
                 title={t.chat.exportChatHistory}
               >
-                <Download className="w-5 h-5 text-neon-green mb-1" />
-                <span className="text-[11px] font-semibold text-gray-200">{t.chat.export}</span>
+                <Download className="w-5 h-5 text-[var(--ez-accent)] mb-1.5" />
+                <span className="text-[10px] font-semibold text-gray-200">{t.chat.export}</span>
               </button>
             </div>
 
@@ -341,15 +401,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               )}
             </div>
 
-            {/* Danger Actions */}
-            <div className="space-y-2 pt-2 border-t border-ez-border/50">
+            {/* Danger / Relationship Actions */}
+            <div className="mt-auto space-y-2 pt-3 border-t border-ez-border/40">
               {onToggleBlock && (
                 <button
                   type="button"
                   onClick={() => setActionToConfirm(isBlocked ? 'unblock' : 'block')}
-                  className={`w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${isBlocked
-                    ? 'bg-neon-green/10 text-neon-green border border-neon-green/25'
-                    : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-transparent hover:border-rose-500/25'
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all duration-150 active:scale-[0.98] cursor-pointer ${isBlocked
+                    ? 'bg-[var(--ez-accent)]/10 text-[var(--ez-accent)] border border-[var(--ez-accent)]/25 hover:bg-[var(--ez-accent)]/20'
+                    : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-white/5 hover:border-rose-500/25'
                     }`}
                 >
                   <Ban className="w-4 h-4" />
@@ -362,7 +422,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setActionToConfirm('remove_friend')}
-                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-rose-400 text-xs font-bold border border-transparent hover:border-rose-500/25 transition-colors duration-150 cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 hover:bg-rose-500/10 text-rose-400 text-sm font-semibold border border-white/5 hover:border-rose-500/25 transition-all duration-150 active:scale-[0.98] cursor-pointer"
                   >
                     <UserMinus className="w-4 h-4" />
                     <span>{t.chat.removeFriend}</span>
@@ -373,7 +433,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={onAddFriend}
-                    className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-bold shadow-neon-sm transition-colors duration-150 cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[var(--ez-accent)] hover:brightness-110 text-black text-sm font-bold shadow-neon-sm transition-all duration-150 active:scale-[0.98] cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>{t.chat.addToFriends}</span>
@@ -397,7 +457,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPreviewAttachment(null)}
-                className="absolute -top-10 right-0 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors duration-150 cursor-pointer"
+                className="absolute -top-10 right-0 w-8 h-8 flex items-center justify-center text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors duration-150 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -427,22 +487,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             actionToConfirm === 'block'
               ? (t as any).chat?.blockUser || 'Block User'
               : actionToConfirm === 'remove_friend'
-              ? (t as any).chat?.removeFriend || 'Remove Friend'
-              : (t as any).chat?.unblockUser || 'Unblock User'
+                ? (t as any).chat?.removeFriend || 'Remove Friend'
+                : (t as any).chat?.unblockUser || 'Unblock User'
           }
           message={
             actionToConfirm === 'block'
               ? ((t as any).chat?.blockConfirm || `Are you sure you want to block {user}?`).replace('{user}', user.name || user.handle)
               : actionToConfirm === 'remove_friend'
-              ? ((t as any).chat?.removeFriendConfirm || `Are you sure you want to remove {user} from your friends list?`).replace('{user}', user.name || user.handle)
-              : ((t as any).chat?.unblockConfirm || `Are you sure you want to unblock {user}?`).replace('{user}', user.name || user.handle)
+                ? ((t as any).chat?.removeFriendConfirm || `Are you sure you want to remove {user} from your friends list?`).replace('{user}', user.name || user.handle)
+                : ((t as any).chat?.unblockConfirm || `Are you sure you want to unblock {user}?`).replace('{user}', user.name || user.handle)
           }
           confirmText={
             actionToConfirm === 'block'
               ? (t as any).chat?.blockUser || 'Block User'
               : actionToConfirm === 'remove_friend'
-              ? (t as any).chat?.removeFriend || 'Remove Friend'
-              : (t as any).chat?.unblockUser || 'Unblock User'
+                ? (t as any).chat?.removeFriend || 'Remove Friend'
+                : (t as any).chat?.unblockUser || 'Unblock User'
           }
           cancelText={(t as any).chat?.cancel || "Cancel"}
           onConfirm={() => {
@@ -455,6 +515,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           }}
           onCancel={() => setActionToConfirm(null)}
         />
+
+        {/* Edit Contact Name Modal */}
+        {isEditNameOpen && onSaveAlias && (
+          <EditContactNameModal
+            isOpen={isEditNameOpen}
+            user={user}
+            currentAlias={currentAlias}
+            originalName={originalName}
+            onClose={() => setIsEditNameOpen(false)}
+            onSave={(newAlias) => {
+              onSaveAlias(newAlias);
+            }}
+          />
+        )}
       </div>
     </div>
   );

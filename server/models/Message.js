@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { encryptMessage, isEncrypted } from '../utils/crypto.js';
 
 const messageSchema = new mongoose.Schema(
   {
@@ -108,5 +109,47 @@ const messageSchema = new mongoose.Schema(
 messageSchema.index({ conversationKey: 1, createdAt: -1 });
 messageSchema.index({ groupId: 1, createdAt: -1 });
 messageSchema.index({ tempId: 1 }, { sparse: true });
+
+// Middleware: Автоматическое шифрование текста сообщений и цитат (replyTo) перед сохранением в MongoDB
+messageSchema.pre('save', function (next) {
+  if (this.text && !isEncrypted(this.text)) {
+    this.text = encryptMessage(this.text);
+  }
+  if (this.replyTo && typeof this.replyTo === 'object' && this.replyTo.text && !isEncrypted(this.replyTo.text)) {
+    this.replyTo.text = encryptMessage(this.replyTo.text);
+  }
+  next();
+});
+
+messageSchema.pre('insertMany', function (next, docs) {
+  if (Array.isArray(docs)) {
+    for (const doc of docs) {
+      if (doc.text && !isEncrypted(doc.text)) {
+        doc.text = encryptMessage(doc.text);
+      }
+      if (doc.replyTo && typeof doc.replyTo === 'object' && doc.replyTo.text && !isEncrypted(doc.replyTo.text)) {
+        doc.replyTo.text = encryptMessage(doc.replyTo.text);
+      }
+    }
+  }
+  next();
+});
+
+messageSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate();
+  if (update) {
+    if (update.$set) {
+      if (update.$set.text && !isEncrypted(update.$set.text)) {
+        update.$set.text = encryptMessage(update.$set.text);
+      }
+      if (update.$set['replyTo.text'] && !isEncrypted(update.$set['replyTo.text'])) {
+        update.$set['replyTo.text'] = encryptMessage(update.$set['replyTo.text']);
+      }
+    } else if (update.text && !isEncrypted(update.text)) {
+      update.text = encryptMessage(update.text);
+    }
+  }
+  next();
+});
 
 export const MessageModel = mongoose.models.Message || mongoose.model('Message', messageSchema);

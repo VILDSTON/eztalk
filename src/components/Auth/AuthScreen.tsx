@@ -1,24 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck } from 'lucide-react';
 import { User } from '../../types/chat';
 import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
 import { compressAvatar } from '../../utils/imageCompressor';
 import { useTranslation } from '../../context/LanguageContext';
 import { LanguageSwitch } from '../Common/LanguageSwitch';
+import { CURATED_AVATARS, DEFAULT_AVATAR } from '../../constants/avatars';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
   onOpenLegal?: (tab: 'privacy' | 'terms') => void;
+  onCancel?: () => void;
 }
 
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-];
+const PRESET_AVATARS = CURATED_AVATARS;
 
 function getPasswordStrength(password: string): { score: number; color: string } {
   if (!password) return { score: 0, color: 'bg-zinc-800' };
@@ -32,7 +28,7 @@ function getPasswordStrength(password: string): { score: number; color: string }
   return { score: 3, color: 'bg-[var(--ez-accent)]' };
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, onCancel }) => {
   const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [errorMessage, setErrorMessage] = useState('');
@@ -52,7 +48,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATAR);
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState(''); // Anti-bot trap field
 
@@ -215,8 +211,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
         className="hidden"
       />
 
-      {/* Language Switcher Bar */}
-      <div className="w-full max-w-md flex justify-end mb-3 shrink-0">
+      {/* Top Bar: Back button & Language Switcher */}
+      <div className={`w-full max-w-md flex items-center ${onCancel ? 'justify-between' : 'justify-end'} mb-3 shrink-0`}>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-[var(--ez-surface)] border border-[var(--ez-border)] text-zinc-300 hover:text-white hover:border-[var(--ez-accent)] hover:bg-white/[0.04] transition-colors cursor-pointer text-xs font-semibold group shadow-sm active:scale-95"
+            title={t.common.back}
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400 group-hover:text-[var(--ez-accent)] transition-colors" />
+            <span>{t.common.back}</span>
+          </button>
+        )}
         <LanguageSwitch />
       </div>
 
@@ -317,7 +324,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 text-zinc-500 hover:text-zinc-200 cursor-pointer p-1"
+                  className="absolute right-2.5 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -474,7 +481,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                 <button
                   type="button"
                   onClick={() => setShowRegPassword(!showRegPassword)}
-                  className="absolute right-3 text-zinc-500 hover:text-zinc-200 cursor-pointer p-1"
+                  className="absolute right-2.5 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -504,7 +511,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal }) 
                 <button
                   type="button"
                   onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
-                  className="absolute right-3 text-zinc-500 hover:text-zinc-200 cursor-pointer p-1"
+                  className="absolute right-2.5 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   {showRegConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

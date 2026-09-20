@@ -65,7 +65,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,7 +87,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-3 text-ez-muted hover:text-white cursor-pointer"
+                className="absolute right-3 w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -122,9 +122,14 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
                   />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-bold text-white group-hover:text-neon-green transition-colors duration-150 truncate">
-                    {user.name || user.handle}
-                  </span>
+                  <div className="flex items-center space-x-1.5 min-w-0">
+                    <span className="text-sm font-bold text-white group-hover:text-neon-green transition-colors duration-150 truncate">
+                      {user.name || user.handle}
+                    </span>
+                    {user.statusEmoji && (
+                      <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-ez-muted font-mono truncate">{user.handle}</span>
                 </div>
               </div>

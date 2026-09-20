@@ -45,7 +45,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[var(--ez-border)] flex items-center justify-between bg-[var(--ez-base)]/50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)]/20 flex items-center justify-center text-[var(--ez-accent)]">
+            <div className="w-9 h-9 rounded-xl bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] flex items-center justify-center text-[var(--ez-accent)]">
               {activeTab === 'privacy' ? <ShieldCheck className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
             </div>
             <div>
@@ -58,7 +58,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer active:scale-95"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors cursor-pointer active:scale-95"
           >
             <X className="w-5 h-5" />
           </button>
@@ -69,22 +69,20 @@ export const LegalModal: React.FC<LegalModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('privacy')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'privacy'
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'privacy'
                 ? 'bg-[var(--ez-accent)] text-zinc-950 font-bold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+              }`}
           >
             {(t as any).legal?.privacyTitle}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('terms')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'terms'
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'terms'
                 ? 'bg-[var(--ez-accent)] text-zinc-950 font-bold shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+              }`}
           >
             {(t as any).legal?.termsTitle}
           </button>

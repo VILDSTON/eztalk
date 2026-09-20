@@ -92,3 +92,21 @@ export function decryptMessage(cipherText) {
     return '[Encrypted message corrupted or key mismatched]';
   }
 }
+
+/**
+ * Проверяет, зашифрован ли текст алгоритмом AES-256-GCM.
+ */
+export function isEncrypted(text) {
+  if (typeof text !== 'string' || text.length === 0) {
+    return false;
+  }
+  const parts = text.split(':');
+  if (parts.length !== 3) {
+    return false;
+  }
+  const [ivHex, authTagHex, encryptedHex] = parts;
+  if (ivHex.length !== 24 || authTagHex.length !== 32 || !encryptedHex) {
+    return false;
+  }
+  return HEX_REGEX.test(ivHex) && HEX_REGEX.test(authTagHex) && HEX_REGEX.test(encryptedHex);
+}

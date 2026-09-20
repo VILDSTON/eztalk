@@ -211,34 +211,39 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
         className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-4"
       >
         {/* Message Canvas (Full width) */}
-        <div className="w-full px-4 sm:px-6 flex flex-col flex-1">
+        <div className="w-full px-4 sm:px-6 flex flex-col flex-1 min-h-full">
+          {/* Top flexible spacer: pushes few messages down to the bottom (like Telegram/WhatsApp) */}
+          {messages.length > 0 && <div className="flex-1 min-h-0" />}
+
           {/* Top spacer & Infinite Scroll Spinner */}
           {isLoadingMore && hasMore ? (
-            <div className="flex justify-center py-2.5 my-1 select-none">
+            <div className="flex justify-center py-2.5 my-1 select-none shrink-0">
               <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
                 <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
                 <span className="text-[11px] font-mono text-ez-muted">{t['chat.loadingEarlier'] || 'Loading earlier messages...'}</span>
               </div>
             </div>
           ) : !hasMore && messages.length > 0 ? (
-            <div className="flex justify-center py-4 my-1 select-none">
-              <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t['chat.startOfHistory'] || 'Начало истории'}</span>
+            <div className="flex justify-center py-4 my-1 select-none shrink-0">
+              <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t['chat.startOfHistory'] || 'Start of history'}</span>
             </div>
-          ) : (
-            <div className="flex-1 min-h-4" />
-          )}
+          ) : null}
 
           {isLoadingInitial && messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-transparent animate-fade-in">
               <Loader2 className="w-8 h-8 text-neon-green animate-spin opacity-80" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-20 text-ez-muted text-xs select-none flex flex-col items-center animate-fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-ez-elevated border border-ez-border/50 flex items-center justify-center text-2xl mb-4 shadow-glass">
-                ✈️
+            <div className="flex-1 flex flex-col items-center justify-center p-8 select-none animate-fade-in">
+              {/* Glowing icon */}
+              <div className="relative mb-5">
+                <div className="absolute inset-0 bg-neon-green/20 blur-2xl rounded-full scale-150 pointer-events-none" />
+                <div className="relative w-20 h-20 rounded-2xl bg-ez-elevated border border-ez-border/60 flex items-center justify-center text-3xl shadow-glass">
+                  💬
+                </div>
               </div>
-              <p className="font-bold text-gray-300 text-sm">{t['chat.noMessages'] || 'No messages here yet...'}</p>
-              <p className="mt-1.5 text-ez-muted text-xs max-w-[240px]">{t['chat.sendToStart'] || 'Send a message to start the conversation!'}</p>
+              <p className="font-bold text-zinc-100 text-base mb-1.5">{t['chat.noMessages'] || 'No messages yet'}</p>
+              <p className="text-ez-muted text-xs text-center max-w-[200px] leading-relaxed">{t['chat.sendToStart'] || 'Send a message to start the conversation'}</p>
             </div>
           ) : (
             messages.map((msg, index) => {

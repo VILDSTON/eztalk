@@ -1,11 +1,12 @@
 import { User, Message } from '../types/chat';
 import { INITIAL_USERS } from '../data/mockData';
+import { DEFAULT_AVATAR } from '../constants/avatars';
 
 export const DEFAULT_CURRENT_USER: User = {
   id: 'user_alex',
   name: 'Alex Rivera',
   handle: '@AlexR',
-  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  avatar: DEFAULT_AVATAR,
   status: 'Online',
   email: 'alex@eztalk.app',
   bio: 'EzTalk power user & designer',
@@ -16,6 +17,14 @@ export function normalizeHandle(handle: string): string {
   if (!handle) return '';
   const trimmed = handle.trim().toLowerCase();
   return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
+// Sanitize display name: remove emojis and enforce maximum length (default 25 chars)
+export function sanitizeDisplayName(name: string, maxLength = 25): string {
+  if (!name) return '';
+  return name
+    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\u{1F3FB}-\u{1F3FF}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+    .slice(0, maxLength);
 }
 
 // Universal handle-based two-way conversation key
@@ -214,6 +223,39 @@ export class ChatStorageService {
     localStorage.setItem(STORAGE_MY_ACCOUNTS, JSON.stringify(accounts));
   }
 
+  static getAccountToken(handle: string): string | null {
+    try {
+      const clean = normalizeHandle(handle).toLowerCase();
+      const direct = localStorage.getItem(`eztalk_token_${clean}`);
+      if (direct) return direct;
+      const account = this.getMyAccounts().find((a) => normalizeHandle(a.handle).toLowerCase() === clean);
+      return (account as any)?.token || null;
+    } catch {
+      return null;
+    }
+  }
+
+  static setAccountToken(handle: string, token: string) {
+    try {
+      if (token) {
+        const clean = normalizeHandle(handle).toLowerCase();
+        localStorage.setItem(`eztalk_token_${clean}`, token);
+        const accounts = this.getMyAccounts();
+        const updated = accounts.map((a) =>
+          normalizeHandle(a.handle).toLowerCase() === clean ? { ...a, token } : a
+        );
+        this.saveMyAccounts(updated);
+      }
+    } catch {}
+  }
+
+  static removeAccountToken(handle: string) {
+    try {
+      const clean = normalizeHandle(handle).toLowerCase();
+      localStorage.removeItem(`eztalk_token_${clean}`);
+    } catch {}
+  }
+
   static addMyAccount(account: User) {
     const current = this.getMyAccounts();
     const targetHandle = normalizeHandle(account.handle);
@@ -227,6 +269,9 @@ export class ChatStorageService {
       );
     }
     this.saveMyAccounts(updated);
+    if ((account as any).token) {
+      this.setAccountToken(targetHandle, (account as any).token);
+    }
   }
 
   static removeMyAccount(handleOrId: string): User[] {
@@ -236,6 +281,7 @@ export class ChatStorageService {
       (a) => a.id !== handleOrId && normalizeHandle(a.handle) !== target
     );
     this.saveMyAccounts(updated);
+    this.removeAccountToken(handleOrId);
     return updated;
   }
 

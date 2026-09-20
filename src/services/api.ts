@@ -5,16 +5,8 @@ const API_BASE_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 import { userCache } from './userCache';
 
-export const CURATED_AVATARS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-];
+import { CURATED_AVATARS, EZTALK_LOGO_AVATAR, DEFAULT_AVATAR } from '../constants/avatars';
+export { CURATED_AVATARS, EZTALK_LOGO_AVATAR, DEFAULT_AVATAR };
 
 export function normalizeUser(user: any): User {
   if (!user) return user;
@@ -65,6 +57,11 @@ export class ApiService {
     const user = normalizeUser(data.user);
     if (data.token && user) {
       (user as any).token = data.token;
+      try {
+        const clean = (user.handle || '').trim().toLowerCase();
+        const normalized = clean.startsWith('@') ? clean : `@${clean}`;
+        localStorage.setItem(`eztalk_token_${normalized}`, data.token);
+      } catch {}
     }
     return user;
   }
@@ -83,6 +80,11 @@ export class ApiService {
     const newUser = normalizeUser(data.user);
     if (data.token && newUser) {
       (newUser as any).token = data.token;
+      try {
+        const clean = (newUser.handle || '').trim().toLowerCase();
+        const normalized = clean.startsWith('@') ? clean : `@${clean}`;
+        localStorage.setItem(`eztalk_token_${normalized}`, data.token);
+      } catch {}
     }
     return newUser;
   }
@@ -124,7 +126,8 @@ export class ApiService {
   // Get current user profile from server
   static async getProfile(handleOrId: string): Promise<User | null> {
     try {
-      const clean = encodeURIComponent(handleOrId.trim());
+      const normalized = handleOrId.trim().toLowerCase();
+      const clean = encodeURIComponent(normalized);
       const cacheKey = `profile_${clean}`;
       const cached = userCache.get(cacheKey);
       if (cached) {
@@ -136,12 +139,17 @@ export class ApiService {
       });
       const data = await res.json();
       const user = data.user ? normalizeUser(data.user) : null;
-      if (user) userCache.set(cacheKey, user);
+      if (user) {
+        userCache.set(cacheKey, user);
+        userCache.set(`handle_${clean}`, user);
+      }
       return user;
     } catch {
       return null;
     }
-  }  // Update user profile
+  }
+
+  // Update user profile
   static async updateProfile(user: User, oldHandle?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/users/profile`, {
       method: 'PATCH',
@@ -151,15 +159,20 @@ export class ApiService {
     const data = await handleResponse(res, 'Failed to update profile');
     const updated = normalizeUser(data.user || user);
     
-    // Invalidate cache
-    const newHandleKey = `handle_${encodeURIComponent(updated.handle.trim().toLowerCase())}`;
-    const newProfileKey = `profile_${encodeURIComponent(updated.handle.trim())}`;
-    userCache.set(newHandleKey, updated);
-    userCache.set(newProfileKey, updated);
+    // Invalidate and update cache for all handle variations
+    const norm = updated.handle.trim().toLowerCase();
+    const cleanWithAt = norm.startsWith('@') ? norm : `@${norm}`;
+    const cleanWithoutAt = cleanWithAt.replace('@', '');
+
+    userCache.set(`handle_${encodeURIComponent(cleanWithAt)}`, updated);
+    userCache.set(`handle_${encodeURIComponent(cleanWithoutAt)}`, updated);
+    userCache.set(`profile_${encodeURIComponent(cleanWithAt)}`, updated);
+    userCache.set(`profile_${encodeURIComponent(cleanWithoutAt)}`, updated);
     
     if (oldHandle && oldHandle !== updated.handle) {
-      userCache.invalidate(`handle_${encodeURIComponent(oldHandle.trim().toLowerCase())}`);
-      userCache.invalidate(`profile_${encodeURIComponent(oldHandle.trim())}`);
+      const oldNorm = oldHandle.trim().toLowerCase();
+      userCache.invalidate(`handle_${encodeURIComponent(oldNorm)}`);
+      userCache.invalidate(`profile_${encodeURIComponent(oldNorm)}`);
     }
 
     return updated;

@@ -9,11 +9,13 @@ import {
   Sparkles,
   ChevronRight,
   Layers,
+  Info,
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
 import { LanguageSwitch } from '../Common/LanguageSwitch';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 
 interface TelegramDrawerProps {
   isOpen: boolean;
@@ -51,6 +53,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
   onOpenLegal,
 }) => {
   const { t } = useTranslation();
+  const navigate = useLocalizedNavigate();
   if (!isOpen) return null;
 
   const otherAccounts = myAccounts.filter(
@@ -72,7 +75,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -95,9 +98,14 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             />
           </div>
 
-          <h3 className="text-base font-bold text-white tracking-tight leading-snug truncate">
-            {currentUser.name || currentUser.handle}
-          </h3>
+          <div className="flex items-center space-x-1.5 min-w-0">
+            <h3 className="text-base font-bold text-white tracking-tight leading-snug truncate">
+              {currentUser.name || currentUser.handle}
+            </h3>
+            {currentUser.statusEmoji && (
+              <span className="text-base shrink-0 select-none leading-none">{currentUser.statusEmoji}</span>
+            )}
+          </div>
           <p className="text-xs text-neon-green font-mono mt-0.5">{currentUser.handle}</p>
 
           {currentUser.bio && (
@@ -108,139 +116,162 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
         </div>
 
         {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-0.5 text-sm">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenSettings();
-            }}
-            className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
-          >
-            <div className="flex items-center space-x-3.5">
-              <Settings className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">{t.sidebar.settings}</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-ez-muted group-hover:text-white transition-colors duration-150" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenCreateGroup();
-            }}
-            className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
-          >
-            <div className="flex items-center space-x-3.5">
-              <Users className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">{t.sidebar.newGroup}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onSelectSavedMessages();
-            }}
-            className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
-          >
-            <div className="flex items-center space-x-3.5">
-              <Bookmark className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">{t.sidebar.savedMessages}</span>
-            </div>
-            <span className="text-[10px] text-neon-green font-mono font-bold bg-neon-green/10 px-2 py-0.5 rounded-full">
-              Cloud
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenAddFriend();
-            }}
-            className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
-          >
-            <div className="flex items-center space-x-3.5">
-              <UserPlus className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
-              <span className="font-semibold">{t.sidebar.contacts}</span>
-            </div>
-            <span className="text-xs text-ez-muted font-mono font-bold">{friendsCount}</span>
-          </button>
-
-          {/* Switch Accounts */}
-          {otherAccounts.length > 0 && (
-            <div className="pt-2">
-              <div className="px-3 py-1.5 text-[11px] font-bold text-ez-muted uppercase tracking-wider">
-                Switch Accounts
-              </div>
-              {otherAccounts.map((acc) => (
-                <div
-                  key={acc.id || acc.handle}
-                  className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/[0.04] transition-colors duration-150 group/acc"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      if (onSwitchAccount) onSwitchAccount(acc);
-                    }}
-                    className="flex items-center space-x-3 min-w-0 flex-1 text-left cursor-pointer"
-                  >
-                    <div className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full overflow-hidden border border-ez-border">
-                      <img src={acc.avatar} alt={acc.handle} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-white truncate">{acc.name || acc.handle}</span>
-                      <span className="text-[10px] text-ez-muted font-mono truncate">{acc.handle}</span>
-                    </div>
-                  </button>
-                  {onRemoveAccount && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveAccount(acc)}
-                      className="opacity-0 group-hover/acc:opacity-100 p-1 text-ez-muted hover:text-red-400 rounded-lg cursor-pointer transition-opacity duration-150"
-                      title="Remove from device"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add Account */}
-          {onAddAccount && (
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col text-sm">
+          <div className="space-y-0.5">
             <button
               type="button"
               onClick={() => {
                 onClose();
-                onAddAccount();
+                onOpenSettings();
               }}
-              className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-gray-300 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+              className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
             >
-              <Layers className="w-5 h-5 text-neon-green" />
-              <span className="font-semibold text-xs">{t.sidebar.addAccount}</span>
+              <div className="flex items-center space-x-3.5">
+                <Settings className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
+                <span className="font-semibold">{t.sidebar.settings}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-ez-muted group-hover:text-white transition-colors duration-150" />
             </button>
-          )}
 
-          <div className="h-px bg-ez-border/50 my-2" />
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenCreateGroup();
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+            >
+              <div className="flex items-center space-x-3.5">
+                <Users className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
+                <span className="font-semibold">{t.sidebar.newGroup}</span>
+              </div>
+            </button>
 
-          {/* Log Out */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              if (onLogout) onLogout();
-            }}
-            className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 cursor-pointer font-semibold"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>{t.sidebar.logOut}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onSelectSavedMessages();
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+            >
+              <div className="flex items-center space-x-3.5">
+                <Bookmark className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
+                <span className="font-semibold">{t.sidebar.savedMessages}</span>
+              </div>
+              <span className="text-[10px] text-neon-green font-mono font-bold bg-neon-green/10 px-2 py-0.5 rounded-full">
+                {t.sidebar.cloud || 'Cloud'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenAddFriend();
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+            >
+              <div className="flex items-center space-x-3.5">
+                <UserPlus className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
+                <span className="font-semibold">{t.sidebar.contacts}</span>
+              </div>
+              <span className="text-xs text-ez-muted font-mono font-bold">{friendsCount}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/about');
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-2xl text-gray-200 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+            >
+              <div className="flex items-center space-x-3.5">
+                <Info className="w-5 h-5 text-ez-muted group-hover:text-neon-green transition-colors duration-150" />
+                <span className="font-semibold">{t.sidebar.about || 'About EzTalk'}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-ez-muted group-hover:text-white transition-colors duration-150" />
+            </button>
+
+            {/* Switch Accounts */}
+            {otherAccounts.length > 0 && (
+              <div className="pt-2">
+                <div className="px-3 py-1.5 text-[11px] font-bold text-ez-muted uppercase tracking-wider">
+                  {t.sidebar.switchAccounts || 'Switch Accounts'}
+                </div>
+                {otherAccounts.map((acc) => (
+                  <div
+                    key={acc.id || acc.handle}
+                    className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/[0.04] transition-colors duration-150 group/acc"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onSwitchAccount) onSwitchAccount(acc);
+                      }}
+                      className="flex items-center space-x-3 min-w-0 flex-1 text-left cursor-pointer"
+                    >
+                      <div className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full overflow-hidden border border-ez-border">
+                        <img src={acc.avatar} alt={acc.handle} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center space-x-1 min-w-0">
+                          <span className="text-xs font-bold text-white truncate">{acc.name || acc.handle}</span>
+                          {acc.statusEmoji && <span className="text-[11px] shrink-0 select-none leading-none">{acc.statusEmoji}</span>}
+                        </div>
+                        <span className="text-[10px] text-ez-muted font-mono truncate">{acc.handle}</span>
+                      </div>
+                    </button>
+                    {onRemoveAccount && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveAccount(acc)}
+                        className="opacity-0 group-hover/acc:opacity-100 w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-red-400 hover:bg-rose-500/10 cursor-pointer transition-all duration-150"
+                        title={t.sidebar.removeFromDevice || 'Remove from device'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Actions: Add Account & Log Out */}
+          <div className="mt-auto pt-4 space-y-0.5">
+            {/* Add Account */}
+            {onAddAccount && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAddAccount();
+                }}
+                className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-gray-300 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 cursor-pointer group"
+              >
+                <Layers className="w-5 h-5 text-neon-green" />
+                <span className="font-semibold text-xs">{t.sidebar.addAccount}</span>
+              </button>
+            )}
+
+            <div className="h-px bg-ez-border/50 my-2" />
+
+            {/* Log Out */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onLogout) onLogout();
+              }}
+              className="w-full flex items-center space-x-3.5 p-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 cursor-pointer font-semibold"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>{t.sidebar.logOut}</span>
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
@@ -250,12 +281,21 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
             <LanguageSwitch />
           </div>
 
-          <div className="inline-flex items-center space-x-1.5 text-xs text-ez-muted font-bold">
-            <Sparkles className="w-3.5 h-3.5 text-neon-green" />
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              navigate('/about');
+            }}
+            className="inline-flex items-center space-x-1.5 text-xs text-ez-muted hover:text-white font-bold group cursor-pointer transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-neon-green group-hover:scale-110 transition-transform" />
             <span className="text-neon-green">EzTalk</span>
             <span>Web</span>
-          </div>
-          <p className="text-[10px] text-ez-muted font-mono mt-0.5">Fast and Light Messenger</p>
+          </button>
+          <p className="text-[10px] text-ez-muted font-mono mt-0.5">
+            {t.sidebar.appSubtitle || 'Fast and Light Messenger'}
+          </p>
 
           <div className="flex items-center justify-center space-x-2.5 text-[11px] text-zinc-500 mt-2.5 pt-2 border-t border-white/[0.04]">
             <button

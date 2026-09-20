@@ -60,8 +60,14 @@ export const uz: TranslationKeys = {
     accounts: 'Hisoblar',
     signOut: 'Hisobdan chiqish',
     personal: 'Shaxsiy',
+    friends: 'Do‘stlar',
     groups: 'Guruhlar',
     online: 'Onlayn',
+    about: 'EzTalk haqida',
+    switchAccounts: 'Hisobni almashtirish',
+    removeFromDevice: 'Qurilmadan o‘chirish',
+    appSubtitle: 'Tez va yengil messenjer',
+    cloud: 'Bulut',
   },
   chat: {
     online: 'onlayn',
@@ -151,6 +157,8 @@ export const uz: TranslationKeys = {
     externalLinkWarning: 'Davom etishdan oldin ushbu saytga ishonchingiz komilligini tekshiring.',
     openLink: 'O‘tish',
     spamCooldown: 'Juda ko‘p xabarlar. {seconds}s kuting',
+    forwardedFrom: 'Dan uzatildi',
+    copied: 'Nusxalandi!',
   },
   calls: {
     incomingCall: 'Kiruvchi qo‘ng‘iroq',
@@ -222,6 +230,7 @@ export const uz: TranslationKeys = {
   profile: {
     shareProfile: 'Profilni ulashish',
     linkCopied: 'Havola nusxalandi!',
+    editName: 'Nomni o‘zgartirish',
   },
   pwa: {
     installBannerText: 'Tezkor kirish va to‘liq ekran rejimi uchun EzTalk Web ilovasini o‘rnating',
@@ -267,7 +276,7 @@ export const uz: TranslationKeys = {
     wyMessagesTitle: "Xabarlar",
     wyMessagesDesc: "Matn, emoji, rasm, fayl, ovozli va video xabarlarni bitta qulay lentada yuboring.",
     wyAppearanceTitle: "Tashqi ko'rinish",
-    wyAppearanceDesc: "O'z mavzungizni tanlang — Yashil, Ko'k, Binafsha yoki tizim o'zi tanlashiga ijozat bering.",
+    wyAppearanceDesc: "O'z mavzungizni tanlang — Yashil, Ko'k, Binafsha, To‘q kulrang yoki tizim o'zi tanlashiga ijozat bering.",
     wyWorksTitle: "Har qanday qurilmada ishlaydi",
     wyWorksDesc: "Istalgan qurilmada, istalgan joyda va istalgan vaqtda bog'laning.",
     wyAdsTitle: "Reklama va trekerlar yo'q",

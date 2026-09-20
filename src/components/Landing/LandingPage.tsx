@@ -419,7 +419,7 @@ export const LandingPage: React.FC = () => {
               <h2 className="text-lg font-bold text-white">
                 {legalModal === 'privacy' ? t.legal.privacyTitle : t.legal.termsTitle}
               </h2>
-              <button onClick={() => setLegalModal(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
+              <button onClick={() => setLegalModal(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>

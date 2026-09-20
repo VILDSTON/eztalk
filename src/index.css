@@ -60,6 +60,14 @@
   --ez-accent-glow: rgba(251, 113, 133, 0.35);
 }
 
+[data-theme="slate"] {
+  --ez-accent: #94A3B8;
+  --ez-glow: #CBD5E1;
+  --ez-sent: #272D37;
+  --ez-sent-meta: #E2E8F0;
+  --ez-accent-glow: rgba(148, 163, 184, 0.35);
+}
+
 /* ─── Compact Density Mode ─── */
 .compact-mode .chat-list-item {
   padding-top: 0.35rem !important;
@@ -369,4 +377,70 @@ body,
 
 .pb-safe {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+}
+
+/* ─── Mobile PWA Hardening ─── */
+
+/* (1) Eliminate 300ms tap delay and prevent sticky hover states on touch devices.
+       touch-action: manipulation disables double-tap-to-zoom, enabling instant response. */
+button,
+a,
+[role="button"],
+input,
+textarea,
+select,
+label {
+  touch-action: manipulation;
+}
+
+/* (2) Suppress hover pseudo-states on true touch devices.
+       On coarse-pointer devices (phones/tablets), hover states should not linger
+       after a tap — active: states provide tactile feedback instead. */
+@media (hover: none) and (pointer: coarse) {
+  .hover\:bg-white\/10:hover {
+    background-color: transparent;
+  }
+
+  .hover\:text-white:hover {
+    color: inherit;
+  }
+
+  .hover\:scale-105:hover {
+    transform: none;
+  }
+
+  .neon-glow-btn:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* (3) Safe-area inset utilities for notch / home-indicator areas (iPhone X+). */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* (4) Minimum 44×44px touch targets for all interactive elements (WCAG 2.5.5 / Apple HIG). */
+button:not([class*="w-"]):not([class*="h-"]),
+[role="button"]:not([class*="w-"]):not([class*="h-"]) {
+  min-height: 25px;
+  min-width: 44px;
+}
+
+/* (5) Smooth momentum scrolling on iOS for overflow-y-auto containers. */
+.overflow-y-auto,
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch;
 }

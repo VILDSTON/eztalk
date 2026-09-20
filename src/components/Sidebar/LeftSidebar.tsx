@@ -10,10 +10,12 @@ import {
   UserCog,
   X,
   Download,
+  Info,
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 
 interface LeftSidebarProps {
   currentUser?: User | null;
@@ -58,11 +60,10 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, isActive, onClick, badge
     type="button"
     onClick={onClick}
     title={label}
-    className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-150 cursor-pointer group ${
-      isActive
-        ? 'bg-ez-accent/15 text-neon-green'
-        : 'text-ez-muted hover:text-white hover:bg-white/5'
-    }`}
+    className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-150 cursor-pointer group ${isActive
+      ? 'bg-ez-accent/15 text-neon-green'
+      : 'text-ez-muted hover:text-white hover:bg-white/10'
+      }`}
   >
     {/* Active indicator bar */}
     {isActive && (
@@ -98,6 +99,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const { t } = useTranslation();
+  const navigate = useLocalizedNavigate();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -129,9 +131,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     <aside className="w-16 h-full bg-ez-base border-r border-ez-border/50 flex flex-col items-center justify-between py-3 select-none shrink-0 font-sans">
       {/* ─── Top: Brand Icon ─── */}
       <div className="flex flex-col items-center space-y-1 mb-4">
-        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center cursor-default select-none shadow-neon-sm bg-ez-elevated">
+        <button
+          type="button"
+          onClick={() => navigate('/about')}
+          className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform"
+          title={t.sidebar.about || 'About EzTalk'}
+        >
           <img src="/favicon.svg" alt="EzTalk Logo" className="w-8 h-8 object-contain" />
-        </div>
+        </button>
       </div>
 
       {/* ─── Middle: Navigation Icons ─── */}
@@ -158,11 +165,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           label={t.sidebar.settings}
           onClick={onOpenSettings}
         />
-        
+
         {installPrompt && (
           <NavItem
             icon={<Download className="w-5 h-5" />}
-            label="Install App"
+            label={t.landing?.installBtn || 'Install App'}
             onClick={handleInstallClick}
           />
         )}
@@ -207,7 +214,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       >
                         <img src={acc.avatar} alt={acc.handle} className="w-5 h-5 rounded-full object-cover shrink-0" />
                         <div className="flex flex-col min-w-0">
-                          <span className="text-xs text-gray-200 font-medium truncate">{acc.name || acc.handle}</span>
+                          <div className="flex items-center space-x-1 min-w-0">
+                            <span className="text-xs text-gray-200 font-medium truncate">{acc.name || acc.handle}</span>
+                            {acc.statusEmoji && <span className="text-[11px] shrink-0 select-none leading-none">{acc.statusEmoji}</span>}
+                          </div>
                           <span className="text-[10px] text-ez-muted font-mono truncate">{acc.handle}</span>
                         </div>
                       </button>
@@ -218,8 +228,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             e.stopPropagation();
                             onRemoveAccount(acc);
                           }}
-                          className="opacity-0 group-hover/acc:opacity-100 p-1 text-gray-400 hover:text-red-400 rounded transition-opacity cursor-pointer"
-                          title="Remove account"
+                          className="opacity-0 group-hover/acc:opacity-100 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-400 rounded-full hover:bg-rose-500/10 transition-all cursor-pointer"
+                          title={t.sidebar.removeFromDevice || 'Remove account'}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -242,6 +252,19 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               >
                 <UserPlus className="w-3.5 h-3.5 text-neon-green" />
                 <span>+ {t.sidebar.addAccount}</span>
+              </button>
+
+              {/* About EzTalk */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  navigate('/about');
+                }}
+                className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 text-left transition-colors cursor-pointer"
+              >
+                <Info className="w-3.5 h-3.5 text-ez-muted" />
+                <span>{t.sidebar.about || 'About EzTalk'}</span>
               </button>
 
               {/* Sign Out */}

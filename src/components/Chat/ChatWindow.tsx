@@ -48,7 +48,10 @@ interface ChatWindowProps {
   isLoadingInitial?: boolean;
   onLoadMore?: () => Promise<void>;
   onRetryMessage?: (message: Message) => void;
+  currentAlias?: string;
+  originalName?: string;
   onEditAlias?: () => void;
+  onSaveAlias?: (newAlias: string) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -87,7 +90,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isLoadingInitial,
   onLoadMore,
   onRetryMessage,
+  currentAlias,
+  originalName,
   onEditAlias,
+  onSaveAlias,
 }) => {
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
@@ -147,7 +153,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onAddFriend={onAddFriend}
         onDeleteGroup={onDeleteGroup}
         onStartCall={onStartCall}
+        currentAlias={currentAlias}
+        originalName={originalName}
         onEditAlias={onEditAlias}
+        onSaveAlias={onSaveAlias}
       />
 
       {/* Blocked User Banner */}
@@ -173,30 +182,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Non-Friend Banner */}
       {!isBlocked && !group && user && !isFriend && !isSavedMessages && showAddBanner && (
-        <div className="bg-ez-elevated border-b border-ez-border/50 px-6 py-2.5 flex items-center justify-between animate-fade-in select-none">
-          <div className="flex items-center space-x-2.5 text-xs text-gray-300">
-            <div className="p-1 rounded-md bg-neon-green/10 text-neon-green">
-              <UserPlus className="w-3.5 h-3.5" />
+        <div className="border-b border-ez-border/40 bg-ez-elevated px-4 sm:px-6 py-3 flex items-center justify-between animate-fade-in select-none gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-neon-green/20 border border-neon-green/20 flex items-center justify-center text-neon-green shrink-0">
+              <UserPlus className="w-4 h-4" />
             </div>
-            <span>
-              <strong className="text-white font-mono">{user.handle}</strong> is not in your friends list.
-            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-100 truncate">
+                <span className="font-mono text-neon-green">{user.handle}</span> не в вашем списке
+              </p>
+              <p className="text-[10px] text-ez-muted mt-0.5">Добавьте в друзья, чтобы общаться</p>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2 shrink-0">
             {onAddFriend && (
               <button
                 type="button"
                 onClick={onAddFriend}
-                className="px-3 py-1 bg-neon-green hover:bg-neon-green-light text-black font-bold text-xs rounded-lg shadow-neon-sm transition-colors duration-150 cursor-pointer"
+                className="px-3 py-1.5 bg-neon-green hover:brightness-110 text-black font-bold text-xs rounded-xl shadow-neon-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
               >
-                + Add to Friends
+                + Добавить
               </button>
             )}
             <button
               type="button"
               onClick={() => setShowAddBanner(false)}
-              className="p-1 text-ez-muted hover:text-white rounded-md transition-colors duration-150 cursor-pointer"
-              title="Dismiss banner"
+              className="w-7 h-7 flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 rounded-full transition-colors duration-150 cursor-pointer"
+              title="Скрыть"
             >
               <X className="w-3.5 h-3.5" />
             </button>
