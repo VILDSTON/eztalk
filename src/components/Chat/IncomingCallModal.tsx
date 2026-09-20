@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Phone, PhoneOff, Sparkles, Radio } from 'lucide-react';
 import { User } from '../../types/chat';
 import { callSoundService } from '../../utils/callSounds';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface IncomingCallModalProps {
   caller: User;
@@ -18,6 +19,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   onAccept,
   onDecline,
 }) => {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!isOpen) {
       callSoundService.stopAll();
@@ -89,7 +91,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         {/* Tag */}
         <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-neon-green/10 border border-neon-green/25 text-[11px] font-semibold text-neon-green mb-6">
           <Sparkles className="w-3.5 h-3.5 text-neon-green animate-glow-pulse" />
-          <span>Incoming HD Voice Call</span>
+          <span>{t.calls.incomingHdCall}</span>
         </div>
 
         {/* Caller Avatar */}
@@ -105,7 +107,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         <p className="text-xs text-neon-green font-mono mt-0.5">{caller.handle}</p>
         <div className="inline-flex items-center space-x-2 mt-3 px-3.5 py-1 rounded-full bg-white/5 border border-ez-border text-xs text-gray-300">
           <Radio className="w-3.5 h-3.5 text-neon-green animate-spin" />
-          <span>Ringing...</span>
+          <span>{t.calls.ringing}</span>
         </div>
 
         {/* Action Buttons */}
@@ -114,7 +116,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
             type="button"
             onClick={handleDecline}
             className="p-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer border border-red-400/25"
-            title="Decline Call"
+            title={t.calls.declineCall}
           >
             <PhoneOff className="w-6 h-6" />
           </button>
@@ -123,7 +125,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
             type="button"
             onClick={handleAccept}
             className="p-4 rounded-2xl bg-neon-green hover:bg-neon-green-light text-black shadow-neon-lg transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer font-bold border border-neon-green"
-            title="Accept Call"
+            title={t.calls.acceptCall}
           >
             <Phone className="w-6 h-6 animate-glow-pulse" />
           </button>

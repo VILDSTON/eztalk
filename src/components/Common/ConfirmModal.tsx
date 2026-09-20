@@ -1,11 +1,12 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ConfirmModalProps {
   isOpen: boolean;
   title: string;
   message: string;
-  confirmText: string;
+  confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -16,11 +17,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   title,
   message,
   confirmText,
-  cancelText = 'Cancel',
+  cancelText,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
+
+  const resolvedCancelText = cancelText || t.common.cancel;
+  const resolvedConfirmText = confirmText || t.common.confirm;
 
   return (
     <div
@@ -46,14 +51,14 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={onCancel}
             className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-300 bg-white/5 hover:bg-white/10 hover:text-white transition-colors duration-150 cursor-pointer"
           >
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 shadow-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer"
           >
-            {confirmText}
+            {resolvedConfirmText}
           </button>
         </div>
       </div>

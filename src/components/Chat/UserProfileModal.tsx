@@ -189,7 +189,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close user profile"
+          aria-label={t.common.close}
           className="absolute top-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-full text-white/80 hover:text-white bg-black/50 hover:bg-black/70 backdrop-blur-md transition-all duration-150 cursor-pointer shadow-glass border border-white/10 hover:scale-105"
         >
           <X className="w-4 h-4" />
@@ -215,7 +215,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 ? { backgroundImage: `url(${user.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : { background: bannerStyle }
             }
-            title={isImageBanner ? 'Click to view full background' : undefined}
+            title={isImageBanner ? t.profile.viewBackground : undefined}
           >
             {/* Ambient radial glow — only shown when user has no custom banner */}
             {!user.banner && (
@@ -246,7 +246,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     }
                   }}
                   className="relative w-20 h-20 sm:w-24 sm:h-24 min-w-[80px] min-h-[80px] rounded-full overflow-hidden bg-ez-surface shadow-neon-sm shrink-0 cursor-pointer hover:scale-105 transition-transform duration-150"
-                  title="Click to view full avatar"
+                  title={t.profile.viewAvatar}
                 >
                   <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
                 </div>

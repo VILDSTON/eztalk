@@ -254,19 +254,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 <span>+ {t.sidebar.addAccount}</span>
               </button>
 
-              {/* About EzTalk */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowUserMenu(false);
-                  navigate('/about');
-                }}
-                className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 text-left transition-colors cursor-pointer"
-              >
-                <Info className="w-3.5 h-3.5 text-ez-muted" />
-                <span>{t.sidebar.about || 'About EzTalk'}</span>
-              </button>
-
               {/* Sign Out */}
               <button
                 type="button"

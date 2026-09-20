@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-09-20
+
+### Added
+- **EzTalk Security System (ESS) 2.0 & Multi-Tier Protection**:
+  - WebSocket Token Bucket rate limiter (5 msg/s, burst 10 tokens) with three-tier violation escalation (warnings, 10s temporary mute, and instant termination on persistent flood).
+  - Strict 64 KB payload size validation for incoming socket packets with immediate drop and harsh disconnect on oversized/malformed payloads.
+  - Handshake connection throttle limiting each IP to a maximum of 10 concurrent active sockets.
+  - Production Nginx reverse-proxy configuration (`deploy/nginx/eztalk.conf`) with Slowloris mitigation, connection and request rate-limiting zones, and real IP forwarding.
+  - Linux kernel sysctl optimization profile (`deploy/sysctl/99-eztalk-security.conf`) for SYN-flood defense, socket backlog scaling, and TCP TIME_WAIT reuse.
+- **Full UI Internationalization (i18n)**:
+  - Synchronized all 375 translation keys across English (`en`), Russian (`ru`), and Uzbek Latin (`uz`) with 100% dictionary parity.
+  - Localized 11 UI feature modules including `Auth`, `Chat`, `Friends`, `Groups`, `Settings`, `Profile`, `Landing`, and `Legal`.
+- **Native File Download & Media Handling**:
+  - Added smart file handling utility (`downloadOrOpenFile`) ensuring non-image files (PDFs, archives, code, docs) trigger direct download or open locally instead of rendering broken image previews.
+  - Expanded Shared Media in user profile to display 9+ items with full pagination/overflow.
+  - Added interactive "Today" date header chip in `ChatWindow` allowing quick jumps to today's messages.
+
+### Fixed
+- **HTTP 429 Too Many Requests in Development & Production**:
+  - Overhauled Express rate limiters with automatic bypass for local development and loopback addresses (`127.0.0.1`, `::1`).
+  - Increased production `apiRateLimiter` quota from 300 to 3000 requests per 15 minutes to prevent false-positive blocks from background state synchronization and NAT sharing.
+  - Relaxed message burst detection in development mode to prevent false cooldown triggers during rapid testing.
+  - Whitelisted loopback addresses from ESS strike accumulation and bans.
+- **Node.js 24 Watch Mode**:
+  - Enabled native `--watch --watch-path=server` in `package.json` for seamless hot-reloading of backend changes.
+
 ## [0.9.14] - 2026-09-14
 
 ### Added

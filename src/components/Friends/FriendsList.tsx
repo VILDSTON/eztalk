@@ -348,7 +348,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         {savedLastMsg ? (
                           renderMessagePreview(savedLastMsg, currentUser.handle, t)
                         ) : (
-                          <span className="text-ez-muted text-[12px]">Cloud Storage</span>
+                          <span className="text-ez-muted text-[12px]">{t.chat.cloudNotes || t.sidebar.cloud}</span>
                         )}
                       </div>
                     </div>
@@ -425,7 +425,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         setGroupToDelete({ id: group.id, name: group.name });
                       }}
                       className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-150 cursor-pointer shrink-0"
-                      title="Delete Group"
+                      title={t.groups.deleteGroup}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -506,7 +506,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       </div>
                       <div className="text-[12px] truncate">
                         {isUserBlocked ? (
-                          <span className="text-rose-400 font-semibold text-[11px]">User is blocked</span>
+                          <span className="text-rose-400 font-semibold text-[11px]">{t.chat.blocked}</span>
                         ) : lastMsg ? (
                           renderMessagePreview(lastMsg, currentUser?.handle, t)
                         ) : (
@@ -526,7 +526,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             <div className="pt-3 border-t border-ez-border/50">
               <div className="flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-ez-muted uppercase tracking-wider">
                 <Globe className="w-3 h-3 text-neon-green" />
-                <span>Global Search</span>
+                <span>{t.friends.globalSearch}</span>
               </div>
               {globalResults.map((user) => (
                 <div
@@ -549,7 +549,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                     </div>
                   </div>
                   <span className="text-[11px] text-neon-green bg-neon-green/10 px-2.5 py-1 rounded-xl font-bold">
-                    Chat
+                    {t.chat.message || 'Chat'}
                   </span>
                 </div>
               ))}
@@ -560,14 +560,14 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           {activeTab === 'groups' && filteredGroups.length === 0 && (
             <div className="text-center py-12 px-4 text-xs text-ez-muted">
               <Users className="w-8 h-8 mx-auto text-ez-border mb-2" />
-              <p className="font-semibold text-gray-400">No Groups Found</p>
-              <p className="mt-1 text-ez-muted">Create a new group to collaborate with friends.</p>
+              <p className="font-semibold text-gray-400">{t.friends.noGroupsFound}</p>
+              <p className="mt-1 text-ez-muted">{t.friends.noGroupsFoundDesc}</p>
               <button
                 type="button"
                 onClick={() => setIsGroupModalOpen(true)}
                 className="mt-3 px-4 py-2 bg-neon-green/10 text-neon-green hover:bg-neon-green hover:text-black text-xs font-bold rounded-xl transition-colors duration-150 cursor-pointer"
               >
-                + Create Group
+                + {t.groups.createGroup}
               </button>
             </div>
           )}
@@ -575,15 +575,15 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           {activeTab === 'friends' && filteredUsers.length === 0 && (
             <div className="text-center py-12 px-4 text-xs text-ez-muted">
               <Users className="w-8 h-8 mx-auto text-ez-border mb-2" />
-              <p className="font-semibold text-gray-400">No Friends Found</p>
-              <p className="mt-1 text-ez-muted">Add friends by their @handle to start chatting.</p>
+              <p className="font-semibold text-gray-400">{t.friends.noFriendsFound}</p>
+              <p className="mt-1 text-ez-muted">{t.friends.noFriendsFoundDesc}</p>
             </div>
           )}
 
           {filteredUsers.length === 0 && filteredGroups.length === 0 && globalResults.length === 0 && activeTab !== 'groups' && activeTab !== 'friends' && (
             <div className="text-center py-12 px-4 text-xs text-ez-muted">
-              <p className="font-semibold text-gray-400">No chats found</p>
-              <p className="mt-1 text-ez-muted">Search for people by handle or start a new conversation.</p>
+              <p className="font-semibold text-gray-400">{t.friends.noChatsFound}</p>
+              <p className="mt-1 text-ez-muted">{t.friends.noChatsFoundDesc}</p>
             </div>
           )}
         </div>
@@ -601,7 +601,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 className="w-full flex items-center space-x-2.5 p-2 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors duration-150 cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 text-neon-green" />
-                <span>New Direct Chat</span>
+                <span>{t.friends.newDirectChat}</span>
               </button>
               <button
                 type="button"
@@ -612,7 +612,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 className="w-full flex items-center space-x-2.5 p-2 rounded-xl text-xs font-semibold text-gray-200 hover:text-white hover:bg-white/[0.07] transition-colors duration-150 cursor-pointer"
               >
                 <Users className="w-4 h-4 text-neon-green" />
-                <span>New Group</span>
+                <span>{t.sidebar.newGroup}</span>
               </button>
             </div>
           )}
@@ -621,7 +621,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             type="button"
             onClick={() => setShowFabMenu(!showFabMenu)}
             className="w-12 h-12 rounded-full bg-neon-green hover:bg-neon-green-light text-black shadow-neon-md flex items-center justify-center cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95"
-            title="New Chat"
+            title={t.friends.newChat}
           >
             <SquarePen className="w-5 h-5" />
           </button>
@@ -655,10 +655,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       {/* Confirm Delete Group Modal */}
       <ConfirmModal
         isOpen={!!groupToDelete}
-        title="Delete Group"
-        message={`Are you sure you want to delete group "${groupToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete forever"
-        cancelText="Cancel"
+        title={t.groups.deleteGroup}
+        message={t.friends.deleteGroupConfirm.replace('{name}', groupToDelete?.name || '')}
+        confirmText={t.friends.deleteForever}
+        cancelText={t.common.cancel}
         onConfirm={() => {
           if (groupToDelete && onDeleteGroup) {
             onDeleteGroup(groupToDelete.id);

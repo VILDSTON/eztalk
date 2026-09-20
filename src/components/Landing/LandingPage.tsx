@@ -119,7 +119,7 @@ export const LandingPage: React.FC = () => {
                 <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Alex Rivera" className="w-10 h-10 rounded-full object-cover" />
                 <div className="ml-3">
                   <span className="text-white font-semibold text-sm block leading-tight">Alex Rivera</span>
-                  <span className="text-slate-400 text-xs block font-mono mt-0.5">last seen recently</span>
+                  <span className="text-slate-400 text-xs block font-mono mt-0.5">{language === 'ru' ? 'был(а) недавно' : language === 'uz' ? 'yaqinda tarmoqda edi' : 'last seen recently'}</span>
                 </div>
               </div>
 
@@ -158,16 +158,16 @@ export const LandingPage: React.FC = () => {
       <section className="w-full bg-[#0a0d12] border-y border-white/10">
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
           <div className="py-8 sm:px-8 sm:first:pl-0">
-            <p className="text-slate-500 text-sm mb-1.5">Transport</p>
-            <p className="text-white font-medium">WebSocket, direct P2P for calls</p>
+            <p className="text-slate-500 text-sm mb-1.5">{t.landing.transport}</p>
+            <p className="text-white font-medium">{t.landing.transportDesc}</p>
           </div>
           <div className="py-8 sm:px-8">
-            <p className="text-slate-500 text-sm mb-1.5">Audio</p>
-            <p className="text-white font-medium">Opus codec over WebRTC</p>
+            <p className="text-slate-500 text-sm mb-1.5">{t.landing.audio}</p>
+            <p className="text-white font-medium">{t.landing.audioDesc}</p>
           </div>
           <div className="py-8 sm:px-8 sm:last:pr-0">
-            <p className="text-slate-500 text-sm mb-1.5">Delivery</p>
-            <p className="text-white font-medium">Pushed instantly, no polling</p>
+            <p className="text-slate-500 text-sm mb-1.5">{t.landing.delivery}</p>
+            <p className="text-white font-medium">{t.landing.deliveryDesc}</p>
           </div>
         </div>
       </section>
@@ -192,7 +192,7 @@ export const LandingPage: React.FC = () => {
                   <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Alex Rivera" className="w-full h-full object-cover" />
                 </div>
                 <h3 className="font-bold text-white text-lg mb-1">Alex Rivera</h3>
-                <p className="text-[#00e676] font-medium text-sm mb-8 animate-pulse">Incoming call...</p>
+                <p className="text-[#00e676] font-medium text-sm mb-8 animate-pulse">{t.calls.incomingCall}...</p>
                 <div className="flex w-full justify-around px-2">
                   <div className="w-14 h-14 rounded-full bg-[#ff3b30] flex items-center justify-center text-white shadow-lg shadow-[#ff3b30]/20">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -212,21 +212,21 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col-reverse md:flex-row items-center justify-between gap-16">
 
           <div className="w-full md:w-1/2 flex items-center justify-center">
-            <svg viewBox="0 0 400 140" className="w-full max-w-[360px]" role="img" aria-label="You, connected through EzTalk's server, to a friend">
+            <svg viewBox="0 0 400 140" className="w-full max-w-[360px]" role="img" aria-label="EzTalk direct messaging diagram">
               <line x1="55" y1="70" x2="345" y2="70" stroke="white" strokeOpacity="0.12" strokeWidth="2" />
               <circle cx="200" cy="70" r="3" fill="#00e676">
                 <animate attributeName="cx" values="55;345;55" dur="3.2s" repeatCount="indefinite" />
               </circle>
 
               <circle cx="55" cy="70" r="28" fill="#11161f" stroke="white" strokeOpacity="0.1" />
-              <text x="55" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">You</text>
+              <text x="55" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">{language === 'ru' ? 'Вы' : language === 'uz' ? 'Siz' : 'You'}</text>
 
               <rect x="168" y="42" width="64" height="56" rx="12" fill="#11161f" stroke="white" strokeOpacity="0.1" />
               <text x="200" y="66" textAnchor="middle" fontSize="9" fill="#94a3b8">Socket.io</text>
               <text x="200" y="80" textAnchor="middle" fontSize="9" fill="#94a3b8">server</text>
 
               <circle cx="345" cy="70" r="28" fill="#11161f" stroke="white" strokeOpacity="0.1" />
-              <text x="345" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">Friend</text>
+              <text x="345" y="75" textAnchor="middle" fontSize="11" fill="white" fontWeight="600">{language === 'ru' ? 'Друг' : language === 'uz' ? 'Do‘st' : 'Friend'}</text>
             </svg>
           </div>
 
@@ -387,8 +387,8 @@ export const LandingPage: React.FC = () => {
             <h4 className="text-white font-semibold mb-4">{t.landing.productTitle}</h4>
             <ul className="space-y-3 text-sm">
               <li><button onClick={handleLaunch} className="hover:text-white transition-colors">{t.landing.openWebApp}</button></li>
-              <li><button onClick={handleInstallClick} className="hover:text-white transition-colors">Desktop PWA</button></li>
-              <li><a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Changelog</a></li>
+              <li><button onClick={handleInstallClick} className="hover:text-white transition-colors">{t.landing.desktopPwa}</button></li>
+              <li><a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">{t.landing.changelog}</a></li>
             </ul>
           </div>
 
@@ -404,7 +404,7 @@ export const LandingPage: React.FC = () => {
                 <p className="text-xs text-slate-500 leading-relaxed">{t.landing.termsShort}</p>
               </div>
               <div className="pt-2">
-                <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center"><Code className="w-4 h-4 mr-1.5" /> Open Source</a>
+                <a href="https://github.com/VILDSTON/eztalk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center"><Code className="w-4 h-4 mr-1.5" /> {t.landing.openSource}</a>
               </div>
             </div>
           </div>

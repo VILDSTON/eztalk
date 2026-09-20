@@ -3,6 +3,7 @@ import { X, Sparkles, AlertCircle, MessageSquarePlus } from 'lucide-react';
 import { User } from '../../types/chat';
 import { ApiService, CURATED_AVATARS } from '../../services/api';
 import { normalizeHandle, sanitizeDisplayName } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   onClose,
   onAddFriend,
 }) => {
+  const { t } = useTranslation();
   const [handle, setHandle] = useState(initialHandle);
   const [name, setName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -137,8 +139,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               <MessageSquarePlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Find Users & New Chat</h3>
-              <p className="text-[11px] text-ez-muted">Search by username to start a conversation</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t.friends.findUsersTitle}</h3>
+              <p className="text-[11px] text-ez-muted">{t.friends.findUsersSubtitle}</p>
             </div>
           </div>
           <button
@@ -162,7 +164,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                Username Handle
+                {t.auth.username}
               </label>
               <div className="relative flex items-center">
                 <input
@@ -190,7 +192,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
             {suggestedUsers.length > 0 && (
               <div className="space-y-1.5 bg-ez-base p-2.5 rounded-2xl border border-ez-border/50">
                 <span className="text-[10px] uppercase font-bold text-ez-muted px-1.5">
-                  Matching Users
+                  {t.friends.matchingUsers}
                 </span>
                 {suggestedUsers.map((su) => (
                   <div
@@ -216,7 +218,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                       </div>
                     </div>
                     <span className="text-[11px] font-bold text-neon-green bg-neon-green/10 px-2 py-0.5 rounded-lg border border-neon-green/20">
-                      Chat
+                      {t.chat.message || 'Chat'}
                     </span>
                   </div>
                 ))}
@@ -226,7 +228,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  Display Name (Optional)
+                  {t.friends.displayNameOptional}
                 </label>
                 <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
               </div>
@@ -235,7 +237,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                 maxLength={25}
                 value={name}
                 onChange={(e) => setName(sanitizeDisplayName(e.target.value))}
-                placeholder="Full Name"
+                placeholder={t.auth.fullName}
                 className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
@@ -248,7 +250,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               disabled={loading || !(handle || '').trim()}
               className="flex-1 px-4 py-2.5 bg-ez-hover hover:bg-ez-border text-gray-300 text-sm font-medium rounded-xl transition-colors duration-150 cursor-pointer disabled:opacity-50"
             >
-              Skip / Add without nickname
+              {t.friends.skipAdd}
             </button>
             <button
               type="submit"
@@ -256,7 +258,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               className="flex-1 px-4 py-2.5 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-sm hover:shadow-neon-md transition-colors duration-150 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{loading ? 'Saving...' : 'Save'}</span>
+              <span>{loading ? t.common.loading : t.common.save}</span>
             </button>
           </div>
         </form>

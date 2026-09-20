@@ -82,7 +82,7 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
-                Custom Name (No Emojis)
+                {t.profile.customNameLabel}
               </label>
               <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
             </div>
@@ -96,7 +96,7 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
               className="w-full bg-ez-base border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
             <p className="text-[11px] text-ez-muted mt-1.5">
-              Only you will see this name. Leave blank or reset to show their real profile name.
+              {t.profile.customNameHint}
             </p>
           </div>
 
@@ -108,7 +108,7 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
               className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition-colors cursor-pointer py-1"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset to original name ({fallbackOriginal})</span>
+              <span>{t.profile.resetToOriginal} ({fallbackOriginal})</span>
             </button>
           )}
 
@@ -119,14 +119,14 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
               onClick={onClose}
               className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 border border-white/5 transition-colors cursor-pointer"
             >
-              Cancel
+              {t.common.cancel}
             </button>
             <button
               type="submit"
               className="flex-1 py-2.5 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-black text-xs font-bold shadow-neon-sm transition-all duration-150 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              <span>Save</span>
+              <span>{t.common.save}</span>
             </button>
           </div>
         </form>

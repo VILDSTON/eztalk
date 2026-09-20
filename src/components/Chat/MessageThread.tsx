@@ -1,5 +1,5 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowDown, Loader2 } from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
+import { ArrowDown, Loader2, Calendar } from 'lucide-react';
 import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -66,6 +66,25 @@ function getDateKey(createdAt?: string, timestamp?: string): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
+function isTodayDate(createdAt?: string, timestamp?: string): boolean {
+  let date: Date | null = null;
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date && timestamp) {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) date = d;
+  }
+  if (!date) return false;
+  const now = new Date();
+  return (
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
+  );
+}
+
 export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   messages,
   currentUserId,
@@ -88,7 +107,9 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const todayRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [isScrolledPastToday, setIsScrolledPastToday] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const initialMessageIdsRef = useRef<Set<string>>(new Set());
@@ -98,6 +119,24 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   const isPrependRef = useRef(false);
   const { t } = useTranslation();
 
+  const todayText = useMemo(() => (t as any)?.chat?.today || t['chat.today'] || 'Today', [t]);
+  const hasTodayMessages = useMemo(() => messages.some((m) => isTodayDate(m.createdAt, m.timestamp)), [messages]);
+
+  const scrollToToday = () => {
+    if (todayRef.current) {
+      todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const pill = todayRef.current.querySelector('.today-pill');
+      if (pill) {
+        pill.classList.add('scale-110', 'border-[var(--ez-accent)]', 'bg-[var(--ez-accent)]/20');
+        setTimeout(() => {
+          pill.classList.remove('scale-110', 'border-[var(--ez-accent)]', 'bg-[var(--ez-accent)]/20');
+        }, 1200);
+      }
+    } else {
+      scrollToBottom();
+    }
+  };
+
   const handleScroll = () => {
     const el = containerRef.current;
     if (!el) return;
@@ -106,6 +145,14 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
     setIsScrolledUp(isUp);
     if (!isUp) {
       setNewMessagesCount(0);
+    }
+
+    if (todayRef.current) {
+      const todayRect = todayRef.current.getBoundingClientRect();
+      const containerRect = el.getBoundingClientRect();
+      setIsScrolledPastToday(todayRect.top > containerRect.bottom - 40);
+    } else {
+      setIsScrolledPastToday(false);
     }
 
     // Infinite scroll trigger: when scrolled near the top (< 60px) and older messages exist
@@ -293,6 +340,9 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
           )}
 
           <div ref={bottomRef} />
+          {/* Bottom spacing so last message has comfortable breathing room above MessageInput */}
+          <div className="h-1 sm:h-1 shrink-0 w-full" aria-hidden="true" />
+          <div ref={bottomRef} className="h-1" />
         </div>
       </div>
 
@@ -302,7 +352,7 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
           type="button"
           onClick={scrollToBottom}
           className="absolute bottom-5 right-4 sm:right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated/95 hover:bg-ez-hover text-neon-green border border-neon-green/30 shadow-glass backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-scale-up"
-          title="Scroll to latest message"
+          title={t.chat.scrollToBottom}
         >
           <ArrowDown className="w-5 h-5" />
           {newMessagesCount > 0 && (

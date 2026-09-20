@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Search, MessageSquare, Users } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ComposeModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
   onClose,
   onSelectUser,
 }) => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
 
   if (!isOpen) return null;
@@ -58,8 +60,8 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">New Direct Message</h3>
-              <p className="text-xs text-ez-muted">Select a contact to start chatting</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t.friends.composeTitle}</h3>
+              <p className="text-xs text-ez-muted">{t.friends.composeSubtitle}</p>
             </div>
           </div>
           <button
@@ -79,7 +81,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or @handle..."
+              placeholder={t.friends.searchPlaceholder}
               className="w-full bg-ez-hover focus:bg-ez-border border border-transparent focus:border-[var(--ez-accent)] rounded-2xl pl-10 pr-8 py-2.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
               autoFocus
             />
@@ -135,7 +137,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
               </div>
 
               <span className="px-3 py-1 bg-neon-green/10 text-neon-green text-xs font-bold rounded-xl shrink-0 group-hover:bg-neon-green group-hover:text-black transition-colors duration-150">
-                Chat
+                {t.chat.message || 'Chat'}
               </span>
             </div>
           ))}
@@ -143,8 +145,8 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
           {filtered.length === 0 && (
             <div className="text-center py-10 px-4 text-xs text-ez-muted">
               <Users className="w-8 h-8 mx-auto text-ez-border mb-2" />
-              <p className="font-semibold text-gray-400">No contacts found</p>
-              <p className="mt-0.5 text-ez-muted">Try searching for another handle or name.</p>
+              <p className="font-semibold text-gray-400">{t.friends.noContactsFound}</p>
+              <p className="mt-0.5 text-ez-muted">{t.friends.noContactsFoundDesc}</p>
             </div>
           )}
         </div>

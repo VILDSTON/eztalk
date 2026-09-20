@@ -3,12 +3,16 @@ class SecurityEngine {
     this.ipStrikes = new Map(); // IP -> { strikes: number, banExpires: number }
     this.ipConnections = new Map(); // IP -> Set<SocketID>
     this.socketBuckets = new Map(); // SocketID -> { tokens: number, lastRefill: number }
+    this.socketMutes = new Map(); // SocketID -> mutedUntil: number
+    this.socketViolations = new Map(); // SocketID -> { count: number, firstViolation: number }
     this.unauthTimers = new Map(); // SocketID -> NodeJS.Timeout
 
     this.MAX_STRIKES = 30;
     this.BAN_DURATION = 15 * 60 * 1000; // 15 minutes
-    this.BUCKET_CAPACITY = 15;
-    this.REFILL_RATE = 1000 / 3; // 3 tokens per second
+    this.BUCKET_CAPACITY = 10; // Burst capacity (tokens)
+    this.REFILL_RATE = 1000 / 5; // 5 tokens per second (200ms per token)
+    this.MAX_SOCKETS_PER_IP = 10; // Max concurrent sockets per single IP
+    this.MAX_PAYLOAD_BYTES = 64 * 1024; // 64 KB max payload size
     this.MAX_BUCKETS = 10000;
     // Enable Dry Run mode to just log events instead of dropping packets (Alpha Test)
     this.ALPHA_DRY_RUN = false;
@@ -23,6 +27,9 @@ class SecurityEngine {
   }
 
   _addStrike(ip, points) {
+    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.endsWith('127.0.0.1')) {
+      return;
+    }
     if (!this.ipStrikes.has(ip)) {
       this.ipStrikes.set(ip, { strikes: 0, banExpires: 0, alphaWarned: false });
     }
@@ -107,13 +114,92 @@ class SecurityEngine {
     return false;
   }
 
+  _isMuted(socketId) {
+    const mutedUntil = this.socketMutes.get(socketId);
+    if (!mutedUntil) return false;
+    if (Date.now() < mutedUntil) return true;
+    this.socketMutes.delete(socketId);
+    return false;
+  }
+
+  _validatePayloadSize(args) {
+    let totalBytes = 0;
+    if (!args || !args.length) return { valid: true, size: 0 };
+    for (const arg of args) {
+      if (typeof arg === 'string') {
+        totalBytes += Buffer.byteLength(arg, 'utf8');
+      } else if (Buffer.isBuffer(arg)) {
+        totalBytes += arg.length;
+      } else if (arg && typeof arg === 'object') {
+        try {
+          totalBytes += Buffer.byteLength(JSON.stringify(arg), 'utf8');
+        } catch {
+          return { valid: false, size: Infinity, malformed: true };
+        }
+      }
+    }
+    return { valid: totalBytes <= this.MAX_PAYLOAD_BYTES, size: totalBytes, malformed: false };
+  }
+
+  _recordViolation(socketId, ip, socket) {
+    const now = Date.now();
+    if (!this.socketViolations.has(socketId)) {
+      this.socketViolations.set(socketId, { count: 0, firstViolation: now });
+    }
+    const record = this.socketViolations.get(socketId);
+    if (now - record.firstViolation > 10000) {
+      record.count = 0;
+      record.firstViolation = now;
+    }
+    record.count += 1;
+
+    // 1-2 violations: Soft throttle / warning
+    if (record.count <= 2) {
+      socket.emit('rate_limited', {
+        message: 'Rate limit exceeded: max 5 messages/sec. Please slow down.',
+        retryAfter: 1
+      });
+      return 'warn';
+    }
+
+    // 3-5 violations: Temporary mute for 10 seconds
+    if (record.count <= 5) {
+      const muteDuration = 10000;
+      this.socketMutes.set(socketId, now + muteDuration);
+      this._addStrike(ip, 2);
+      socket.emit('muted', {
+        message: 'Temporarily muted for 10 seconds due to message flood.',
+        mutedUntil: now + muteDuration
+      });
+      return 'mute';
+    }
+
+    // Critical persistent flood: Immediate termination of socket connection
+    this._addStrike(ip, 10);
+    socket.emit('security_violation', {
+      message: 'Connection terminated by ESS: Persistent message flood violation.'
+    });
+    // Harsh disconnect: close underlying transport
+    socket.disconnect(true);
+    if (socket.conn) {
+      socket.conn.close();
+    }
+    return 'terminate';
+  }
+
   attach(io) {
-    // Middleware to block banned IPs immediately
+    // Middleware to block banned IPs & reject excessive connections at handshake stage
     io.use((socket, next) => {
       const ip = this._getIP(socket);
       
       if (!this.ALPHA_DRY_RUN && this._isBanned(ip)) {
-        return next(new Error('Banned by ESS'));
+        return next(new Error('ERR_BANNED_BY_ESS: IP is temporarily blocked'));
+      }
+
+      // Pre-handshake check: Reject if IP already has too many active sockets
+      const currentConns = this.ipConnections.get(ip)?.size || 0;
+      if (currentConns >= this.MAX_SOCKETS_PER_IP) {
+        return next(new Error('ERR_MAX_CONNECTIONS_PER_IP: Max concurrent sockets exceeded for this IP'));
       }
       
       next();
@@ -166,8 +252,30 @@ class SecurityEngine {
       
       this.unauthTimers.set(socketId, authTimeout);
 
-      // Packet spam protection via wildcard middleware
+      // Packet spam & payload validation via wildcard middleware
       socket.use(([event, ...args], next) => {
+        // 1. Check if socket is currently muted
+        if (this._isMuted(socketId)) {
+          // Drop all incoming messages while muted
+          return;
+        }
+
+        // 2. Validate payload size (< 64 KB)
+        const payloadCheck = this._validatePayloadSize(args);
+        if (!payloadCheck.valid) {
+          this._addStrike(ip, 5);
+          socket.emit('payload_too_large', {
+            error: 'Packet exceeds 64 KB limit. Dropped by ESS.',
+            size: payloadCheck.size
+          });
+          // Terminate socket immediately if severely oversized (> 128 KB) or malformed
+          if (payloadCheck.malformed || payloadCheck.size > this.MAX_PAYLOAD_BYTES * 2) {
+            socket.disconnect(true);
+            if (socket.conn) socket.conn.close();
+          }
+          return;
+        }
+
         // Allow authentication/registration events to pass without strict token check
         if (event === 'authenticate' || event === 'join' || event === 'join_group') {
           socket.isAuthenticated = true;
@@ -195,6 +303,7 @@ class SecurityEngine {
           return next();
         }
 
+        // 3. Token Bucket rate check (max 5 msg/sec)
         if (!this._consumeToken(socketId)) {
           this._addStrike(ip, 1);
           
@@ -205,12 +314,13 @@ class SecurityEngine {
           
           if (this._isBanned(ip)) {
             socket.emit('security_violation', { message: 'Banned by ESS: Rate limit / flood violation' });
-            socket.disconnect(false);
-            return next(new Error('Banned by ESS for packet spam'));
+            socket.disconnect(true);
+            if (socket.conn) socket.conn.close();
+            return;
           }
           
-          socket.emit('rate_limited', { message: 'Too many packets' });
-          return next(new Error('Rate limit exceeded'));
+          this._recordViolation(socketId, ip, socket);
+          return;
         }
         
         next();
@@ -220,6 +330,8 @@ class SecurityEngine {
         clearTimeout(this.unauthTimers.get(socketId));
         this.unauthTimers.delete(socketId);
         this.socketBuckets.delete(socketId);
+        this.socketMutes.delete(socketId);
+        this.socketViolations.delete(socketId);
         
         const conns = this.ipConnections.get(ip);
         if (conns) {

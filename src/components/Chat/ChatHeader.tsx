@@ -205,7 +205,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <div className="w-9 h-9 rounded-full bg-ez-elevated border border-ez-border flex items-center justify-center text-xs font-bold text-white shrink-0">
             ?
           </div>
-          <span className="text-sm font-bold text-white">Chat</span>
+          <span className="text-sm font-bold text-white">{t.chat?.message || 'Chat'}</span>
         </div>
       </div>
     );
@@ -282,7 +282,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   {user.name || user.handle || 'User'}
                 </span>
                 {user.statusEmoji && (
-                  <span className="text-sm shrink-0 select-none leading-none" title="Status">{user.statusEmoji}</span>
+                  <span className="text-sm shrink-0 select-none leading-none" title={t.profile?.status || 'Status'}>{user.statusEmoji}</span>
                 )}
                 {isMuted && (
                   <span title={t.chat?.notificationsMuted || "Notifications muted"}>

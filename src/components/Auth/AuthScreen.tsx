@@ -239,7 +239,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
           </h1>
           <div className="mt-1.5 inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[10px] sm:text-[11px] font-semibold text-[var(--ez-accent)]">
             <Sparkles className="w-3 h-3 text-[var(--ez-accent)] shrink-0" />
-            <span className="tracking-tight font-mono">Ultra Fast • Real-Time</span>
+            <span className="tracking-tight font-mono">{t.auth.tagline}</span>
           </div>
         </div>
 

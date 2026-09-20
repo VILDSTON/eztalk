@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ForwardModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
   onClose,
   onForward,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<{ user?: User; group?: Group } | null>(null);
 
@@ -79,8 +81,8 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
               <CornerUpRight className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Forward Message</h3>
-              <p className="text-xs text-ez-muted">Choose where to forward this message</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t.forward.title}</h3>
+              <p className="text-xs text-ez-muted">{t.forward.subtitle}</p>
             </div>
           </div>
           <button
@@ -110,7 +112,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search people and groups..."
+              placeholder={t.forward.searchPlaceholder}
               className="w-full bg-ez-surface focus:bg-ez-hover border border-ez-border/50 focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-ez-muted outline-none transition-colors"
               autoFocus
             />
@@ -130,9 +132,9 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
               </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-xs font-bold text-white group-hover:text-neon-green transition-colors">
-                  Saved Messages
+                  {t.sidebar.savedMessages}
                 </span>
-                <span className="text-[10px] text-neon-green font-mono">Your personal cloud notes</span>
+                <span className="text-[10px] text-neon-green font-mono">{t.chat.cloudNotes}</span>
               </div>
             </div>
           )}
@@ -141,7 +143,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
           {filteredGroups.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[10px] font-bold text-ez-muted uppercase tracking-wider">
-                Groups
+                {t.sidebar.groups}
               </div>
               {filteredGroups.map((g) => (
                 <div
@@ -156,7 +158,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
                     <span className="text-xs font-bold text-white group-hover:text-neon-green transition-colors truncate">
                       {g.name}
                     </span>
-                    <span className="text-[10px] text-ez-muted font-mono">{g.memberHandles.length} members</span>
+                    <span className="text-[10px] text-ez-muted font-mono">{g.memberHandles.length} {t.groups.membersCount}</span>
                   </div>
                 </div>
               ))}
@@ -167,7 +169,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
           {filteredContacts.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[10px] font-bold text-ez-muted uppercase tracking-wider">
-                Contacts
+                {t.sidebar.contacts}
               </div>
               {filteredContacts.map((u) => {
                 const isOnline = onlineHandles.some(
@@ -204,7 +206,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
 
           {filteredContacts.length === 0 && filteredGroups.length === 0 && (
             <div className="py-8 text-center text-xs text-ez-muted">
-              No contacts or groups found.
+              {t.friends.noContactsFound}
             </div>
           )}
         </div>

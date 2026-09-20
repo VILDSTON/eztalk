@@ -3,6 +3,7 @@ import { X, Camera, Check, AlertCircle, Globe, Palette, Upload } from 'lucide-re
 import { User } from '../../types/chat';
 import { normalizeHandle, sanitizeDisplayName } from '../../utils/chatStorage';
 import { compressAvatar } from '../../utils/imageCompressor';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface EditProfileModalProps {
   currentUser: User;
@@ -39,6 +40,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(currentUser.name || '');
   const [handle, setHandle] = useState(currentUser.handle.replace('@', ''));
   const [bio, setBio] = useState(currentUser.bio || '');
@@ -135,8 +137,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         {/* Modal Top Bar */}
         <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 flex items-center justify-between shrink-0 bg-ez-surface">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight">Customize Profile</h3>
-            <p className="text-[11px] text-ez-muted">Personalize your avatar, banner, and presence</p>
+            <h3 className="text-base font-bold text-white tracking-tight">{t.profile.customizeProfile}</h3>
+            <p className="text-[11px] text-ez-muted">{t.profile.customizeProfileDesc}</p>
           </div>
           <button
             type="button"
@@ -165,7 +167,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       banner === grad ? 'scale-125 border-white shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                     style={{ background: grad }}
-                    title="Change banner theme"
+                    title={t.profile.viewBackground}
                   />
                 ))}
               </div>
@@ -185,13 +187,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer text-white"
-                    title="Upload photo"
+                    title={t.auth.uploadPhoto}
                   >
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-bold text-white truncate">{name || 'Your Name'}</h4>
+                  <h4 className="text-sm font-bold text-white truncate">{name || currentUser.handle}</h4>
                   <p className="text-xs font-mono text-neon-green truncate">{formattedHandle}</p>
                 </div>
               </div>
@@ -202,7 +204,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 className="self-start sm:self-auto px-3.5 py-1.5 bg-ez-hover hover:bg-ez-border text-gray-200 hover:text-white text-xs font-semibold rounded-xl border border-ez-border transition-colors duration-150 flex items-center space-x-1.5 cursor-pointer shrink-0"
               >
                 <Upload className="w-3.5 h-3.5 text-neon-green" />
-                <span>Upload Photo</span>
+                <span>{t.auth.uploadPhoto}</span>
               </button>
             </div>
           </div>
@@ -211,7 +213,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {isHandleTaken && (
             <div className="flex items-center space-x-2 bg-red-500/10 border border-red-500/25 p-2.5 rounded-xl text-red-400 text-xs">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>Username {formattedHandle} is already in use by another member.</span>
+              <span>{t.profile.handleAlreadyInUse.replace('{handle}', formattedHandle)}</span>
             </div>
           )}
 
@@ -220,7 +222,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  Display Name (No Emojis)
+                  {t.profile.customNameLabel}
                 </label>
                 <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
               </div>
@@ -230,14 +232,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 maxLength={25}
                 value={name}
                 onChange={(e) => setName(sanitizeDisplayName(e.target.value))}
-                placeholder="Your Name"
+                placeholder={t.auth.fullName}
                 className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                Handle
+                {t.auth.username}
               </label>
               <div className="relative flex items-center">
                 <span className="text-ez-muted absolute left-3 text-sm font-semibold">@</span>
@@ -258,7 +260,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Status Emoji Selector */}
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-              Status Mood Emoji
+              {t.profile.statusMoodEmoji}
             </label>
             <div className="flex items-center space-x-1.5 bg-ez-input border border-ez-border rounded-xl p-1.5">
               {STATUS_EMOJIS.map((emoji) => (
@@ -279,7 +281,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Custom Status Text */}
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-              Custom Status Message
+              {t.profile.customStatusMessage}
             </label>
             <input
               type="text"
@@ -294,7 +296,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
               <Palette className="w-3.5 h-3.5 text-neon-green" />
-              <span>Profile Accent Theme</span>
+              <span>{t.profile.accentTheme}</span>
             </label>
             <div className="flex items-center space-x-3 bg-ez-input border border-ez-border p-2 rounded-xl">
               {ACCENT_COLORS.map((col) => (
@@ -316,13 +318,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Bio */}
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-              Bio / About Me
+              {t.profile.bioAboutMe}
             </label>
             <textarea
               rows={2}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell friends about yourself..."
+              placeholder={t.profile.bioAboutMe}
               className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none resize-none transition-colors duration-150"
             />
           </div>
@@ -331,7 +333,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1 flex items-center space-x-1.5">
               <Globe className="w-3.5 h-3.5 text-ez-muted" />
-              <span>Website / Social Link</span>
+              <span>{t.profile.websiteSocialLink}</span>
             </label>
             <input
               type="text"
@@ -345,7 +347,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Preset Avatars Row */}
           <div>
             <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-              Preset Avatars
+              {t.profile.presetAvatars}
             </label>
             <div className="flex items-center space-x-2">
               {PRESET_AVATARS.map((url, i) => (
@@ -369,7 +371,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onClick={onClose}
               className="flex-1 px-4 py-2.5 bg-ez-hover hover:bg-ez-border text-gray-300 text-sm font-medium rounded-xl transition-colors duration-150 cursor-pointer"
             >
-              Cancel
+              {t.common.cancel}
             </button>
             <button
               type="submit"
@@ -377,7 +379,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               className="flex-1 px-4 py-2.5 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-sm hover:shadow-neon-md transition-colors duration-150 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>Save Profile</span>
+              <span>{t.profile.saveProfile}</span>
             </button>
           </div>
         </form>

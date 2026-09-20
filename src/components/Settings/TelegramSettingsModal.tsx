@@ -43,6 +43,13 @@ const THEME_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
   slate: { en: 'Deep Gray', ru: 'Глубокий серый', uz: 'To‘q kulrang' },
 };
 
+const BANNER_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
+  dark: { en: 'Obsidian Night', ru: 'Обсидиановая ночь', uz: 'Obsidian kechasi' },
+  green: { en: 'Neon Cyber', ru: 'Неон Кибер', uz: 'Neon Kiber' },
+  purple: { en: 'Deep Cosmos', ru: 'Глубокий космос', uz: 'Chuqur fazo' },
+  blue: { en: 'Ocean Matrix', ru: 'Океаническая матрица', uz: 'Okean matritsasi' },
+};
+
 const PRESET_BANNERS = [
   { id: 'dark', label: 'Obsidian Night', gradient: 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)' },
   { id: 'green', label: 'Neon Cyber', gradient: 'linear-gradient(135deg, #05140b 0%, #004d25 50%, #00ff73 100%)' },
@@ -61,7 +68,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   onSaveProfile,
   onLogout,
 }) => {
-  const { language } = useTranslation();
+  const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
   // Profile Form state
@@ -263,11 +270,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   };
 
   const TABS = [
-    { id: 'profile' as const, label: 'Profile', icon: UserIcon },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'appearance' as const, label: 'Appearance', icon: Palette },
-    { id: 'privacy' as const, label: 'Privacy', icon: Shield },
-    { id: 'storage' as const, label: 'Storage', icon: HardDrive },
+    { id: 'profile' as const, label: t.settings.tabs.profile, icon: UserIcon },
+    { id: 'notifications' as const, label: t.settings.tabs.notifications, icon: Bell },
+    { id: 'appearance' as const, label: t.settings.tabs.appearance, icon: Palette },
+    { id: 'privacy' as const, label: t.settings.tabs.privacy, icon: Shield },
+    { id: 'storage' as const, label: t.settings.tabs.storage, icon: HardDrive },
   ];
 
   return (
@@ -289,14 +296,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
               <Sliders className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-extrabold text-white tracking-tight">Settings & Preferences</h2>
+            <h2 className="text-sm font-extrabold text-white tracking-tight">{t.settings.title}</h2>
           </div>
 
           <button
             type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-            title="Close Settings (Esc)"
+            title={t.common.close}
           >
             <X className="w-5 h-5" />
           </button>
@@ -382,7 +389,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-white font-semibold transition-colors duration-150 cursor-pointer flex items-center space-x-1.5 shrink-0 border border-white/10"
                   >
                     <Camera className="w-3.5 h-3.5 text-neon-green" />
-                    <span>Upload Photo</span>
+                    <span>{t.auth.uploadPhoto}</span>
                   </button>
                   <input
                     type="file"
@@ -397,7 +404,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               {/* Preset Avatars */}
               <div>
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1">
-                  Choose from Curated Avatars
+                  {t.settings.curatedAvatars}
                 </label>
                 <div className="flex items-center space-x-3 overflow-x-auto py-2.5 px-1 custom-scrollbar">
                   {PRESET_AVATARS.map((avUrl, i) => (
@@ -429,7 +436,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               {/* Preset Banners */}
               <div>
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                  Profile Banner Gradient
+                  {t.settings.bannerGradient}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-1">
                   {PRESET_BANNERS.map((b) => (
@@ -444,7 +451,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       }`}
                     >
                       <div className="w-full h-6 rounded-lg" style={{ background: b.gradient }} />
-                      <span className="text-[11px] font-bold text-gray-200 truncate">{b.label}</span>
+                      <span className="text-[11px] font-bold text-gray-200 truncate">{BANNER_NAMES[b.id]?.[language as 'en' | 'ru' | 'uz'] || b.label}</span>
                     </button>
                   ))}
                 </div>
@@ -455,7 +462,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
-                      Display Name (No Emojis)
+                      {t.profile.customNameLabel}
                     </label>
                     <span className="text-[10px] text-ez-muted font-mono">{name.length}/25</span>
                   </div>
@@ -464,20 +471,20 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     maxLength={25}
                     value={name}
                     onChange={(e) => setName(sanitizeDisplayName(e.target.value))}
-                    placeholder="Your Display Name"
+                    placeholder={t.auth.fullName}
                     className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
                 </div>
 
                 <div>
                   <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                    Status Tagline
+                    {t.settings.statusTagline}
                   </label>
                   <input
                     type="text"
                     value={customStatusText}
                     onChange={(e) => setCustomStatusText(e.target.value)}
-                    placeholder="e.g. Building cool apps"
+                    placeholder={t.settings.taglinePlaceholder}
                     className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
                 </div>
@@ -486,7 +493,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               {/* Status Emoji Picker */}
               <div>
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1">
-                  Status Emoji Icon
+                  {t.settings.statusEmoji}
                 </label>
                 <div className="flex items-center space-x-2.5 overflow-x-auto py-2.5 px-1.5 custom-scrollbar">
                   {STATUS_EMOJIS.map((emoji) => (
@@ -509,13 +516,13 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               {/* Bio */}
               <div>
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                  About / Bio
+                  {t.profile.bioAboutMe}
                 </label>
                 <textarea
                   rows={2}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell people a little bit about yourself..."
+                  placeholder={t.settings.bioPlaceholder}
                   className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none resize-none transition-colors duration-150"
                 />
               </div>
@@ -531,8 +538,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     <Volume2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Audible Notification Chimes</h4>
-                    <p className="text-xs text-ez-muted">Play a signature sound chime when messages arrive</p>
+                    <h4 className="text-sm font-bold text-white">{t.settings.audibleChimes}</h4>
+                    <p className="text-xs text-ez-muted">{t.settings.audibleChimesDesc}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2.5">
@@ -540,7 +547,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     type="button"
                     onClick={playTestChime}
                     className="w-8 h-8 rounded-full bg-white/5 hover:bg-neon-green/20 text-neon-green transition-colors duration-150 cursor-pointer flex items-center justify-center border border-neon-green/20"
-                    title="Preview Chime"
+                    title={t.settings.previewChime}
                   >
                     <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   </button>
@@ -566,8 +573,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     <Bell className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Browser Desktop Notifications</h4>
-                    <p className="text-xs text-ez-muted">Display system toasts when EzTalk is in the background</p>
+                    <h4 className="text-sm font-bold text-white">{t.settings.desktopNotifications}</h4>
+                    <p className="text-xs text-ez-muted">{t.settings.desktopNotificationsDesc}</p>
                   </div>
                 </div>
                 <button
@@ -579,7 +586,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       : 'bg-neon-green text-black shadow-neon-sm hover:scale-105'
                   }`}
                 >
-                  {desktopNotificationsEnabled ? 'Enabled' : 'Enable'}
+                  {desktopNotificationsEnabled ? t.settings.enabled : t.settings.enable}
                 </button>
               </div>
 
@@ -589,8 +596,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">In-App Floating Toasts</h4>
-                    <p className="text-xs text-ez-muted">Show banner alert at top of screen for incoming chats</p>
+                    <h4 className="text-sm font-bold text-white">{t.settings.floatingToasts}</h4>
+                    <p className="text-xs text-ez-muted">{t.settings.floatingToastsDesc}</p>
                   </div>
                 </div>
                 <button
@@ -614,8 +621,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     <Radio className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Call Ringtones & Vibrations</h4>
-                    <p className="text-xs text-ez-muted">Play acoustic ringers and vibrate for incoming voice calls</p>
+                    <h4 className="text-sm font-bold text-white">{t.settings.callRingtones}</h4>
+                    <p className="text-xs text-ez-muted">{t.settings.callRingtonesDesc}</p>
                   </div>
                 </div>
                 <button
@@ -640,7 +647,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             <div className="space-y-5 animate-fade-in">
               <div>
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-2.5">
-                  Vibrant Accent Theme
+                  {t.settings.vibrantAccentTheme}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                   {THEME_OPTIONS.map((th) => (
@@ -663,8 +670,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Press Enter to Send</h4>
-                  <p className="text-xs text-ez-muted">Send message with Enter key, Shift+Enter for new line</p>
+                  <h4 className="text-sm font-bold text-white">{t.settings.enterToSend}</h4>
+                  <p className="text-xs text-ez-muted">{t.settings.enterToSendDesc}</p>
                 </div>
                 <button
                   type="button"
@@ -683,8 +690,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Compact Density Mode</h4>
-                  <p className="text-xs text-ez-muted">Tighten padding and avatars for high-density chat browsing</p>
+                  <h4 className="text-sm font-bold text-white">{t.settings.compactDensity}</h4>
+                  <p className="text-xs text-ez-muted">{t.settings.compactDensityDesc}</p>
                 </div>
                 <button
                   type="button"
@@ -709,11 +716,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border">
                 <div className="flex items-center space-x-3 mb-2">
                   <Shield className="w-5 h-5 text-neon-green" />
-                  <h4 className="text-sm font-bold text-white">Session & Identity Encryption</h4>
+                  <h4 className="text-sm font-bold text-white">{t.settings.sessionEncryption}</h4>
                 </div>
                 <p className="text-xs text-ez-muted leading-relaxed">
-                  You are authenticated securely as <strong className="text-white font-mono">{currentUser.handle}</strong>.
-                  All WebRTC live peer connections are end-to-end negotiated.
+                  {t.settings.encryptionNotice.replace('{handle}', currentUser.handle)}
                 </p>
               </div>
 
@@ -729,7 +735,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     className="w-full flex items-center justify-center space-x-2 p-3.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-2xl text-rose-400 text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-sm"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Log Out of EzTalk Session</span>
+                    <span>{t.settings.logOutSession}</span>
                   </button>
                 </div>
               )}
@@ -743,9 +749,9 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2.5">
                     <HardDrive className="w-5 h-5 text-neon-green" />
-                    <h4 className="text-sm font-bold text-white">Local Storage & Media Cache</h4>
+                    <h4 className="text-sm font-bold text-white">{t.settings.localStorageMedia}</h4>
                   </div>
-                  <span className="text-xs font-mono font-bold text-neon-green">Healthy</span>
+                  <span className="text-xs font-mono font-bold text-neon-green">{t.settings.healthy}</span>
                 </div>
                 <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
                   <div
@@ -754,15 +760,15 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   />
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-ez-muted mt-2">
-                  <span>Used: ~{usedStorageMB} MB</span>
-                  <span>Available: ~5.00 MB Web Storage</span>
+                  <span>{t.settings.used}: ~{usedStorageMB} MB</span>
+                  <span>{t.settings.availableStorage}</span>
                 </div>
               </div>
 
               <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Purge Temporary Media Cache</h4>
-                  <p className="text-xs text-ez-muted">Free up memory by purging temporary voice and image blobs</p>
+                  <h4 className="text-sm font-bold text-white">{t.settings.purgeCache}</h4>
+                  <p className="text-xs text-ez-muted">{t.settings.purgeCacheDesc}</p>
                 </div>
                 <button
                   type="button"
@@ -776,12 +782,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   {cacheCleared ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Purged!</span>
+                      <span>{t.settings.purged}</span>
                     </>
                   ) : (
                     <>
                       <Trash2 className="w-3.5 h-3.5 text-neon-green" />
-                      <span>Clear Cache</span>
+                      <span>{t.settings.clearCache}</span>
                     </>
                   )}
                 </button>
@@ -796,7 +802,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Saved successfully!</span>
+                <span>{t.settings.savedSuccess}</span>
               </span>
             )}
           </div>
@@ -807,7 +813,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               onClick={onClose}
               className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 transition-colors duration-150 cursor-pointer"
             >
-              Cancel
+              {t.common.cancel}
             </button>
             <button
               type="button"
@@ -815,7 +821,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               className="px-4 sm:px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Save Changes</span>
+              <span>{t.settings.saveChanges}</span>
             </button>
           </div>
         </div>

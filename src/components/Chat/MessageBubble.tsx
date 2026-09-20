@@ -28,6 +28,7 @@ import { normalizeHandle } from '../../utils/chatStorage';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
 import { useTranslation } from '../../context/LanguageContext';
 import { ConfirmModal } from '../Common/ConfirmModal';
+import { downloadOrOpenFile, isImageMedia, isVideoMedia } from '../../utils/fileDownloader';
 
 interface MessageBubbleProps {
   message: Message;
@@ -611,7 +612,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleMediaClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (message.attachment && onOpenMedia) {
+    if (!message.attachment) return;
+
+    // Non-image and non-video attachments are directly downloaded / opened on computer
+    if (
+      !isImageMedia(message.attachment.url, message.attachment.name, message.attachment.type) &&
+      !isVideoMedia(message.attachment.url, message.attachment.name, message.attachment.type)
+    ) {
+      downloadOrOpenFile(message.attachment.url, message.attachment.name);
+      return;
+    }
+
+    if (onOpenMedia) {
       onOpenMedia({
         url: message.attachment.url,
         name: message.attachment.name,
@@ -774,19 +786,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Document Attachment */}
           {message.attachment && message.attachment.type === 'file' && (
             <div
-              onClick={handleMediaClick}
-              className="flex items-center justify-between space-x-2.5 p-2 rounded-xl cursor-pointer bg-black/20 hover:bg-black/30 mb-1 border border-white/5 transition-colors duration-150 select-none"
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadOrOpenFile(message.attachment!.url, message.attachment!.name);
+              }}
+              title={t.chat?.download || 'Click to download / open'}
+              className="flex items-center justify-between space-x-2.5 p-2.5 rounded-xl cursor-pointer bg-black/25 hover:bg-black/40 mb-1 border border-white/10 hover:border-neon-green/30 transition-all duration-150 select-none group/file"
             >
-              <div className="flex items-center space-x-2 min-w-0">
-                <div className="p-1.5 rounded-lg bg-neon-green/15 text-neon-green">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-neon-green/15 text-neon-green group-hover/file:bg-neon-green/25 transition-colors">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div className="text-xs truncate min-w-0">
-                  <span className="font-semibold block truncate text-white">{message.attachment.name}</span>
-                  <span className="text-[10px] text-ez-muted">{message.attachment.size}</span>
+                  <span className="font-semibold block truncate text-white group-hover/file:text-neon-green transition-colors">
+                    {message.attachment.name}
+                  </span>
+                  <span className="text-[10px] text-ez-muted font-mono">{message.attachment.size || 'Document'}</span>
                 </div>
               </div>
-              <Download className="w-4 h-4 text-ez-muted hover:text-white shrink-0 ml-1" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadOrOpenFile(message.attachment!.url, message.attachment!.name);
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all cursor-pointer shrink-0 ml-1"
+                title={t.chat?.download || 'Download'}
+              >
+                <Download className="w-4 h-4" />
+              </button>
             </div>
           )}
 
@@ -817,7 +845,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onCallBack();
                   }}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all duration-150 cursor-pointer shadow-xs shrink-0 group/callbtn ml-2"
-                  title="Call back"
+                  title={t.calls?.callBack || 'Call back'}
                 >
                   <Phone className="w-3.5 h-3.5 transition-transform duration-150 group-hover/callbtn:scale-110" />
                 </button>
@@ -907,7 +935,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     title={t?.chat?.failedToRetry || "Failed to send. Click to retry."}
                   >
                     <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
-                    <span className="text-[9px] font-sans font-bold underline">Retry</span>
+                    <span className="text-[9px] font-sans font-bold underline">{t.common?.retry || 'Retry'}</span>
                   </button>
                 ) : message.status === 'read' ? (
                   <span title={t?.chat?.read || "Read"}>

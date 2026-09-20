@@ -7,6 +7,7 @@ import { ForwardModal } from './ForwardModal';
 import { MediaLightboxModal } from './MediaLightboxModal';
 import { UserPlus, X, Ban } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
+import { downloadOrOpenFile, isImageMedia, isVideoMedia } from '../../utils/fileDownloader';
 
 interface ChatWindowProps {
   user?: User | null;
@@ -95,6 +96,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onEditAlias,
   onSaveAlias,
 }) => {
+  const { t } = useTranslation();
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
@@ -115,8 +117,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setInChatSearchQuery('');
     setShowAddBanner(true);
   }, [activeChatId]);
-
-  const { t } = useTranslation();
 
   const recipientLabel = group ? group.name : user ? user.name || user.handle : 'Contact';
 
@@ -189,9 +189,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-zinc-100 truncate">
-                <span className="font-mono text-neon-green">{user.handle}</span> не в вашем списке
+                <span className="font-mono text-neon-green">{user.handle}</span> {t.chat.notInYourList}
               </p>
-              <p className="text-[10px] text-ez-muted mt-0.5">Добавьте в друзья, чтобы общаться</p>
+              <p className="text-[10px] text-ez-muted mt-0.5">{t.chat.addFriendToChat}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -201,14 +201,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 onClick={onAddFriend}
                 className="px-3 py-1.5 bg-neon-green hover:brightness-110 text-black font-bold text-xs rounded-xl shadow-neon-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
               >
-                + Добавить
+                {t.chat.add}
               </button>
             )}
             <button
               type="button"
               onClick={() => setShowAddBanner(false)}
               className="w-7 h-7 flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 rounded-full transition-colors duration-150 cursor-pointer"
-              title="Скрыть"
+              title={t.chat.hide}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -233,7 +233,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onEdit={(msg: Message) => setEditingMessage({ id: msg.id, text: msg.text })}
         onDelete={onDeleteMessage}
         onToggleReaction={onToggleReaction}
-        onOpenMedia={(m) => setLightboxMedia(m)}
+        onOpenMedia={(m) => {
+          if (!isImageMedia(m.url, m.name, m.type) && !isVideoMedia(m.url, m.name, m.type)) {
+            downloadOrOpenFile(m.url, m.name);
+          } else {
+            setLightboxMedia(m);
+          }
+        }}
         onCallBack={onStartCall}
         onRetry={onRetryMessage}
       />

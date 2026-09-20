@@ -4,6 +4,7 @@ import { User, CallInfo } from '../../types/chat';
 import { socketService } from '../../services/socket';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { callSoundService } from '../../utils/callSounds';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface CallModalProps {
   user: User;
@@ -54,7 +55,7 @@ function configureHighQualitySender(pc: RTCPeerConnection) {
             enc.priority = 'high';
             enc.networkPriority = 'high';
           });
-          sender.setParameters(params).catch(() => {});
+          sender.setParameters(params).catch(() => { });
         }
       }
     });
@@ -70,6 +71,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   isInitiator = false,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -113,7 +115,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioCtx = new AudioCtx();
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
+        audioCtx.resume().catch(() => { });
       }
       audioContextRef.current = audioCtx;
 
@@ -317,7 +319,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         callSoundService.stopAll();
       }
     } catch {
-      alert('Could not access microphone for voice call. Note: Microphones require HTTPS or localhost in modern browsers.');
+      alert(t.calls.micAccessError);
       handleEndCall();
     }
   };
@@ -420,7 +422,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => { });
       }
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -433,11 +435,11 @@ export const CallModal: React.FC<CallModalProps> = ({
         peerConnectionRef.current = null;
       }
     };
-  // FIX (High): Add user.handle, currentUser.handle, isInitiator to dependency array
-  // to prevent stale closure capturing old user/handle refs during an active call.
-  // This ensures handleEndCall, onCallAccepted, and processSignal always operate
-  // on the current user objects, not stale captures from when isOpen first became true.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // FIX (High): Add user.handle, currentUser.handle, isInitiator to dependency array
+    // to prevent stale closure capturing old user/handle refs during an active call.
+    // This ensures handleEndCall, onCallAccepted, and processSignal always operate
+    // on the current user objects, not stale captures from when isOpen first became true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user.handle, currentUser.handle, isInitiator]);
 
   useEffect(() => {
@@ -493,7 +495,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       animationFrameRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current.close().catch(() => { });
       audioContextRef.current = null;
     }
     if (localStreamRef.current) {
@@ -532,12 +534,6 @@ export const CallModal: React.FC<CallModalProps> = ({
         {/* Ambient Glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Security / Encryption Badge */}
-        <div className="flex items-center space-x-1 text-[10px] font-mono font-bold text-neon-green bg-neon-green/10 border border-neon-green/30 px-3 py-1 rounded-full mb-6 shadow-xs">
-          <Shield className="w-3 h-3" />
-          <span>END-TO-END ENCRYPTED VOICE</span>
-        </div>
-
         {/* User Avatar with Waveform Pulsing Rings */}
         <div className="relative mb-6">
           {callState === 'calling' && (
@@ -561,7 +557,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           {callState === 'calling' ? (
             <span className="text-xs font-bold text-gray-400 animate-pulse flex items-center space-x-1.5">
               <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
-              <span>{isInitiator ? 'Calling...' : 'Connecting...'}</span>
+              <span>{isInitiator ? t.calls.calling : t.calls.ringing}</span>
             </span>
           ) : callState === 'connected' ? (
             <div className="flex flex-col items-center space-y-2">
@@ -581,7 +577,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               </div>
             </div>
           ) : (
-            <span className="text-xs font-bold text-rose-400">Call Ended</span>
+            <span className="text-xs font-bold text-rose-400">{t.calls.callEnded}</span>
           )}
         </div>
 
@@ -591,12 +587,11 @@ export const CallModal: React.FC<CallModalProps> = ({
           <button
             type="button"
             onClick={toggleMute}
-            className={`p-3.5 rounded-2xl transition-all cursor-pointer ${
-              isMuted
+            className={`p-3.5 rounded-2xl transition-all cursor-pointer ${isMuted
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                 : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
-            }`}
-            title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              }`}
+            title={isMuted ? t.calls.unmuteMic : t.calls.muteMic}
           >
             {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -606,7 +601,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             type="button"
             onClick={handleEndCall}
             className="p-4 rounded-3xl bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_25px_rgba(244,63,94,0.45)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
-            title="End call"
+            title={t.calls.endCall}
           >
             <PhoneOff className="w-6 h-6" />
           </button>
@@ -615,12 +610,11 @@ export const CallModal: React.FC<CallModalProps> = ({
           <button
             type="button"
             onClick={toggleSpeaker}
-            className={`p-3.5 rounded-2xl transition-all cursor-pointer ${
-              !isSpeakerOn
+            className={`p-3.5 rounded-2xl transition-all cursor-pointer ${!isSpeakerOn
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                 : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
-            }`}
-            title={isSpeakerOn ? 'Mute speaker' : 'Unmute speaker'}
+              }`}
+            title={isSpeakerOn ? t.calls.muteSpeaker : t.calls.unmuteSpeaker}
           >
             {!isSpeakerOn ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </button>

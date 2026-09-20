@@ -79,6 +79,7 @@ const corsOptions = {
 
 const io = new Server(server, {
   cors: corsOptions,
+  maxHttpBufferSize: 64 * 1024, // 64 KB limit: protect engine.io parser from payload memory exhaustion
   pingTimeout: 15000,
   pingInterval: 10000,
 });
@@ -1598,6 +1599,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     let rHandle = null;
 
     // Spam check
+    const isDev = process.env.NODE_ENV !== 'production';
     const now = Date.now();
     let spamRecord = userSpamRecords.get(sHandle) || { timestamps: [], cooldownUntil: 0 };
     
@@ -1610,11 +1612,12 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     spamRecord.timestamps = spamRecord.timestamps.filter(t => now - t <= 3000);
     spamRecord.timestamps.push(now);
     
-    if (spamRecord.timestamps.length > 5) {
-      spamRecord.cooldownUntil = now + 30000;
+    const maxBurst = isDev ? 20 : 5;
+    if (spamRecord.timestamps.length > maxBurst) {
+      spamRecord.cooldownUntil = now + (isDev ? 5000 : 30000);
       userSpamRecords.set(sHandle, spamRecord);
-      io.to(sHandle).emit('spam_warning', { cooldownSeconds: 30, message: 'Too many messages. Please wait.' });
-      return res.status(429).json({ error: 'Spam detected. Muted for 30 seconds.', cooldownSeconds: 30 });
+      io.to(sHandle).emit('spam_warning', { cooldownSeconds: isDev ? 5 : 30, message: 'Too many messages. Please wait.' });
+      return res.status(429).json({ error: 'Spam detected. Muted.', cooldownSeconds: isDev ? 5 : 30 });
     }
     userSpamRecords.set(sHandle, spamRecord);
 

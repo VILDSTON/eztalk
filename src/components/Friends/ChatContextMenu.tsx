@@ -56,14 +56,14 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
   if (finalY + menuHeight > window.innerHeight) {
     finalY = window.innerHeight - menuHeight - 10;
   }
-  
+
   // ensure it doesn't go off top/left
   if (finalX < 10) finalX = 10;
   if (finalY < 10) finalY = 10;
 
   const content = (
     <>
-      <div 
+      <div
         className="fixed inset-0 z-[9998]"
         onClick={(e) => {
           e.stopPropagation();
@@ -78,7 +78,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
       <div
         ref={menuRef}
         style={{ top: finalY, left: finalX }}
-        className="fixed z-[9999] w-56 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150"
+        className="fixed z-[9999] w-56 bg-ez-elevated border border-ez-border rounded-xl shadow-2xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150"
       >
         <button
           onClick={() => {

@@ -206,7 +206,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     // Strict 10MB limit validation
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     if (file.size > MAX_FILE_SIZE) {
-      alert(t['chat.fileTooLarge'] || 'Файл слишком большой. Лимит — 10 МБ');
+      alert(t.chat.fileTooLarge);
       e.target.value = '';
       return;
     }
@@ -376,7 +376,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       // Strict 10MB limit validation on voice recordings
       if (audioBlob.size > 10 * 1024 * 1024) {
-        alert(t['chat.fileTooLarge'] || 'Файл слишком большой. Лимит — 10 МБ');
+        alert(t.chat.fileTooLarge);
         return;
       }
 
@@ -533,7 +533,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={() => setCurrentAttachment(null)}
-              aria-label="Remove attachment"
+              aria-label={t.common.remove}
               className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
             >
               <X className="w-3.5 h-3.5" />

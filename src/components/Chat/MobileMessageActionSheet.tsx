@@ -171,7 +171,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     if ('vibrate' in navigator) {
       try {
         navigator.vibrate(15);
-      } catch {}
+      } catch { }
     }
     if (onToggleReaction) {
       onToggleReaction(emoji);
@@ -183,23 +183,21 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     <div className="fixed inset-0 z-[9999] flex flex-col justify-end pointer-events-none">
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] transition-opacity duration-200 pointer-events-auto cursor-pointer ${
-          isClosing ? 'opacity-0' : 'opacity-100'
-        }`}
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] transition-opacity duration-200 pointer-events-auto cursor-pointer ${isClosing ? 'opacity-0' : 'opacity-100'
+          }`}
         onClick={handleClose}
       />
 
       {/* Slide-Up Bottom Sheet */}
       <div
-        className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${
-          isDragging ? '' : 'transition-transform duration-200 ease-out'
-        } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
+        className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden ${isDragging ? '' : 'transition-transform duration-200 ease-out'
+          } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
         style={{
           transform: isClosing
             ? 'translateY(100%)'
             : dragY > 0
-            ? `translateY(${dragY}px)`
-            : 'translateY(0px)',
+              ? `translateY(${dragY}px)`
+              : 'translateY(0px)',
           pointerEvents: isInteractive ? 'auto' : 'none',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -238,14 +236,14 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
                 ? message.callInfo?.type === 'declined' || message.text?.includes('Declined')
                   ? t.calls.callDeclined
                   : message.callInfo?.type === 'canceled' || message.text?.includes('Canceled')
-                  ? isMe ? t.calls.callCanceled : t.calls.missedCall
-                  : message.callInfo?.type === 'missed' || message.text?.includes('Missed')
-                  ? t.calls.missedCall
-                  : t.chat.voiceCall
+                    ? isMe ? t.calls.callCanceled : t.calls.missedCall
+                    : message.callInfo?.type === 'missed' || message.text?.includes('Missed')
+                      ? t.calls.missedCall
+                      : t.chat.voiceCall
                 : message.text ||
-                  (message.attachment?.type === 'audio'
-                    ? t.chat.voiceMessage
-                    : message.attachment?.name || t.chat.mediaAttachment)}
+                (message.attachment?.type === 'audio'
+                  ? t.chat.voiceMessage
+                  : message.attachment?.name || t.chat.mediaAttachment)}
             </span>
           </div>
           {(message.forwardRestricted || message.isSecret) && (
