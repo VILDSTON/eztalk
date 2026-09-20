@@ -123,7 +123,7 @@ class SecurityEngine {
       // Prevent memory exhaustion under DDoS
       if (this.socketBuckets.size >= this.MAX_BUCKETS) {
         if (this.ALPHA_DRY_RUN) console.warn('[ESS ALPHA] MAX_BUCKETS reached, rejecting connection.');
-        socket.disconnect(true);
+        socket.disconnect(false);
         return;
       }
 
@@ -144,7 +144,7 @@ class SecurityEngine {
           // Disconnect all sockets from this IP
           connections.forEach(sid => {
             const s = io.sockets.sockets.get(sid);
-            if (s) s.disconnect(true);
+            if (s) s.disconnect(false);
           });
           return;
         }
@@ -160,7 +160,7 @@ class SecurityEngine {
       // Disconnects ghost connections without penalizing innocent visitors on login/about screens
       const authTimeout = setTimeout(() => {
         if (!socket.isAuthenticated && !socket.verifiedHandle) {
-          socket.disconnect(true);
+          socket.disconnect(false);
         }
       }, 15000);
       
@@ -205,7 +205,7 @@ class SecurityEngine {
           
           if (this._isBanned(ip)) {
             socket.emit('security_violation', { message: 'Banned by ESS: Rate limit / flood violation' });
-            socket.disconnect(true);
+            socket.disconnect(false);
             return next(new Error('Banned by ESS for packet spam'));
           }
           

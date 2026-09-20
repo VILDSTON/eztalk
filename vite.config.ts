@@ -1,6 +1,20 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, createLogger, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Filter out harmless browser-close / server-restart abort errors from proxy logs
+const customLogger = createLogger();
+const originalError = customLogger.error;
+customLogger.error = (msg, options) => {
+  if (
+    typeof msg === 'string' &&
+    msg.includes('ws proxy socket error') &&
+    (msg.includes('ECONNABORTED') || msg.includes('ECONNRESET') || msg.includes('EPIPE'))
+  ) {
+    return;
+  }
+  originalError(msg, options);
+};
 
 function eztalkRelayPlugin(): Plugin {
   return {
@@ -19,6 +33,7 @@ function eztalkRelayPlugin(): Plugin {
 }
 
 export default defineConfig({
+  customLogger,
   plugins: [
     react(),
     eztalkRelayPlugin(),
