@@ -335,6 +335,8 @@ function MainApp() {
   blockedUsersRef.current = blockedUsers;
 
   const selectedUserRef = useRef<User | null>(null);
+  const activeLiveCallRef = useRef(activeLiveCall);
+  activeLiveCallRef.current = activeLiveCall;
   const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Request browser notification permission on load
@@ -366,15 +368,35 @@ function MainApp() {
     });
   }, [currentUser?.handle]);
 
-  // Update dynamic document title with unread count
+  // Update dynamic document title with unread count or incoming/active call alert
   useEffect(() => {
+    if (incomingCall) {
+      let isFlashing = false;
+      const callerName = incomingCall.caller.name || incomingCall.caller.handle;
+      const flashInterval = setInterval(() => {
+        isFlashing = !isFlashing;
+        document.title = isFlashing
+          ? `📞 Incoming Call from ${callerName}!`
+          : `🔔 EzTalk Messenger`;
+      }, 1000);
+      return () => {
+        clearInterval(flashInterval);
+      };
+    }
+
+    if (activeLiveCall) {
+      const peer = activeLiveCall.user.name || activeLiveCall.user.handle;
+      document.title = `📞 In Call with ${peer} • EzTalk`;
+      return;
+    }
+
     const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
     if (totalUnread > 0) {
-      document.title = `(${totalUnread}) EzTalk - Web Messenger`;
+      document.title = `(${totalUnread}) EzTalk — Ultra-Fast Private Messenger`;
     } else {
-      document.title = 'EzTalk - Web Messenger';
+      document.title = 'EzTalk — Ultra-Fast Private Messenger & Web Calls';
     }
-  }, [unreadCounts]);
+  }, [unreadCounts, incomingCall, activeLiveCall]);
 
   const aliasedAllUsers = useMemo(() => {
     return allUsers.map((u) => {
@@ -1087,27 +1109,69 @@ function MainApp() {
 
     // Incoming Call event (Filtered to target recipient only & non-blocked)
     const unsubCall = socketService.onIncomingCall((data: any) => {
-      const caller = data.caller || data.from;
+      const callerRaw = data.caller || data.from;
+      const callerHandle = typeof callerRaw === 'string'
+        ? callerRaw
+        : callerRaw?.handle || data.callerHandle || data.from;
       const recipientHandle = data.recipientHandle || data.to;
       const cUser = currentUserRef.current;
-      if (!cUser || !caller) return;
+      if (!cUser || !callerHandle) return;
       if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
-        if (!blockedUsersRef.current.includes(normalizeHandle(caller.handle))) {
-          setIncomingCall({ caller });
+        if (!blockedUsersRef.current.includes(normalizeHandle(callerHandle))) {
+          // If already in an active call, auto-decline so caller receives busy signal
+          if (activeLiveCallRef.current) {
+            socketService.declineCall(callerHandle, cUser.handle);
+            return;
+          }
+
+          // Resolve full caller object: check if callerRaw is already a full object with avatar/name,
+          // or look up from allUsersRef
+          const foundUser = allUsersRef.current.find(
+            (u) => normalizeHandle(u.handle) === normalizeHandle(callerHandle)
+          );
+          const resolvedAvatar = (typeof callerRaw === 'object' && callerRaw?.avatar)
+            || foundUser?.avatar
+            || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(callerHandle)}`;
+          const resolvedName = (typeof callerRaw === 'object' && callerRaw?.name)
+            || foundUser?.name
+            || callerHandle;
+
+          const fullCaller: User = {
+            id: foundUser?.id || callerHandle,
+            ...(foundUser || {}),
+            ...(typeof callerRaw === 'object' ? callerRaw : {}),
+            name: resolvedName,
+            handle: normalizeHandle(callerHandle),
+            avatar: resolvedAvatar,
+          };
+
+          setIncomingCall({ caller: fullCaller });
         }
       }
     });
 
     // Call declined event
     const unsubCallDeclined = socketService.onCallDeclined(() => {
+      callSoundService.stopAll();
       setIncomingCall(null);
-      setActiveLiveCall(null);
+      // Give CallModal 1.2s to show status and record chat history, with fallback timeout
+      setTimeout(() => {
+        if (activeLiveCallRef.current) {
+          setActiveLiveCall(null);
+        }
+      }, 2500);
     });
 
     // Call ended event
     const unsubCallEnded = socketService.onCallEnded(() => {
+      callSoundService.stopAll();
       setIncomingCall(null);
-      setActiveLiveCall(null);
+      // Give CallModal 1.2s to show status and record chat history, with fallback timeout
+      setTimeout(() => {
+        if (activeLiveCallRef.current) {
+          setActiveLiveCall(null);
+        }
+      }, 2500);
     });
 
     // Chat cleared event
@@ -2379,29 +2443,10 @@ function MainApp() {
             setActiveLiveCall({ user: incomingCall.caller, isInitiator: false });
             setIncomingCall(null);
           }}
-          onDecline={() => {
+          onDecline={(reason) => {
             callSoundService.stopAll();
             if (currentUser) {
-              socketService.declineCall(incomingCall.caller.handle, currentUser.handle);
-              // Send missed/declined call message
-              ApiService.sendMessage(
-                currentUser.handle,
-                incomingCall.caller.handle,
-                '📵 Missed Voice Call',
-                undefined,
-                undefined,
-                undefined,
-                { type: 'declined', duration: 0 }
-              ).then((msg) => {
-                const convKey = getConversationKey(currentUser.handle, incomingCall.caller.handle);
-                setMessagesByChat((prev) => {
-                  const existing = prev[convKey] || [];
-                  const updated = [...existing, msg];
-                  ChatStorageService.saveConversation(convKey, updated);
-                  return { ...prev, [convKey]: updated };
-                });
-                ChatStorageService.addMessage(currentUser.handle, incomingCall.caller.handle, msg);
-              });
+              socketService.declineCall(incomingCall.caller.handle, currentUser.handle, reason || 'declined');
             }
             setIncomingCall(null);
           }}

@@ -2212,14 +2212,21 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call_user', async (data) => {
-    const caller = socket.verifiedHandle || data.caller || data.from;
+    const callerHandle = socket.verifiedHandle || normalizeHandle(data.caller?.handle || data.caller || data.from);
+    let callerObj = (data.caller && typeof data.caller === 'object') ? { ...data.caller } : null;
+    if (!callerObj) {
+      callerObj = { handle: callerHandle };
+    } else {
+      callerObj.handle = callerHandle;
+    }
     const recipientHandle = normalizeHandle(data.recipientHandle || data.to);
     if (recipientHandle) {
-      const blocked = await isBlockedBy(caller, recipientHandle);
+      const blocked = await isBlockedBy(callerHandle, recipientHandle);
       if (blocked) return;
       io.to(recipientHandle).emit('incoming_call', {
-        caller,
-        from: caller,
+        caller: callerObj,
+        from: callerObj,
+        callerHandle,
         recipientHandle,
         to: recipientHandle,
       });
@@ -2227,7 +2234,7 @@ io.on('connection', (socket) => {
   });
 
   const handleAcceptCall = (data) => {
-    const callerHandle = normalizeHandle(data.callerHandle || data.to);
+    const callerHandle = normalizeHandle(data.callerHandle || data.to || (typeof data.caller === 'string' ? data.caller : data.caller?.handle));
     const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
     const recipient = data.recipient || (callerHandle ? { handle: recipientHandle } : null);
     if (callerHandle) {
@@ -2244,24 +2251,48 @@ io.on('connection', (socket) => {
   socket.on('accept_call', handleAcceptCall);
   socket.on('answer_call', handleAcceptCall);
 
-  socket.on('decline_call', (data) => {
-    const callerHandle = normalizeHandle(data.callerHandle || data.to);
-    const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
-    if (callerHandle) {
-      io.to(callerHandle).emit('call_declined', { callerHandle, recipientHandle });
-      io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
+  socket.on('decline_call', (data = {}) => {
+    const sender = socket.verifiedHandle || normalizeHandle(data.senderHandle || data.from || data.recipientHandle);
+    const candPeer = normalizeHandle(data.peerHandle || data.to || data.callerHandle);
+    const candAlt = normalizeHandle(data.recipientHandle);
+    const peer = (candPeer && candPeer !== sender) ? candPeer : (candAlt && candAlt !== sender) ? candAlt : candPeer;
+
+    const payload = {
+      callerHandle: candPeer || peer,
+      recipientHandle: sender,
+      declinedBy: sender,
+      reason: data.reason || 'declined',
+    };
+
+    if (peer) {
+      io.to(peer).emit('call_declined', payload);
+      io.to(peer).emit('call_ended', payload);
     }
-    if (recipientHandle && recipientHandle !== callerHandle) {
-      io.to(recipientHandle).emit('call_declined', { callerHandle, recipientHandle });
-      io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
+    if (sender) {
+      io.to(sender).emit('call_declined', payload);
+      io.to(sender).emit('call_ended', payload);
     }
   });
 
-  socket.on('end_call', (data) => {
-    const callerHandle = normalizeHandle(data.callerHandle || data.to);
-    const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
-    if (callerHandle) io.to(callerHandle).emit('call_ended', { callerHandle, recipientHandle });
-    if (recipientHandle && recipientHandle !== callerHandle) io.to(recipientHandle).emit('call_ended', { callerHandle, recipientHandle });
+  socket.on('end_call', (data = {}) => {
+    const sender = socket.verifiedHandle || normalizeHandle(data.senderHandle || data.from);
+    const candPeer = normalizeHandle(data.peerHandle || data.to || data.recipientHandle);
+    const candCaller = normalizeHandle(data.callerHandle);
+    const peer = (candPeer && candPeer !== sender) ? candPeer : (candCaller && candCaller !== sender) ? candCaller : candPeer;
+
+    const payload = {
+      callerHandle: candCaller || sender,
+      recipientHandle: peer,
+      endedBy: sender,
+      reason: data.reason || 'ended',
+    };
+
+    if (peer) {
+      io.to(peer).emit('call_ended', payload);
+    }
+    if (sender) {
+      io.to(sender).emit('call_ended', payload);
+    }
   });
 
   socket.on('save_draft', ({ senderHandle, recipientHandle, text }) => {

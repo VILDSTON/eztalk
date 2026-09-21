@@ -16,27 +16,10 @@ import { CreateGroupModal } from '../Groups/CreateGroupModal';
 import { ChatContextMenu } from './ChatContextMenu';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
+import { formatChatListTime } from '../../utils/dateTime';
 import { ConfirmModal } from '../Common/ConfirmModal';
 
-function formatChatListTime(dateStr?: string): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  if (isToday) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) {
-    return 'Yesterday';
-  }
-  if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  }
-  return d.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: '2-digit' });
-}
+
 
 function renderMessagePreview(msg: Message, currentHandle?: string, t?: any) {
   const isMe = normalizeHandle(msg.senderHandle).toLowerCase() === normalizeHandle(currentHandle || '').toLowerCase();
@@ -123,7 +106,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   onClearHistory,
   onDeleteChat,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -340,7 +323,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         <span className="text-[13px] font-bold text-white tracking-tight">{t.sidebar.savedMessages}</span>
                         {savedLastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
-                            {formatChatListTime(savedLastMsg.createdAt || savedLastMsg.timestamp)}
+                            {formatChatListTime(savedLastMsg.createdAt || savedLastMsg.timestamp, language, t)}
                           </span>
                         )}
                       </div>
@@ -401,7 +384,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         </div>
                         {groupLastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
-                            {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp)}
+                            {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp, language, t)}
                           </span>
                         )}
                       </div>
@@ -500,7 +483,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                         </div>
                         {lastMsg && (
                           <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
-                            {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp)}
+                            {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp, language, t)}
                           </span>
                         )}
                       </div>

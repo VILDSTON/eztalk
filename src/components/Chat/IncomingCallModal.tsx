@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, PhoneOff, Sparkles, Radio } from 'lucide-react';
 import { User } from '../../types/chat';
 import { callSoundService } from '../../utils/callSounds';
@@ -9,7 +9,7 @@ interface IncomingCallModalProps {
   isOpen: boolean;
   callRingtonesEnabled?: boolean;
   onAccept: () => void;
-  onDecline: () => void;
+  onDecline: (reason?: string) => void;
 }
 
 export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
@@ -20,6 +20,12 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   onDecline,
 }) => {
   const { t } = useTranslation();
+  const fallbackAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(caller?.handle || 'user')}`;
+  const [avatarUrl, setAvatarUrl] = useState<string>(caller?.avatar || fallbackAvatar);
+
+  useEffect(() => {
+    setAvatarUrl(caller?.avatar || fallbackAvatar);
+  }, [caller?.avatar, caller?.handle, fallbackAvatar]);
   useEffect(() => {
     if (!isOpen) {
       callSoundService.stopAll();
@@ -44,7 +50,13 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
       }
     }
 
+    // 35-second unanswered timeout (auto-decline if ignored)
+    const timeoutTimer = setTimeout(() => {
+      onDecline('timeout');
+    }, 35000);
+
     return () => {
+      clearTimeout(timeoutTimer);
       callSoundService.stopAll();
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try {
@@ -54,7 +66,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         }
       }
     };
-  }, [isOpen, callRingtonesEnabled]);
+  }, [isOpen, callRingtonesEnabled, onDecline]);
 
   if (!isOpen) return null;
 
@@ -79,11 +91,11 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         // ignore
       }
     }
-    onDecline();
+    onDecline('declined');
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-xl animate-fade-in select-none p-0 sm:p-4 font-sans">
+    <div className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center bg-black/90 backdrop-blur-2xl animate-fade-in select-none p-0 sm:p-4 font-sans">
       <div className="bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm p-6 sm:p-7 shadow-[0_0_60px_rgba(16,185,129,0.2)] flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-2xl">
         {/* Ambient Glow */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-60 h-60 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
@@ -96,8 +108,13 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
         {/* Caller Avatar */}
         <div className="relative mb-5">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neon-green shadow-neon-lg relative z-10">
-            <img src={caller.avatar} alt={caller.handle} className="w-full h-full object-cover" />
+          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neon-green shadow-neon-lg relative z-10 bg-ez-surface">
+            <img
+              src={avatarUrl}
+              alt={caller.handle}
+              className="w-full h-full object-cover"
+              onError={() => setAvatarUrl(fallbackAvatar)}
+            />
           </div>
           <div className="absolute -inset-2 rounded-full border border-neon-green/40 animate-ping pointer-events-none" />
         </div>
@@ -115,7 +132,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
           <button
             type="button"
             onClick={handleDecline}
-            className="p-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer border border-red-400/25"
+            className="w-16 h-16 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer border border-red-400/25 flex items-center justify-center shrink-0"
             title={t.calls.declineCall}
           >
             <PhoneOff className="w-6 h-6" />
@@ -124,7 +141,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
           <button
             type="button"
             onClick={handleAccept}
-            className="p-4 rounded-2xl bg-neon-green hover:bg-neon-green-light text-black shadow-neon-lg transition-transform duration-150 hover:scale-110 active:scale-95 cursor-pointer font-bold border border-neon-green"
+            className="w-16 h-16 rounded-2xl bg-neon-green hover:bg-neon-green-light text-black shadow-neon-lg transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer font-bold border border-neon-green flex items-center justify-center shrink-0"
             title={t.calls.acceptCall}
           >
             <Phone className="w-6 h-6 animate-glow-pulse" />

@@ -27,6 +27,7 @@ import {
 import { normalizeHandle } from '../../utils/chatStorage';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
 import { useTranslation } from '../../context/LanguageContext';
+import { formatMessageTime } from '../../utils/dateTime';
 import { ConfirmModal } from '../Common/ConfirmModal';
 import { downloadOrOpenFile, isImageMedia, isVideoMedia } from '../../utils/fileDownloader';
 
@@ -46,19 +47,19 @@ interface MessageBubbleProps {
   isNewMessage?: boolean;
 }
 
-function formatTelegramTime(createdAt?: string, fallbackText?: string): string {
+function formatTelegramTime(createdAt?: string, fallbackText?: string, language?: string): string {
   if (createdAt) {
-    try {
-      const d = new Date(createdAt);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-      }
-    } catch { }
+    const formatted = formatMessageTime(createdAt, language);
+    if (formatted) return formatted;
   }
-  if (fallbackText && (fallbackText.includes(':') || fallbackText.includes('M'))) {
-    return fallbackText;
+  if (fallbackText) {
+    const formatted = formatMessageTime(fallbackText, language);
+    if (formatted) return formatted;
+    if (fallbackText.includes(':') || fallbackText.includes('M')) {
+      return fallbackText;
+    }
   }
-  return '12:00';
+  return '';
 }
 
 const EMOJI_OPTIONS = ['❤️', '👍', '😂', '🔥', '😮', '👏', '🚀', '😢'];
@@ -82,7 +83,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onRetry,
   isNewMessage = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   // Mobile Bottom Sheet State (< 640px)
@@ -127,7 +128,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     (currentUserId && message.senderId === currentUserId) ||
     message.senderId === 'me';
 
-  const timeString = formatTelegramTime(message.createdAt, message.timestamp);
+  const timeString = formatTelegramTime(message.createdAt, message.timestamp, language);
 
   // Normalize reactions into an array of { emoji, count, hasReacted }
   const formattedReactions = useMemo(() => {
@@ -172,22 +173,47 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       return { type, duration };
     }
     if (!message.text) return null;
-    if (message.text.includes('Canceled Call')) {
+    const txt = message.text;
+    const lower = txt.toLowerCase();
+    if (
+      lower.includes('canceled call') ||
+      lower.includes('cancelled call') ||
+      lower.includes('call was canceled') ||
+      lower.includes('отменённый') ||
+      lower.includes('был отменён') ||
+      lower.includes('отменено') ||
+      lower.includes('bekor qilingan') ||
+      lower.includes('bekor qilindi')
+    ) {
       return { type: (isMe ? 'canceled' : 'missed') as 'canceled' | 'missed', duration: 0 };
     }
-    if (message.text.includes('Missed Voice Call') || message.text.includes('Missed Call')) {
-      return { type: 'missed' as const, duration: 0 };
-    }
-    if (message.text.includes('Declined Call')) {
+    if (
+      lower.includes('declined call') ||
+      lower.includes('call was declined') ||
+      lower.includes('отклонённый') ||
+      lower.includes('был отклонён') ||
+      lower.includes('вызов отклонён') ||
+      lower.includes('rad etilgan') ||
+      lower.includes('rad etildi')
+    ) {
       return { type: 'declined' as const, duration: 0 };
     }
-    const match = message.text.match(/Voice Call \((\d+):(\d+)\)/);
+    if (
+      lower.includes('missed voice call') ||
+      lower.includes('missed call') ||
+      lower.includes('пропущенный') ||
+      lower.includes('o‘tkazib yuborilgan') ||
+      lower.includes('otkazib yuborilgan')
+    ) {
+      return { type: 'missed' as const, duration: 0 };
+    }
+    const match = txt.match(/\((\d+):(\d+)\)/);
     if (match) {
       const mins = parseInt(match[1], 10) || 0;
       const secs = parseInt(match[2], 10) || 0;
       return { type: (isMe ? 'outgoing' : 'incoming') as 'outgoing' | 'incoming', duration: mins * 60 + secs };
     }
-    if (message.text.startsWith('📞 Voice Call')) {
+    if (txt.startsWith('📞 Voice Call') || txt.startsWith('📞 Исходящий') || txt.startsWith('📞 Входящий')) {
       return { type: (isMe ? 'outgoing' : 'incoming') as 'outgoing' | 'incoming', duration: 0 };
     }
     return null;
@@ -202,8 +228,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (hasDuration) {
       return {
-        title: isMe ? 'Outgoing Call' : 'Incoming Call',
-        subtitle: `${formattedDuration} duration`,
+        title: isMe ? (t.calls?.outgoingCall || 'Outgoing Call') : (t.calls?.incomingCall || 'Incoming Call'),
+        subtitle: formattedDuration,
         statusColor: 'bg-neon-green/15 text-neon-green border-neon-green/25',
         Icon: isMe ? PhoneOutgoing : PhoneIncoming,
         isNegative: false,
@@ -212,8 +238,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (type === 'declined') {
       return {
-        title: 'Declined Call',
-        subtitle: 'Call was declined',
+        title: t.calls?.callDeclined || 'Declined Call',
+        subtitle: t.calls?.callWasDeclined || 'Call was declined',
         statusColor: 'bg-red-500/15 text-red-400 border-red-500/25',
         Icon: PhoneOff,
         isNegative: true,
@@ -222,8 +248,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (type === 'missed') {
       return {
-        title: 'Missed Call',
-        subtitle: 'Tap to call back',
+        title: t.calls?.missedCall || 'Missed Call',
+        subtitle: t.calls?.tapToCallBack || (t.calls?.callBack || 'Tap to call back'),
         statusColor: 'bg-red-500/15 text-red-400 border-red-500/25',
         Icon: PhoneMissed,
         isNegative: true,
@@ -232,8 +258,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (type === 'canceled') {
       return {
-        title: 'Canceled Call',
-        subtitle: 'Call was canceled',
+        title: t.calls?.callCanceled || 'Canceled Call',
+        subtitle: t.calls?.callWasCanceled || 'Call was canceled',
         statusColor: 'bg-ez-muted/15 text-ez-muted border-white/10',
         Icon: PhoneOff,
         isNegative: false,
@@ -241,13 +267,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
 
     return {
-      title: 'Voice Call',
-      subtitle: isMe ? 'Outgoing call' : 'Incoming call',
+      title: t.calls?.encryptedVoiceCall || 'Voice Call',
+      subtitle: isMe ? (t.calls?.outgoingCall || 'Outgoing call') : (t.calls?.incomingCall || 'Incoming call'),
       statusColor: 'bg-ez-muted/15 text-ez-muted border-white/10',
       Icon: Phone,
       isNegative: false,
     };
-  }, [callData, isMe]);
+  }, [callData, isMe, t]);
 
   useEffect(() => {
     if (!message.text || callPresentation) return;

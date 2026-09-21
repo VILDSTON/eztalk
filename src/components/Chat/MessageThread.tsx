@@ -4,6 +4,7 @@ import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
+import { formatMessageDateDivider } from '../../utils/dateTime';
 
 interface MessageThreadProps {
   messages: Message[];
@@ -26,31 +27,7 @@ interface MessageThreadProps {
   onRetry?: (message: Message) => void;
 }
 
-function formatMessageDateDivider(createdAt?: string, timestamp?: string, t?: any): string {
-  let date: Date | null = null;
-  if (createdAt) {
-    const d = new Date(createdAt);
-    if (!isNaN(d.getTime())) date = d;
-  }
-  if (!date && timestamp) {
-    const d = new Date(timestamp);
-    if (!isNaN(d.getTime())) date = d;
-  }
-  if (!date) date = new Date();
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((today.getTime() - targetDay.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return t ? t['chat.today'] || 'Today' : 'Today';
-  if (diffDays === 1) return t ? t['chat.yesterday'] || 'Yesterday' : 'Yesterday';
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-  }
-  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-}
 
 function getDateKey(createdAt?: string, timestamp?: string): string {
   let date: Date | null = null;
@@ -117,9 +94,9 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const prevFirstMsgIdRef = useRef<string | null>(messages[0]?.id || null);
   const isPrependRef = useRef(false);
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
-  const todayText = useMemo(() => (t as any)?.chat?.today || t['chat.today'] || 'Today', [t]);
+  const todayText = useMemo(() => t?.chat?.today || 'Today', [t]);
   const hasTodayMessages = useMemo(() => messages.some((m) => isTodayDate(m.createdAt, m.timestamp)), [messages]);
 
   const scrollToToday = () => {
@@ -267,12 +244,12 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
             <div className="flex justify-center py-2.5 my-1 select-none shrink-0">
               <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
                 <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
-                <span className="text-[11px] font-mono text-ez-muted">{t['chat.loadingEarlier'] || 'Loading earlier messages...'}</span>
+                <span className="text-[11px] font-mono text-ez-muted">{t.chat?.loadingEarlier || 'Loading earlier messages...'}</span>
               </div>
             </div>
           ) : !hasMore && messages.length > 0 ? (
             <div className="flex justify-center py-4 my-1 select-none shrink-0">
-              <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t['chat.startOfHistory'] || 'Start of history'}</span>
+              <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t.chat?.startOfHistory || 'Start of history'}</span>
             </div>
           ) : null}
 
@@ -289,8 +266,8 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                   💬
                 </div>
               </div>
-              <p className="font-bold text-zinc-100 text-base mb-1.5">{t['chat.noMessages'] || 'No messages yet'}</p>
-              <p className="text-ez-muted text-xs text-center max-w-[200px] leading-relaxed">{t['chat.sendToStart'] || 'Send a message to start the conversation'}</p>
+              <p className="font-bold text-zinc-100 text-base mb-1.5">{t.chat?.noMessages || 'No messages yet'}</p>
+              <p className="text-ez-muted text-xs text-center max-w-[200px] leading-relaxed">{t.chat?.sendToStart || 'Send a message to start the conversation'}</p>
             </div>
           ) : (
             messages.map((msg, index) => {
@@ -304,7 +281,7 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                   {showDateDivider && (
                     <div className="flex justify-center my-3 select-none">
                       <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
-                        {formatMessageDateDivider(msg.createdAt, msg.timestamp, t)}
+                        {formatMessageDateDivider(msg.createdAt, msg.timestamp, t, language)}
                       </span>
                     </div>
                   )}

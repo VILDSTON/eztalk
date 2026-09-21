@@ -189,39 +189,45 @@ class SocketService {
     this.acceptCall(callerHandle, recipient.handle, recipient);
   }
 
-  public declineCall(callerHandle: string, recipientHandle: string) {
+  public declineCall(callerHandle: string, recipientHandle: string, reason: string = 'declined') {
     const cHandle = normalizeHandle(callerHandle);
     const rHandle = normalizeHandle(recipientHandle);
     this.socket?.emit('decline_call', {
       callerHandle: cHandle,
       recipientHandle: rHandle,
+      peerHandle: cHandle,
+      senderHandle: rHandle,
       to: cHandle,
       from: rHandle,
+      reason,
     });
   }
 
-  public onCallDeclined(callback: (data: { callerHandle: string; recipientHandle?: string }) => void) {
+  public onCallDeclined(callback: (data: { callerHandle: string; recipientHandle?: string; declinedBy?: string; reason?: string }) => void) {
     this.socket?.on('call_declined', callback);
     return () => {
       this.socket?.off('call_declined', callback);
     };
   }
 
-  public onCallEnded(callback: (data?: { callerHandle?: string; recipientHandle?: string }) => void) {
+  public onCallEnded(callback: (data?: { callerHandle?: string; recipientHandle?: string; endedBy?: string; reason?: string }) => void) {
     this.socket?.on('call_ended', callback);
     return () => {
       this.socket?.off('call_ended', callback);
     };
   }
 
-  public endCall(callerHandle: string, recipientHandle: string) {
+  public endCall(callerHandle: string, recipientHandle: string, reason: string = 'ended') {
     const cHandle = normalizeHandle(callerHandle);
     const rHandle = normalizeHandle(recipientHandle);
     this.socket?.emit('end_call', {
       callerHandle: cHandle,
       recipientHandle: rHandle,
-      to: cHandle,
-      from: rHandle,
+      peerHandle: rHandle,
+      senderHandle: cHandle,
+      to: rHandle,
+      from: cHandle,
+      reason,
     });
   }
 

@@ -318,7 +318,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
-            {user?.handle !== '@ai' && (
+            {!isSavedMessages && user?.handle !== '@ai' && (
               <button
                 type="button"
                 onClick={() => {

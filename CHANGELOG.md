@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-09-21
+
+### Added
+- **Call Management & VoIP Enhancements**:
+  - Unanswered incoming calls automatically time out after 35 seconds with timeout reason logging.
+  - Interactive call minimization into a floating status pill allowing multitasking while remaining in a call.
+  - Real-time WebRTC audio call quality indicator with round-trip time (RTT ping) and network rating.
+  - Synchronized caller decline/end signaling with automatic rejection cleanup.
+- **Dynamic 12/24-Hour Time Format**:
+  - Created centralized date-time formatting system (`src/utils/dateTime.ts`).
+  - Automatically adapts message and chat preview timestamps to 12-hour format with AM/PM for users with 12-hour clock preferences, or 24-hour format for 24-hour systems.
+- **Full Date & Month Localization**:
+  - Localized all chat dividers and timestamp representations for Russian, Uzbek, and English (e.g. "Вчера", "Сегодня", "Kecha", "Bugun", "21 сентября", "21-sentabr").
+  - Added full translation coverage for call history bubbles and statuses ("Отменённый звонок", "Вызов был отменён", "Bekor qilingan qo‘ng‘iroq", "Rad etilgan qo‘ng‘iroq", etc.).
+
+### Fixed
+- **Call Overlay Stacking & Stacking Context (z-index)**:
+  - Replaced non-existent Tailwind class `z-60` with `z-[9999]` and deep backdrop blur (`bg-black/90 backdrop-blur-2xl`) on `IncomingCallModal` and `CallModal`, completely hiding background headers, profiles, and floating action buttons (FAB).
+- **Date Separator Key Reference**:
+  - Fixed property access in `MessageThread` where nested translation objects `t.chat.today` and `t.chat.yesterday` were accessed via flat dot-notation keys, restoring native localized date dividers.
+
 ## [0.10.0] - 2026-09-20
 
 ### Added
