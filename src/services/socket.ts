@@ -120,6 +120,25 @@ class SocketService {
     };
   }
 
+  public onGroupUpdated(callback: (group: Group) => void) {
+    this.socket?.on('group_updated', callback);
+    return () => {
+      this.socket?.off('group_updated', callback);
+    };
+  }
+
+  public joinGroup(groupId: string) {
+    if (groupId) {
+      this.socket?.emit('join_group', groupId);
+    }
+  }
+
+  public leaveGroup(groupId: string) {
+    if (groupId) {
+      this.socket?.emit('leave_group', groupId);
+    }
+  }
+
   public onChatCleared(callback: (data: { key: string }) => void) {
     this.socket?.on('chat_cleared', callback);
     return () => {

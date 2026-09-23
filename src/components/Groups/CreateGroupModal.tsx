@@ -18,7 +18,7 @@ import { GROUP_AVATAR_PRESETS } from '../../constants/avatars';
 
 export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   isOpen,
-  friends = [],
+  friends,
   existingUsers = [],
   currentUserHandle,
   onClose,
@@ -35,7 +35,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
   if (!isOpen) return null;
 
-  const rawList = existingUsers.length > 0 ? existingUsers : friends;
+  const rawList = friends !== undefined ? friends : existingUsers;
   const myHandle = normalizeHandle(currentUserHandle || '').toLowerCase();
 
   const memberCandidates = rawList

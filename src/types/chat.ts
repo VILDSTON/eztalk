@@ -119,3 +119,33 @@ export interface ChatState {
   blockedUsers: string[];
   drafts?: Record<string, string>;
 }
+
+export interface DisposableParticipant {
+  participantId?: string;
+  socketId: string;
+  nickname: string;
+  avatar: string;
+  isCreator: boolean;
+  joinedAt: number;
+}
+
+export interface DisposableMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  text: string;
+  attachment?: Attachment | null;
+  timestamp: string;
+  replyTo?: { id: string; text: string; senderName: string } | null;
+  reactions?: Record<string, string[]>;
+}
+
+export interface DisposableRoomState {
+  roomId: string;
+  expiresAt: number;
+  durationMinutes: number;
+  participants: DisposableParticipant[];
+  messages: DisposableMessage[];
+  selfId: string;
+}

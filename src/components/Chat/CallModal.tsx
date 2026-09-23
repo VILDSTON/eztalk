@@ -292,13 +292,21 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (pc.connectionState === 'connected') {
         callSoundService.stopAll();
         setCallState('connected');
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      } else if (pc.connectionState === 'failed') {
+        // Only end on definitive failure, not on transient 'disconnected'
         handleEndCall();
       }
     };
 
     pc.oniceconnectionstatechange = () => {
       console.log('ICE Connection State changed:', pc.iceConnectionState);
+      // Use ICE state as a reliable fallback to transition to connected
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        callSoundService.stopAll();
+        setCallState('connected');
+      } else if (pc.iceConnectionState === 'failed') {
+        handleEndCall();
+      }
     };
 
     return pc;

@@ -84,23 +84,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRecipientRef = useRef(recipientHandle);
 
   // Restore draft when conversation changes
   useEffect(() => {
-    // 1. Cancel pending draft save
-    if (draftDebounceTimerRef.current) {
-      clearTimeout(draftDebounceTimerRef.current);
+    if (lastRecipientRef.current !== recipientHandle) {
+      lastRecipientRef.current = recipientHandle;
+      // 1. Cancel pending draft save
+      if (draftDebounceTimerRef.current) {
+        clearTimeout(draftDebounceTimerRef.current);
+        draftDebounceTimerRef.current = null;
+      }
+      // 2. Reset text to new draft
+      setInputText(initialDraft || '');
+      // 3. Clear attachments and close picker
+      setCurrentAttachment(null);
+      setShowEmojiPicker(false);
+      // 4. Stop recording if active
+      if (isRecording) {
+        cancelRecording();
+      }
     }
-    // 2. Reset text to new draft
-    setInputText(initialDraft || '');
-    // 3. Clear attachments and close picker
-    setCurrentAttachment(null);
-    setShowEmojiPicker(false);
-    // 4. Stop recording if active
-    if (isRecording) {
-      cancelRecording();
-    }
-  }, [recipientHandle, initialDraft]);
+  }, [recipientHandle, initialDraft, isRecording]);
 
   useEffect(() => {
     if (editingMessage) {
@@ -150,6 +155,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    if (draftDebounceTimerRef.current) {
+      clearTimeout(draftDebounceTimerRef.current);
+      draftDebounceTimerRef.current = null;
+    }
 
     if (editingMessage) {
       if (inputText.trim()) {

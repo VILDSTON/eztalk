@@ -27,6 +27,7 @@ import { useTranslation } from './context/LanguageContext';
 import { LandingPage } from './components/Landing/LandingPage';
 import { BanScreen } from './components/UI/BanScreen';
 import { DEFAULT_AVATAR } from './constants/avatars';
+import { DisposableRoomScreen } from './components/Disposable/DisposableRoomScreen';
 
 const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
 
@@ -37,6 +38,16 @@ function RootRedirect() {
   // preserve path but fallback legacy /direct to language
   const targetPath = location.pathname === '/' ? `/${validLang}/` : `/${validLang}${location.pathname}`;
   return <Navigate to={`${targetPath}${location.search}`} replace />;
+}
+
+function LegacyChatRedirect() {
+  const { lang, chatId } = useParams();
+  return <Navigate to={`/${lang}/direct/t${chatId ? `/${chatId}` : ''}`} replace />;
+}
+
+function LegacyHandleRedirect() {
+  const { lang, handle } = useParams();
+  return <Navigate to={`/${lang}/direct/t${handle ? `/${handle.replace('@', '')}` : ''}`} replace />;
 }
 
 export default function App() {
@@ -74,9 +85,10 @@ function MainApp() {
     return <RootRedirect />;
   }
 
-  const match = useMatch('/:lang/t/direct/:chatId');
-  const legacyMatch = useMatch('/:lang/t/direct/t/:chatId');
-  const urlChatId = match?.params.chatId || legacyMatch?.params.chatId;
+  const match = useMatch('/:lang/direct/t/:chatId');
+  const legacyMatch = useMatch('/:lang/t/direct/:chatId');
+  const legacyDirectMatch = useMatch('/:lang/t/direct/t/:chatId');
+  const urlChatId = match?.params.chatId || legacyMatch?.params.chatId || legacyDirectMatch?.params.chatId;
 
   // Authentication & Global Users State
   const [currentUser, setCurrentUser] = useState<User | null>(() => ChatStorageService.getAuthUser());
@@ -147,18 +159,18 @@ function MainApp() {
     const handleMatch = path.match(new RegExp(`^/${lang}/@([^/]+)`));
     const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
 
-    const legacyDirectMatch = path.match(new RegExp(`^/${lang}/t/direct/t/([^/]+)`));
+    const legacyDirectMatch = path.match(new RegExp(`^/${lang}/t/direct(?:/t)?/([^/]+)`));
 
     if (legacyDirectMatch) {
-      navigate(`/t/direct/${legacyDirectMatch[1]}`, { replace: true });
+      navigate(`/direct/t/${legacyDirectMatch[1]}`, { replace: true });
       return;
     }
     if (handleMatch) {
-      navigate(`/t/direct/${handleMatch[1]}`, { replace: true });
+      navigate(`/direct/t/${handleMatch[1]}`, { replace: true });
       return;
     }
     if (chatMatch) {
-      navigate(`/t/direct/${chatMatch[1]}`, { replace: true });
+      navigate(`/direct/t/${chatMatch[1]}`, { replace: true });
       return;
     }
 
@@ -166,7 +178,7 @@ function MainApp() {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
-    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`) && !path.startsWith(`/${lang}/login`) && !path.startsWith(`/${lang}/about`) && !path.startsWith(`/${lang}/t`)) {
+    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`) && !path.startsWith(`/${lang}/login`) && !path.startsWith(`/${lang}/about`) && !path.startsWith(`/${lang}/t`) && !path.startsWith(`/${lang}/room`)) {
       setIsNotFound(true);
     } else {
       setIsNotFound(false);
@@ -212,27 +224,30 @@ function MainApp() {
     return map;
   });
 
-  const selectedGroupId = urlChatId?.startsWith('group__') ? urlChatId : null;
-  const selectedUserId = urlChatId && !urlChatId.startsWith('group__') ? urlChatId : '';
+  const isGroupChat = Boolean(urlChatId && (urlChatId.startsWith('group_') || urlChatId.startsWith('group__')));
+  const selectedGroupId = isGroupChat ? urlChatId! : null;
+  const selectedUserId = urlChatId && !isGroupChat ? urlChatId : '';
 
   const setSelectedUserId = useCallback((id: string | null) => {
     if (!id) {
-      navigate('/t/direct');
+      navigate('/direct/t');
     } else {
-      navigate(`/t/direct/${id}`);
+      navigate(`/direct/t/${id}`);
     }
   }, [navigate]);
 
   const setSelectedGroupId = useCallback((id: string | null) => {
     if (id) {
-      navigate(`/t/direct/${id}`);
+      navigate(`/direct/t/${id}`);
+    } else {
+      navigate('/direct/t');
     }
   }, [navigate]);
 
   useEffect(() => {
     if (!currentUser) {
       if (urlChatId) {
-        sessionStorage.setItem('eztalk_redirect_after_login', `/t/direct/${urlChatId}`);
+        sessionStorage.setItem('eztalk_redirect_after_login', `/direct/t/${urlChatId}`);
       }
     } else {
       const pendingRedirect = sessionStorage.getItem('eztalk_redirect_after_login');
@@ -241,8 +256,8 @@ function MainApp() {
         navigate(pendingRedirect, { replace: true });
       } else {
         const path = location.pathname.toLowerCase();
-        if (path === '/' || path === '/t/direct' || path === '/t/direct/') {
-          navigate('/t/direct', { replace: true });
+        if (path === '/' || path === '/direct/t' || path === '/direct/t/' || path === '/t/direct' || path === '/t/direct/') {
+          navigate('/direct/t', { replace: true });
         }
       }
     }
@@ -432,10 +447,15 @@ function MainApp() {
     }
   );
 
-  // Filter groups where currentUser is a member
-  const userGroups = groups.filter((g) =>
-    g.memberHandles.some((h) => normalizeHandle(h) === normalizeHandle(currentUser?.handle || ''))
-  );
+  // Filter groups where currentUser is a member (deduplicated by group ID)
+  const userGroups = useMemo(() => {
+    const seen = new Set<string>();
+    return groups.filter((g) => {
+      if (!g || !g.id || seen.has(g.id)) return false;
+      seen.add(g.id);
+      return g.memberHandles?.some((h) => normalizeHandle(h) === normalizeHandle(currentUser?.handle || ''));
+    });
+  }, [groups, currentUser?.handle]);
 
   const isSavedMessages = Boolean(
     currentUser &&
@@ -446,13 +466,13 @@ function MainApp() {
   );
 
   const selectedUser = useMemo(() => {
-    if (!urlChatId || urlChatId.startsWith('group__')) return null;
+    if (!urlChatId || isGroupChat) return null;
     const cleanUrl = normalizeHandle(urlChatId).toLowerCase();
     if (currentUser && normalizeHandle(currentUser.handle).toLowerCase() === cleanUrl) {
       return currentUser; // Saved Messages
     }
     return aliasedAllUsers.find(u => normalizeHandle(u.handle).toLowerCase() === cleanUrl) || null;
-  }, [urlChatId, aliasedAllUsers, currentUser]);
+  }, [urlChatId, isGroupChat, aliasedAllUsers, currentUser]);
 
   selectedUserRef.current = selectedUser;
 
@@ -775,6 +795,13 @@ function MainApp() {
     return () => window.removeEventListener('online', syncOutbox);
   }, [syncOutbox]);
 
+  // Auto-join socket rooms for all groups the user belongs to
+  useEffect(() => {
+    if (currentUser && userGroups.length > 0) {
+      userGroups.forEach((g) => socketService.joinGroup(g.id));
+    }
+  }, [currentUser?.handle, userGroups]);
+
   useEffect(() => {
     refreshMessages();
   }, [refreshMessages]);
@@ -1071,6 +1098,20 @@ function MainApp() {
       }
     });
 
+    // Group updated event
+    const unsubGroupUpdate = socketService.onGroupUpdated((updatedGrp: Group) => {
+      const myHandle = normalizeHandle(currentUserRef.current?.handle || '');
+      const isMember = updatedGrp.memberHandles.some((h) => normalizeHandle(h) === myHandle);
+      if (isMember) {
+        setGroups((prev) => prev.map((g) => (g.id === updatedGrp.id ? updatedGrp : g)));
+      } else {
+        setGroups((prev) => prev.filter((g) => g.id !== updatedGrp.id));
+        if (selectedGroupIdRef.current === updatedGrp.id) {
+          setSelectedGroupId(null);
+        }
+      }
+    });
+
     // Online users presence event
     const unsubOnline = socketService.onOnlineUsers((handles) => {
       setOnlineHandles(Array.from(new Set([...handles, '@ai'])));
@@ -1080,28 +1121,33 @@ function MainApp() {
     const unsubTyping = socketService.onTyping(({ senderHandle, recipientHandle, isTyping }) => {
       const cUser = currentUserRef.current;
       if (!cUser) return;
-      if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
+      const isDirectForMe = normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle);
+      const isGroupTyping = Boolean(recipientHandle && (recipientHandle.startsWith('group_') || recipientHandle.startsWith('group__')));
+
+      if (isDirectForMe || isGroupTyping) {
+        const key = isGroupTyping ? recipientHandle! : normalizeHandle(senderHandle);
         const sender = normalizeHandle(senderHandle);
+        if (sender === normalizeHandle(cUser.handle)) return; // don't show my own typing
 
         // Clear any existing timeout for this sender
-        if (typingTimeoutsRef.current[sender]) {
-          clearTimeout(typingTimeoutsRef.current[sender]);
-          delete typingTimeoutsRef.current[sender];
+        if (typingTimeoutsRef.current[key]) {
+          clearTimeout(typingTimeoutsRef.current[key]);
+          delete typingTimeoutsRef.current[key];
         }
 
         setTypingUsers((prev) => ({
           ...prev,
-          [sender]: isTyping,
+          [key]: isTyping,
         }));
 
         // Set a new timeout if they are typing
         if (isTyping) {
-          typingTimeoutsRef.current[sender] = setTimeout(() => {
+          typingTimeoutsRef.current[key] = setTimeout(() => {
             setTypingUsers((prev) => ({
               ...prev,
-              [sender]: false,
+              [key]: false,
             }));
-            delete typingTimeoutsRef.current[sender];
+            delete typingTimeoutsRef.current[key];
           }, 4000);
         }
       }
@@ -1298,6 +1344,7 @@ function MainApp() {
       unsubReact();
       unsubGroup();
       unsubGroupDel();
+      unsubGroupUpdate();
       unsubOnline();
       unsubTyping();
       unsubCall();
@@ -1496,7 +1543,9 @@ function MainApp() {
       : false;
   const isCurrentContactTyping = selectedUser
     ? Boolean(typingUsers[normalizeHandle(selectedUser.handle)])
-    : false;
+    : selectedGroupId
+      ? Boolean(typingUsers[selectedGroupId])
+      : false;
 
   const handleToggleMute = (userIdOrHandle: string) => {
     setMutedUsers((prev) => ({
@@ -1553,7 +1602,7 @@ function MainApp() {
     ) {
       setSelectedUserId('');
       setSelectedGroupId(null);
-      navigate('/t/direct');
+      navigate('/direct/t');
     }
   };
 
@@ -1837,7 +1886,8 @@ function MainApp() {
     if (!currentUser) return;
     try {
       const group = await ApiService.createGroup(name, avatar, currentUser.handle, memberHandles);
-      setGroups((prev) => [...prev, group]);
+      setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev : [...prev, group]));
+      socketService.joinGroup(group.id);
       setSelectedGroupId(group.id);
       setSelectedUserId('');
     } catch (err: any) {
@@ -1854,7 +1904,26 @@ function MainApp() {
       if (selectedGroupId === target) {
         setSelectedGroupId(null);
       }
+      socketService.leaveGroup(target);
       await ApiService.deleteGroup(target);
+    }
+  };
+
+  // Leave Group
+  const handleLeaveGroup = async (groupId?: string) => {
+    const target = groupId || selectedGroupId;
+    if (!target) return;
+    if (confirm('Are you sure you want to leave this group chat?')) {
+      setGroups((prev) => prev.filter((g) => g.id !== target));
+      if (selectedGroupId === target) {
+        setSelectedGroupId(null);
+      }
+      socketService.leaveGroup(target);
+      try {
+        await ApiService.leaveGroup(target);
+      } catch (err: any) {
+        console.error('Failed to leave group:', err);
+      }
     }
   };
 
@@ -2062,7 +2131,7 @@ function MainApp() {
       <NotFoundScreen
         onReturnHome={() => {
           setIsNotFound(false);
-          navigate('/t/direct');
+          navigate('/direct/t');
         }}
       />
     );
@@ -2078,11 +2147,11 @@ function MainApp() {
   const authContent = (
     <>
       <AuthScreen
-        onLogin={(u) => { handleLogin(u); navigate('/t/direct', { replace: true }); }}
+        onLogin={(u) => { handleLogin(u); navigate('/direct/t', { replace: true }); }}
         onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
         onCancel={myAccounts.length > 0 ? () => {
           handleSwitchAccount(myAccounts[0]);
-          navigate('/t/direct');
+          navigate('/direct/t');
         } : undefined}
       />
       <LegalModal
@@ -2168,7 +2237,7 @@ function MainApp() {
             onSelectSection={(sec) => {
               setActiveSection(sec);
               if (sec === 'saved' && currentUser) {
-                navigate(`/t/direct/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
               }
             }}
             onOpenAddFriend={() => setIsAddFriendOpen(true)}
@@ -2176,7 +2245,7 @@ function MainApp() {
             onOpenEditProfile={() => setIsEditProfileOpen(true)}
             onSelectSavedMessages={() => {
               if (currentUser) {
-                navigate(`/t/direct/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+                navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
                 setActiveSection('saved');
               }
             }}
@@ -2206,13 +2275,18 @@ function MainApp() {
             onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectUser={(u) => {
               const handle = normalizeHandle(u.handle);
-              navigate(`/t/direct/${handle.replace('@', '')}`);
+              setAllUsers((prev) => {
+                const exists = prev.some((x) => normalizeHandle(x.handle).toLowerCase() === handle.toLowerCase());
+                if (!exists) return [...prev, u];
+                return prev;
+              });
+              navigate(`/direct/t/${handle.replace('@', '')}`);
               setActiveSection(currentUser && (handle === normalizeHandle(currentUser.handle)) ? 'saved' : 'chats');
               setUnreadCounts((prev) => ({ ...prev, [handle]: 0, [u.id || handle]: 0 }));
               setActiveChatHandles((prev) => [...new Set([...prev, handle])]);
             }}
             onSelectGroup={(g) => {
-              navigate(`/t/direct/${g.id}`);
+              navigate(`/direct/t/${g.id}`);
               setActiveSection('chats');
               setUnreadCounts((prev) => ({ ...prev, [g.id]: 0 }));
             }}
@@ -2269,7 +2343,7 @@ function MainApp() {
                 }
               }}
               onBack={() => {
-                navigate('/t/direct');
+                navigate('/direct/t');
                 setActiveSection('chats');
               }}
               onToggleMute={() => {
@@ -2292,6 +2366,7 @@ function MainApp() {
               onAddFriend={() => selectedUser && handleAddExistingFriend(selectedUser.handle)}
               onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
               onDeleteGroup={() => handleDeleteGroup()}
+              onLeaveGroup={() => handleLeaveGroup()}
               onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
               hasMore={Boolean(currentChatKey && hasMoreByChat[currentChatKey])}
               isLoadingMore={isLoadingMore}
@@ -2371,7 +2446,7 @@ function MainApp() {
       {isGroupModalOpen && (
         <CreateGroupModal
           isOpen={isGroupModalOpen}
-          existingUsers={allUsers}
+          friends={friendsList}
           currentUserHandle={currentUser.handle}
           onClose={() => setIsGroupModalOpen(false)}
           onCreateGroup={(name, avatar, members) => {
@@ -2551,11 +2626,17 @@ function MainApp() {
     <Routes>
       {/* Main Routes */}
       <Route path="about" element={<LandingPage />} />
-      <Route path="login" element={isAuth ? <Navigate to={`/${lang}/t/direct`} replace /> : authContent} />
-      <Route path="t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
-      <Route path="direct/*" element={<Navigate to={`/${lang}/t/direct`} replace />} />
-      <Route path="@:handle" element={<Navigate to={`/${lang}/t/direct`} replace />} />
-      <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 't/direct' : 'about'}`} replace />} />
+      <Route path="room/:roomId" element={<DisposableRoomScreen />} />
+      <Route path="login" element={isAuth ? <Navigate to={`/${lang}/direct/t`} replace /> : authContent} />
+      <Route path="direct/t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
+      <Route path="t/direct/:chatId" element={<LegacyChatRedirect />} />
+      <Route path="t/direct/t/:chatId" element={<LegacyChatRedirect />} />
+      <Route path="chat/:chatId" element={<LegacyChatRedirect />} />
+      <Route path="@:handle" element={<LegacyHandleRedirect />} />
+      <Route path="direct/*" element={<Navigate to={`/${lang}/direct/t`} replace />} />
+      <Route path="t/direct/*" element={<Navigate to={`/${lang}/direct/t`} replace />} />
+      <Route path="t/*" element={<Navigate to={`/${lang}/direct/t`} replace />} />
+      <Route path="*" element={<Navigate to={`/${lang}/${isAuth ? 'direct/t' : 'about'}`} replace />} />
     </Routes>
   );
 }

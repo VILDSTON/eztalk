@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot, Sun, Monitor, X } from 'lucide-react';
+import { MessageSquare, Shield, Code, ChevronRight, Globe, Download, FileText, UserX, Users, CalendarDays, CircleDot, Sun, Monitor, X, Flame } from 'lucide-react';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { CreateDisposableModal } from '../Disposable/CreateDisposableModal';
 
 export const LandingPage: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
@@ -13,6 +14,7 @@ export const LandingPage: React.FC = () => {
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
   const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
+  const [isDisposableModalOpen, setIsDisposableModalOpen] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -36,7 +38,7 @@ export const LandingPage: React.FC = () => {
   const selectLang = (lang: 'en' | 'ru' | 'uz') => {
     setLanguage(lang);
     setIsLangOpen(false);
-    
+
     // Update URL instantly to prevent desync or slow re-renders from App.tsx useEffect
     const currentPath = location.pathname;
     if (/^\/(en|ru|uz)(\/|$)/.test(currentPath)) {
@@ -67,7 +69,7 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex items-center space-x-4">
             <div className="relative" ref={langRef}>
-              <button 
+              <button
                 onClick={() => setIsLangOpen(!isLangOpen)}
                 className="flex items-center text-gray-300 hover:text-[#00e676] transition-colors p-2 -m-2"
               >
@@ -103,13 +105,23 @@ export const LandingPage: React.FC = () => {
             <p className="text-[17px] leading-[1.6] text-slate-400 max-w-[440px] mb-8">
               {t.landing.heroSubtitle}
             </p>
-            <button
-              onClick={handleLaunch}
-              className="bg-[#00e676] text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 shadow-[0_0_25px_rgba(0,230,118,0.25)] transition-all flex items-center group"
-            >
-              {t.landing.launchBtn}
-              <ChevronRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <button
+                onClick={handleLaunch}
+                className="bg-[#00e676] text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 shadow-[0_0_25px_rgba(0,230,118,0.25)] transition-all flex items-center group cursor-pointer"
+              >
+                {t.landing.launchBtn}
+                <ChevronRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDisposableModalOpen(true)}
+                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold px-5 py-3 rounded-xl transition-all flex items-center space-x-2 cursor-pointer shadow-[0_0_25px_rgba(0,230,118,0.25)] shadow-sm"
+              >
+                <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span>{(t as any)?.disposable?.createTitle || 'Disposable Room'}</span>
+              </button>
+            </div>
           </div>
 
           <div className="w-full md:w-[55%] relative">
@@ -457,7 +469,7 @@ export const LandingPage: React.FC = () => {
               )}
             </div>
             <div className="p-4 border-t border-white/10 bg-[#0a0d12] flex justify-end">
-              <button 
+              <button
                 onClick={() => setLegalModal(null)}
                 className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg font-medium transition-colors"
               >
@@ -467,6 +479,12 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Disposable Room Modal */}
+      <CreateDisposableModal
+        isOpen={isDisposableModalOpen}
+        onClose={() => setIsDisposableModalOpen(false)}
+      />
     </div>
   );
 };

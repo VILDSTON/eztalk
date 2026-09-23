@@ -25,6 +25,9 @@ interface MessageThreadProps {
   onOpenMedia?: (media: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => void;
   onCallBack?: () => void;
   onRetry?: (message: Message) => void;
+  hideDateDividers?: boolean;
+  hideStartOfHistory?: boolean;
+  hideEmptyPlaceholder?: boolean;
 }
 
 
@@ -81,6 +84,9 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   onOpenMedia,
   onCallBack,
   onRetry,
+  hideDateDividers = false,
+  hideStartOfHistory = false,
+  hideEmptyPlaceholder = false,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -247,7 +253,7 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                 <span className="text-[11px] font-mono text-ez-muted">{t.chat?.loadingEarlier || 'Loading earlier messages...'}</span>
               </div>
             </div>
-          ) : !hasMore && messages.length > 0 ? (
+          ) : !hasMore && messages.length > 0 && !hideStartOfHistory ? (
             <div className="flex justify-center py-4 my-1 select-none shrink-0">
               <span className="text-[11px] font-mono text-ez-muted/50 uppercase tracking-widest">{t.chat?.startOfHistory || 'Start of history'}</span>
             </div>
@@ -258,23 +264,25 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
               <Loader2 className="w-8 h-8 text-neon-green animate-spin opacity-80" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 select-none animate-fade-in">
-              {/* Glowing icon */}
-              <div className="relative mb-5">
-                <div className="absolute inset-0 bg-neon-green/20 blur-2xl rounded-full scale-150 pointer-events-none" />
-                <div className="relative w-20 h-20 rounded-2xl bg-ez-elevated border border-ez-border/60 flex items-center justify-center text-3xl shadow-glass">
-                  💬
+            hideEmptyPlaceholder ? null : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 select-none animate-fade-in">
+                {/* Glowing icon */}
+                <div className="relative mb-5">
+                  <div className="absolute inset-0 bg-neon-green/20 blur-2xl rounded-full scale-150 pointer-events-none" />
+                  <div className="relative w-20 h-20 rounded-2xl bg-ez-elevated border border-ez-border/60 flex items-center justify-center text-3xl shadow-glass">
+                    💬
+                  </div>
                 </div>
+                <p className="font-bold text-zinc-100 text-base mb-1.5">{t.chat?.noMessages || 'No messages yet'}</p>
+                <p className="text-ez-muted text-xs text-center max-w-[200px] leading-relaxed">{t.chat?.sendToStart || 'Send a message to start the conversation'}</p>
               </div>
-              <p className="font-bold text-zinc-100 text-base mb-1.5">{t.chat?.noMessages || 'No messages yet'}</p>
-              <p className="text-ez-muted text-xs text-center max-w-[200px] leading-relaxed">{t.chat?.sendToStart || 'Send a message to start the conversation'}</p>
-            </div>
+            )
           ) : (
             messages.map((msg, index) => {
               const prevMsg = index > 0 ? messages[index - 1] : null;
               const currentKey = getDateKey(msg.createdAt, msg.timestamp);
               const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
-              const showDateDivider = currentKey !== prevKey;
+              const showDateDivider = !hideDateDividers && currentKey !== prevKey;
 
               return (
                 <React.Fragment key={msg.id}>

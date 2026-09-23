@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, MoreVertical, Search, BellOff, Users, Trash2, ArrowLeft, Bookmark, X } from 'lucide-react';
+import { Phone, MoreVertical, Search, Bell, BellOff, Users, Trash2, LogOut, ArrowLeft, Bookmark, X, Download } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
+import { GroupInfoModal } from '../Groups/GroupInfoModal';
 import { useTranslation } from '../../context/LanguageContext';
 import { TranslationKeys } from '../../locales/en';
 import { DEFAULT_AVATAR } from '../../constants/avatars';
+import { normalizeHandle } from '../../utils/chatStorage';
 
 // Relative time formatting removed per UX requirements.
 interface ChatHeaderProps {
@@ -26,7 +28,11 @@ interface ChatHeaderProps {
   onRemoveFriend?: () => void;
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
+  onLeaveGroup?: () => void;
   onStartCall?: () => void;
+  currentUserHandle?: string;
+  allUsers?: User[];
+  onlineHandles?: string[];
   currentAlias?: string;
   originalName?: string;
   onEditAlias?: () => void;
@@ -51,7 +57,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onRemoveFriend,
   onAddFriend,
   onDeleteGroup,
+  onLeaveGroup,
   onStartCall,
+  currentUserHandle,
+  allUsers,
+  onlineHandles,
   currentAlias,
   originalName,
   onEditAlias,
@@ -60,6 +70,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -68,6 +79,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   useEffect(() => {
     setIsMenuOpen(false);
     setIsProfileOpen(false);
+    setIsGroupInfoOpen(false);
     setShowSearch(false);
     setSearchQuery('');
   }, [activeId]);
@@ -117,49 +129,226 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   // ─── Group Header ───
   if (group) {
+    const isCreator = normalizeHandle(currentUserHandle || '') === normalizeHandle(group.creatorHandle);
+
     return (
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
-        <div className="flex items-center space-x-3 cursor-pointer min-w-0">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div className="relative shrink-0">
-            <img
-              src={group.avatar}
-              alt={group.name}
-              className="w-9 h-9 rounded-full object-cover border border-ez-border bg-ez-elevated"
-            />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-elevated z-10">
-              <Users className="w-2 h-2" />
+      <>
+        <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans relative">
+          {showSearch ? (
+            <div className="flex-1 flex items-center space-x-2 mr-2 animate-fade-in">
+              <Search className="w-4 h-4 text-ez-muted shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={t.chat?.searchInConversation || 'Search in chat...'}
+                className="w-full bg-ez-hover border border-transparent focus:border-[var(--ez-accent)] rounded-xl px-3 py-1.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleCloseSearch}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-bold text-white tracking-tight leading-tight truncate">{group.name}</span>
-            <span className="text-[11px] text-ez-muted font-mono">
-              {group.memberHandles.length} {t.groups.membersCount}
-            </span>
-          </div>
+          ) : (
+            <div
+              onClick={() => setIsGroupInfoOpen(true)}
+              className="flex items-center space-x-3 cursor-pointer group min-w-0 flex-1"
+              title={(t as any)?.groups?.groupInfo || "Group Info"}
+            >
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBack();
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center -ml-1 text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 md:hidden cursor-pointer"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 bg-ez-elevated">
+                  <img
+                    src={group.avatar}
+                    alt={group.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-elevated z-10">
+                  <Users className="w-2 h-2" />
+                </div>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center space-x-1.5 min-w-0">
+                  <span className="text-sm font-bold text-white tracking-tight leading-tight group-hover:text-neon-green transition-colors duration-150 truncate">
+                    {group.name}
+                  </span>
+                  {isMuted && (
+                    <span title={t.chat?.notificationsMuted || "Notifications muted"}>
+                      <BellOff className="w-3.5 h-3.5 text-ez-muted" />
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-ez-muted font-mono">
+                  {isTyping ? (
+                    <span className="text-neon-green font-bold animate-pulse">{t.chat?.typing || 'typing...'}</span>
+                  ) : (
+                    `${group.memberHandles.length} ${t.groups?.membersCount || 'members'}`
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {!showSearch && (
+            <div className="flex items-center space-x-0.5 text-ez-muted shrink-0">
+              {/* Lupa (Search) */}
+              <button
+                type="button"
+                onClick={() => setShowSearch(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                title={t.chat?.searchInChat || "Search in chat"}
+              >
+                <Search className="w-[18px] h-[18px]" />
+              </button>
+
+              {/* Troetochiye (More options) */}
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                title={(t.common as any)?.more || "More"}
+              >
+                <MoreVertical className="w-[18px] h-[18px]" />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center space-x-1 text-ez-muted">
-          {onDeleteGroup && (
-            <button
-              type="button"
-              onClick={onDeleteGroup}
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:text-red-400 hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              title={t.groups?.deleteGroup || "Delete group"}
+        {/* Group Dropdown Menu */}
+        {isMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <div
+              className="absolute top-14 right-4 w-52 bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-1.5 z-40 animate-scale-up text-xs select-none space-y-0.5"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
+              {/* View Group Info */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGroupInfoOpen(true);
+                  setIsMenuOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-neon-green" />
+                <span>{(t as any)?.groups?.groupInfo || 'Group Info'}</span>
+              </button>
+
+              {/* Mute/Unmute */}
+              {onToggleMute && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMute();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
+                >
+                  {isMuted ? (
+                    <>
+                      <Bell className="w-4 h-4 text-neon-green" />
+                      <span>{t.chat?.unmuteNotifications || 'Unmute notifications'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="w-4 h-4 text-red-400" />
+                      <span>{t.chat?.muteNotifications || 'Mute notifications'}</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Export chat */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleExportChat();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-gray-200 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 text-left cursor-pointer"
+              >
+                <Download className="w-4 h-4 text-neon-green" />
+                <span>{t.chat?.exportChatHistory || 'Export chat history'}</span>
+              </button>
+
+              {/* Clear messages */}
+              {onClearChat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearChat();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{t.chat?.clearMessages || 'Clear messages'}</span>
+                </button>
+              )}
+
+              <div className="h-px bg-ez-border/50 my-1" />
+
+              {/* Delete group (Creator) or Leave group (Members) */}
+              {isCreator && onDeleteGroup ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onDeleteGroup();
+                  }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer font-semibold"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{t.groups?.deleteGroup || 'Delete group'}</span>
+                </button>
+              ) : !isCreator && onLeaveGroup ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onLeaveGroup();
+                  }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors duration-150 text-left cursor-pointer font-semibold"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{(t as any)?.groups?.leaveGroup || 'Leave group'}</span>
+                </button>
+              ) : null}
+            </div>
+          </>
+        )}
+
+        <GroupInfoModal
+          isOpen={isGroupInfoOpen}
+          group={group}
+          currentUserHandle={currentUserHandle}
+          allUsers={allUsers}
+          onlineHandles={onlineHandles}
+          onClose={() => setIsGroupInfoOpen(false)}
+          onDeleteGroup={isCreator ? onDeleteGroup : undefined}
+          onLeaveGroup={!isCreator ? onLeaveGroup : undefined}
+        />
+      </>
     );
   }
 

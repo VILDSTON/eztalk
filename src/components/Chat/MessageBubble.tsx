@@ -62,6 +62,21 @@ function formatTelegramTime(createdAt?: string, fallbackText?: string, language?
   return '';
 }
 
+function getEmojiSegments(text: string): string[] {
+  const stripped = text.replace(/\s+/g, '');
+  if (!stripped) return [];
+  if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
+    try {
+      const segmenter = new (Intl as any).Segmenter('en', { granularity: 'grapheme' });
+      return [...segmenter.segment(stripped)].map((s: any) => s.segment);
+    } catch {
+      // ignore
+    }
+  }
+  const matches = stripped.match(/(?:\p{Extended_Pictographic}(?:\uFE0F|\u{1F3FB}-\u{1F3FF})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\u{1F3FB}-\u{1F3FF})?)*|\u{1F1E6}-\u{1F1FF}{2})/gu);
+  return matches || [];
+}
+
 const EMOJI_OPTIONS = ['❤️', '👍', '😂', '🔥', '😮', '👏', '🚀', '😢'];
 const PLAYBACK_SPEEDS = [1, 1.5, 2];
 
@@ -274,6 +289,37 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       isNegative: false,
     };
   }, [callData, isMe, t]);
+
+  // Check if message consists strictly of emojis (1 to 5 emojis: Telegram/WhatsApp frameless big emoji style)
+  const emojiInfo = useMemo(() => {
+    if (
+      message.attachment ||
+      callPresentation ||
+      message.replyTo ||
+      message.isForwarded ||
+      linkPreview ||
+      !message.text
+    ) {
+      return { isEmojiOnly: false, count: 0 };
+    }
+
+    const trimmed = message.text.trim();
+    if (!trimmed) return { isEmojiOnly: false, count: 0 };
+
+    const EMOJI_ONLY_REGEX = /^[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\s]+$/u;
+    if (!EMOJI_ONLY_REGEX.test(trimmed)) {
+      return { isEmojiOnly: false, count: 0 };
+    }
+
+    const segments = getEmojiSegments(trimmed);
+    const count = segments.length;
+
+    if (count >= 1 && count <= 5) {
+      return { isEmojiOnly: true, count };
+    }
+
+    return { isEmojiOnly: false, count };
+  }, [message.attachment, callPresentation, message.replyTo, message.isForwarded, linkPreview, message.text]);
 
   useEffect(() => {
     if (!message.text || callPresentation) return;
@@ -696,11 +742,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative px-3.5 pt-2 pb-1.5 rounded-[16px] max-w-[85%] sm:max-w-[70%] text-[14px] leading-relaxed shadow-sm touch-manipulation ${isSwiping ? '' : 'transition-transform duration-200 ease-out'
-            } ${isMe
-              ? 'bg-ez-sent text-white border border-neon-green/20 rounded-br-sm telegram-bubble-out'
-              : 'bg-ez-received text-slate-100 border border-ez-border/50 rounded-bl-sm telegram-bubble-in'
-            }`}
+          className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation ${
+            isSwiping ? '' : 'transition-transform duration-200 ease-out'
+          } ${
+            emojiInfo.isEmojiOnly
+              ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
+              : `px-3.5 pt-2 pb-1.5 rounded-[16px] text-[14px] leading-relaxed shadow-sm ${
+                  isMe
+                    ? 'bg-ez-sent text-white border border-neon-green/20 rounded-br-sm telegram-bubble-out'
+                    : 'bg-ez-received text-slate-100 border border-ez-border/50 rounded-bl-sm telegram-bubble-in'
+                }`
+          }`}
           style={{ transform: `translateX(${swipeOffset}px)` }}
         >
           {/* Forwarded Header */}
@@ -881,27 +933,45 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Text Content with Native Selection (Suppressed for call events to prevent duplicate raw text) */}
           {!callPresentation && message.text && (
-            <p className="whitespace-pre-wrap break-words word-break-all selection:bg-[var(--ez-accent)] selection:text-black">
-              {(() => {
-                const urlRegex = /(https?:\/\/[^\s]+)/g;
-                const parts = message.text.split(urlRegex);
-                return parts.map((part, i) => {
-                  if (part.match(urlRegex)) {
-                    return (
-                      <a
-                        key={i}
-                        href={part}
-                        onClick={(e) => handleExternalLinkClick(e, part)}
-                        className="text-blue-400 hover:text-blue-300 underline cursor-pointer break-all"
-                      >
-                        {part}
-                      </a>
-                    );
-                  }
-                  return <React.Fragment key={i}>{part}</React.Fragment>;
-                });
-              })()}
-            </p>
+            emojiInfo.isEmojiOnly ? (
+              <div
+                className={`flex items-center tracking-normal select-none leading-none my-1 transition-transform ${
+                  emojiInfo.count === 1
+                    ? 'text-[56px] sm:text-[66px]'
+                    : emojiInfo.count === 2
+                    ? 'text-[42px] sm:text-[50px]'
+                    : emojiInfo.count === 3
+                    ? 'text-[34px] sm:text-[40px]'
+                    : emojiInfo.count === 4
+                    ? 'text-[28px] sm:text-[32px]'
+                    : 'text-[24px] sm:text-[28px]'
+                }`}
+              >
+                {message.text.trim()}
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap break-words word-break-all selection:bg-[var(--ez-accent)] selection:text-black">
+                {(() => {
+                  const urlRegex = /(https?:\/\/[^\s]+)/g;
+                  const parts = message.text.split(urlRegex);
+                  return parts.map((part, i) => {
+                    if (part.match(urlRegex)) {
+                      return (
+                        <a
+                          key={i}
+                          href={part}
+                          onClick={(e) => handleExternalLinkClick(e, part)}
+                          className="text-blue-400 hover:text-blue-300 underline cursor-pointer break-all"
+                        >
+                          {part}
+                        </a>
+                      );
+                    }
+                    return <React.Fragment key={i}>{part}</React.Fragment>;
+                  });
+                })()}
+              </p>
+            )
           )}
 
           {/* Link Preview Card */}
@@ -931,56 +1001,105 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
 
           {/* Bubble Meta Footer: Time + Checkmarks */}
-          <div className="flex items-center justify-end space-x-1.5 text-[10px] font-mono select-none mt-0.5 text-ez-muted">
-            {/* Secret / Forward Protected Lock Icon */}
-            {(message.forwardRestricted || message.isSecret) && (
-              <span title={t?.chat?.forwardRestricted || "Forward Restricted"}>
-                <Lock className="w-2.5 h-2.5 text-neon-green" />
-              </span>
-            )}
+          {emojiInfo.isEmojiOnly ? (
+            <div className="flex items-center space-x-1.5 text-[10px] font-mono select-none mt-0.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-sm">
+              {(message.forwardRestricted || message.isSecret) && (
+                <span title={t?.chat?.forwardRestricted || "Forward Restricted"}>
+                  <Lock className="w-2.5 h-2.5 text-neon-green" />
+                </span>
+              )}
 
-            {message.isEdited && <span className="italic text-[9px] text-ez-muted mr-0.5">{t.chat.edited}</span>}
+              {message.isEdited && <span className="italic text-[9px] text-white/70 mr-0.5">{t.chat.edited}</span>}
 
-            <span>{timeString}</span>
+              <span className="text-white/90">{timeString}</span>
 
-            {/* Delivery / Sending / Retry Status */}
-            {isMe && (
-              <span className="ml-0.5">
-                {message.status === 'sending' ? (
-                  <span title={t?.chat?.sending || "Sending..."}>
-                    <Clock className="w-3 h-3 text-ez-muted animate-spin" />
-                  </span>
-                ) : message.status === 'failed' ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onRetry) onRetry(message);
-                    }}
-                    className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                    title={t?.chat?.failedToRetry || "Failed to send. Click to retry."}
-                  >
-                    <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
-                    <span className="text-[9px] font-sans font-bold underline">{t.common?.retry || 'Retry'}</span>
-                  </button>
-                ) : message.status === 'read' ? (
-                  <span title={t?.chat?.read || "Read"}>
-                    <CheckCheck className="w-3.5 h-3.5 text-[var(--ez-accent)] transition-colors duration-500" />
-                  </span>
-                ) : (
-                  <span title={t?.chat?.delivered || "Delivered"}>
-                    <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70 transition-colors duration-500" />
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
+              {/* Delivery / Sending / Retry Status */}
+              {isMe && (
+                <span className="ml-0.5 flex items-center">
+                  {message.status === 'sending' ? (
+                    <span title={t?.chat?.sending || "Sending..."}>
+                      <Clock className="w-3 h-3 text-white/60 animate-spin" />
+                    </span>
+                  ) : message.status === 'failed' ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onRetry) onRetry(message);
+                      }}
+                      className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                      title={t?.chat?.failedToRetry || "Failed to send. Click to retry."}
+                    >
+                      <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
+                      <span className="text-[9px] font-sans font-bold underline">{t.common?.retry || 'Retry'}</span>
+                    </button>
+                  ) : message.status === 'read' ? (
+                    <span title={t?.chat?.read || "Read"}>
+                      <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
+                    </span>
+                  ) : (
+                    <span title={t?.chat?.delivered || "Delivered"}>
+                      <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-end space-x-1.5 text-[10px] font-mono select-none mt-0.5 text-ez-muted">
+              {/* Secret / Forward Protected Lock Icon */}
+              {(message.forwardRestricted || message.isSecret) && (
+                <span title={t?.chat?.forwardRestricted || "Forward Restricted"}>
+                  <Lock className="w-2.5 h-2.5 text-neon-green" />
+                </span>
+              )}
+
+              {message.isEdited && <span className="italic text-[9px] text-ez-muted mr-0.5">{t.chat.edited}</span>}
+
+              <span>{timeString}</span>
+
+              {/* Delivery / Sending / Retry Status */}
+              {isMe && (
+                <span className="ml-0.5">
+                  {message.status === 'sending' ? (
+                    <span title={t?.chat?.sending || "Sending..."}>
+                      <Clock className="w-3 h-3 text-ez-muted animate-spin" />
+                    </span>
+                  ) : message.status === 'failed' ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onRetry) onRetry(message);
+                      }}
+                      className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                      title={t?.chat?.failedToRetry || "Failed to send. Click to retry."}
+                    >
+                      <AlertCircle className="w-3 h-3 text-red-400 animate-pulse" />
+                      <span className="text-[9px] font-sans font-bold underline">{t.common?.retry || 'Retry'}</span>
+                    </button>
+                  ) : message.status === 'read' ? (
+                    <span title={t?.chat?.read || "Read"}>
+                      <CheckCheck className="w-3.5 h-3.5 text-[var(--ez-accent)] transition-colors duration-500" />
+                    </span>
+                  ) : (
+                    <span title={t?.chat?.delivered || "Delivered"}>
+                      <CheckCheck className="w-3.5 h-3.5 text-ez-muted/70 transition-colors duration-500" />
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Floating Reaction Badges (attached cleanly to the bottom edge of the bubble) */}
           {formattedReactions.length > 0 && (
             <div
-              className={`absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'
-                } flex items-center gap-1 z-20 select-none`}
+              className={`${
+                emojiInfo.isEmojiOnly
+                  ? `mt-1.5 flex items-center gap-1 z-20 select-none ${isMe ? 'justify-end' : 'justify-start'}`
+                  : `absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 z-20 select-none`
+              }`}
             >
               {formattedReactions.map((reaction, idx) => (
                 <button
@@ -1059,7 +1178,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <span className="font-medium">{t.chat.reply}</span>
                 </button>
 
-                {!message.forwardRestricted && !message.isSecret && (
+                {!message.forwardRestricted && !message.isSecret && Boolean(onForward) && (
                   <button
                     type="button"
                     onClick={triggerForward}
@@ -1133,7 +1252,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         copied={copied}
         onClose={() => setIsMobileSheetOpen(false)}
         onReply={() => triggerReply()}
-        onForward={!message.forwardRestricted && !message.isSecret ? () => triggerForward() : undefined}
+        onForward={!message.forwardRestricted && !message.isSecret && Boolean(onForward) ? () => triggerForward() : undefined}
         onCopy={() => handleCopyText()}
         onEdit={isMe && Boolean(message.text) && !callPresentation ? () => triggerEdit() : undefined}
         onDelete={onDelete ? () => triggerDelete() : undefined}

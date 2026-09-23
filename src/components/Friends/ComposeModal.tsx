@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Search, MessageSquare, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, MessageSquare, AlertCircle, ArrowRight } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
+import { ApiService } from '../../services/api';
 import { useTranslation } from '../../context/LanguageContext';
 
 interface ComposeModalProps {
@@ -22,26 +23,63 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
   onSelectUser,
 }) => {
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
+  const [handle, setHandle] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setHandle('');
+      setErrorMessage('');
+      setLoading(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const rawList = existingUsers.length > 0 ? existingUsers : users;
-  const myHandle = normalizeHandle(currentUserHandle || '').toLowerCase();
+  const handleStartChat = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    let currentHandle = handle.trim();
+    if (!currentHandle) return;
 
-  const availableUsers = rawList.filter(
-    (u) => normalizeHandle(u.handle).toLowerCase() !== myHandle
-  );
+    if (!currentHandle.startsWith('@')) {
+      currentHandle = '@' + currentHandle;
+    }
 
-  const cleanSearch = search.trim().toLowerCase().replace('@', '');
-  const filtered = cleanSearch
-    ? availableUsers.filter(
-        (u) =>
-          u.handle.toLowerCase().replace('@', '').includes(cleanSearch) ||
-          (u.name && u.name.toLowerCase().includes(cleanSearch)) ||
-          (u.bio && u.bio.toLowerCase().includes(cleanSearch))
-      )
-    : availableUsers;
+    const clean = normalizeHandle(currentHandle);
+    const myHandle = normalizeHandle(currentUserHandle || '');
+
+    if (myHandle && clean.toLowerCase() === myHandle.toLowerCase()) {
+      setErrorMessage(t.friends?.cannotChatWithSelf || 'You cannot start a chat with yourself.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      const rawList = existingUsers.length > 0 ? existingUsers : users;
+      let targetUser = rawList.find(
+        (u) => normalizeHandle(u.handle).toLowerCase() === clean.toLowerCase()
+      );
+
+      if (!targetUser) {
+        targetUser = await ApiService.getUserByHandle(clean);
+      }
+
+      if (targetUser) {
+        onSelectUser(targetUser);
+        onClose();
+        setHandle('');
+      } else {
+        setErrorMessage(t.friends?.userNotFound || 'User not found. Check the @handle and try again.');
+      }
+    } catch {
+      setErrorMessage(t.friends?.userNotFound || 'User not found. Check the @handle and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 select-none font-sans">
@@ -73,83 +111,69 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-4 pb-2">
-          <div className="relative flex items-center">
-            <Search className="w-4 h-4 text-ez-muted absolute left-3.5 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.friends.searchPlaceholder}
-              className="w-full bg-ez-hover focus:bg-ez-border border border-transparent focus:border-[var(--ez-accent)] rounded-2xl pl-10 pr-8 py-2.5 text-xs text-white placeholder-ez-muted outline-none transition-colors duration-150"
-              autoFocus
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-3 w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="mx-4 sm:mx-5 mt-4 flex items-center space-x-2 bg-red-500/10 border border-red-500/25 p-3 rounded-xl text-red-400 text-xs animate-fade-in shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
           </div>
-        </div>
+        )}
 
-        {/* Contact List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-          {filtered.map((user) => (
-            <div
-              key={user.id || user.handle}
-              onClick={() => {
-                onSelectUser(user);
-                onClose();
-              }}
-              className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/[0.04] cursor-pointer transition-colors duration-150 group"
-            >
-              <div className="flex items-center space-x-3 min-w-0 pr-2">
-                <div className="relative w-11 h-11 min-w-[44px] min-h-[44px] shrink-0">
-                  <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 bg-ez-elevated" />
-                  <div
-                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-ez-elevated ${
-                      user.status === 'Online'
-                        ? 'bg-neon-green-glow shadow-neon-dot'
-                        : user.status === 'Away'
-                        ? 'bg-amber-400'
-                        : user.status === 'Busy'
-                        ? 'bg-rose-500'
-                        : 'bg-ez-muted'
-                    }`}
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center space-x-1.5 min-w-0">
-                    <span className="text-sm font-bold text-white group-hover:text-neon-green transition-colors duration-150 truncate">
-                      {user.name || user.handle}
-                    </span>
-                    {user.statusEmoji && (
-                      <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-ez-muted font-mono truncate">{user.handle}</span>
-                </div>
+        {/* Direct Handle Input Form */}
+        <form onSubmit={handleStartChat} className="p-4 sm:p-5 flex flex-col space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+              {t.auth.username}
+            </label>
+            <div className="relative flex items-center">
+              <div className="absolute left-3.5 text-neon-green font-mono font-bold text-sm pointer-events-none select-none">
+                @
               </div>
-
-              <span className="px-3 py-1 bg-neon-green/10 text-neon-green text-xs font-bold rounded-xl shrink-0 group-hover:bg-neon-green group-hover:text-black transition-colors duration-150">
-                {t.chat.message || 'Chat'}
-              </span>
+              <input
+                type="text"
+                value={handle.startsWith('@') ? handle.slice(1) : handle}
+                onChange={(e) => {
+                  const val = e.target.value.trim().replace(/\s+/g, '');
+                  setHandle(val ? `@${val}` : '');
+                  setErrorMessage('');
+                }}
+                placeholder="username"
+                className="w-full bg-ez-base border border-ez-border focus:border-neon-green rounded-xl pl-9 pr-10 py-3 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150 font-mono shadow-inner"
+                autoFocus
+              />
+              {handle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHandle('');
+                    setErrorMessage('');
+                  }}
+                  className="absolute right-3 w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          ))}
+            <p className="text-[11px] text-ez-muted mt-2">
+              {t.friends.enterHandlePlaceholder || 'Enter @username (e.g. @alexr)'}
+            </p>
+          </div>
 
-          {filtered.length === 0 && (
-            <div className="text-center py-10 px-4 text-xs text-ez-muted">
-              <Users className="w-8 h-8 mx-auto text-ez-border mb-2" />
-              <p className="font-semibold text-gray-400">{t.friends.noContactsFound}</p>
-              <p className="mt-0.5 text-ez-muted">{t.friends.noContactsFoundDesc}</p>
-            </div>
-          )}
-        </div>
+          <button
+            type="submit"
+            disabled={loading || !handle.trim()}
+            className="w-full px-4 py-3 bg-neon-green hover:bg-neon-green-light text-black font-bold text-sm rounded-xl shadow-neon-sm hover:shadow-neon-md transition-all active:scale-[0.99] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+            ) : (
+              <>
+                <span>{t.friends.startChat || t.chat.message || 'Start Chat'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );

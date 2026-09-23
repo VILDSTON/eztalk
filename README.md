@@ -2,6 +2,8 @@
 
 > **Clean, noise-free communication for friends.** Built for speed, privacy, and simplicity with a sleek Telegram/Cyber Dark aesthetic.
 
+🔗 **Live Demo:** [https://eztalk.vercel.app](https://eztalk.vercel.app)
+
 ---
 
 ## 🏗️ Tech Stack & Architecture
@@ -20,6 +22,7 @@
 ## ⚡ Key Features
 
 - 💬 **Real-Time Direct & Group Messaging:** Instant, bi-directional message delivery with zero page reload.
+- 🔥 **Disposable Temporary Rooms:** Zero-DB ephemeral rooms running 100% in RAM with live countdown TTL timer, automatic grace periods, and instant burn annihilation.
 - 📞 **Crystal Clear WebRTC Voice Calls:** High-fidelity P2P audio calling with Opus codec, waveform visualizer, and custom sound synthesizer.
 - 👥 **Friends & Group Chats:** Easily search by `@username`, create custom groups, and manage friend lists.
 - 🚫 **Telegram-Style User Blocking:** Restrict profile data (masked avatars, hidden bio/custom status, offline presence) and block unwanted communication.
@@ -37,7 +40,7 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Local Development)
 
 ### 1. Clone & Install
 ```bash
@@ -71,4 +74,5 @@ npm run build
 
 ## 📄 License
 
-MIT License. See `LICENSE` for more information.
+Copyright © 2026 EzTalk. All rights reserved.  
+This project is proprietary and confidential. Unauthorized copying, modification, or distribution of this code via any medium is strictly prohibited.

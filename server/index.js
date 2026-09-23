@@ -21,6 +21,7 @@ import { authRateLimiter, uploadRateLimiter, apiRateLimiter, messageRateLimiter 
 import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
 import { askEzTalkAI } from './services/aiService.js';
+import { createDisposableRoom, setupDisposableSocketHandlers, getRoomInfo } from './disposableRooms.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
   ? (() => { console.error('FATAL: JWT_SECRET environment variable is not set in production. Exiting.'); process.exit(1); })()
@@ -1168,27 +1169,13 @@ app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
 
       if (isRemoving) {
         user.friends = user.friends.filter((h) => h !== cleanTarget);
-        if (targetUser && targetUser.friends) {
-          targetUser.friends = targetUser.friends.filter((h) => h !== userHandle);
-          await targetUser.save();
-          io.to(cleanTarget).emit('friends_updated', { friends: targetUser.friends });
-          io.to(cleanTarget).emit('profile_updated', formatUser(targetUser));
-        }
       } else {
         if (!user.friends.includes(cleanTarget)) user.friends.push(cleanTarget);
-        if (targetUser) {
-          if (!targetUser.friends) targetUser.friends = [];
-          if (!targetUser.friends.includes(userHandle)) targetUser.friends.push(userHandle);
-          await targetUser.save();
-          io.to(cleanTarget).emit('friends_updated', { friends: targetUser.friends });
-          io.to(cleanTarget).emit('profile_updated', formatUser(targetUser));
-        }
       }
 
       await user.save();
       const formatted = formatUser(user);
       io.emit('user_updated', formatted);
-      if (targetUser) io.emit('user_updated', formatUser(targetUser));
       io.to(userHandle).emit('friends_updated', { friends: user.friends });
       io.to(userHandle).emit('profile_updated', formatted);
       res.json({ success: true, friends: user.friends });
@@ -1204,25 +1191,13 @@ app.post('/api/users/:handle/friends', authenticateToken, async (req, res) => {
 
       if (isRemoving) {
         db.users[idx].friends = db.users[idx].friends.filter((h) => h !== cleanTarget);
-        if (targetIdx !== -1 && db.users[targetIdx].friends) {
-          db.users[targetIdx].friends = db.users[targetIdx].friends.filter((h) => h !== userHandle);
-          io.to(cleanTarget).emit('friends_updated', { friends: db.users[targetIdx].friends });
-          io.to(cleanTarget).emit('profile_updated', formatUser(db.users[targetIdx]));
-        }
       } else {
         if (!db.users[idx].friends.includes(cleanTarget)) db.users[idx].friends.push(cleanTarget);
-        if (targetIdx !== -1) {
-          if (!db.users[targetIdx].friends) db.users[targetIdx].friends = [];
-          if (!db.users[targetIdx].friends.includes(userHandle)) db.users[targetIdx].friends.push(userHandle);
-          io.to(cleanTarget).emit('friends_updated', { friends: db.users[targetIdx].friends });
-          io.to(cleanTarget).emit('profile_updated', formatUser(db.users[targetIdx]));
-        }
       }
 
       writeLocalDB(db);
       const formatted = formatUser(db.users[idx]);
       io.emit('user_updated', formatted);
-      if (targetIdx !== -1) io.emit('user_updated', formatUser(db.users[targetIdx]));
       io.to(userHandle).emit('friends_updated', { friends: db.users[idx].friends });
       io.to(userHandle).emit('profile_updated', formatted);
       res.json({ success: true, friends: db.users[idx].friends });
@@ -1924,15 +1899,19 @@ app.post('/api/messages/:id/reaction', authenticateToken, async (req, res) => {
   }
 });
 
-// Groups Endpoints
-app.get('/api/groups', async (req, res) => {
+// Groups Endpoints (Scoped strictly to member's groups)
+app.get('/api/groups', authenticateToken, async (req, res) => {
   try {
+    const userHandle = normalizeHandle(req.user.handle);
     if (isMongoConnected) {
-      const groups = await GroupModel.find().lean();
+      const groups = await GroupModel.find({ memberHandles: userHandle }).lean();
       res.json({ groups });
     } else {
       const db = readLocalDB();
-      res.json({ groups: db.groups || [] });
+      const groups = (db.groups || []).filter((g) =>
+        (g.memberHandles || []).map(normalizeHandle).includes(userHandle)
+      );
+      res.json({ groups });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1969,6 +1948,13 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
       cleanMembers.forEach((handle) => {
         io.to(handle).emit('new_group', created);
       });
+      // Auto-join online member sockets to group room
+      for (const [sId, h] of socketHandleMap.entries()) {
+        if (cleanMembers.includes(h)) {
+          const s = io.sockets.sockets.get(sId);
+          if (s) s.join(`group_${created.id}`);
+        }
+      }
       return res.json({ group: created });
     } else {
       const db = readLocalDB();
@@ -1979,6 +1965,12 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
       cleanMembers.forEach((handle) => {
         io.to(handle).emit('new_group', groupData);
       });
+      for (const [sId, h] of socketHandleMap.entries()) {
+        if (cleanMembers.includes(h)) {
+          const s = io.sockets.sockets.get(sId);
+          if (s) s.join(`group_${groupData.id}`);
+        }
+      }
       return res.json({ group: groupData });
     }
   } catch (err) {
@@ -1986,15 +1978,20 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete Group
+// Delete Group (Creator Only)
 app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const userHandle = normalizeHandle(req.user.handle);
     let memberHandles = [];
 
     if (isMongoConnected) {
       const group = await GroupModel.findOne({ id }).lean();
-      if (group && Array.isArray(group.memberHandles)) {
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+      if (normalizeHandle(group.creatorHandle) !== userHandle) {
+        return res.status(403).json({ error: 'Forbidden: Only the group creator can delete this group.' });
+      }
+      if (Array.isArray(group.memberHandles)) {
         memberHandles = group.memberHandles;
       }
       await GroupModel.findOneAndDelete({ id });
@@ -2003,7 +2000,11 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
       const db = readLocalDB();
       if (db.groups) {
         const group = db.groups.find((g) => g.id === id);
-        if (group && Array.isArray(group.memberHandles)) {
+        if (!group) return res.status(404).json({ error: 'Group not found' });
+        if (normalizeHandle(group.creatorHandle) !== userHandle) {
+          return res.status(403).json({ error: 'Forbidden: Only the group creator can delete this group.' });
+        }
+        if (Array.isArray(group.memberHandles)) {
           memberHandles = group.memberHandles;
         }
         db.groups = db.groups.filter((g) => g.id !== id);
@@ -2021,6 +2022,65 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
     }
 
     res.json({ success: true, groupId: id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Leave Group (Member removes themselves)
+app.post('/api/groups/:id/leave', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userHandle = normalizeHandle(req.user.handle);
+
+    let updatedGroup = null;
+    let shouldDelete = false;
+
+    if (isMongoConnected) {
+      const group = await GroupModel.findOne({ id });
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+
+      group.memberHandles = (group.memberHandles || []).filter((h) => normalizeHandle(h) !== userHandle);
+      if (group.memberHandles.length === 0) {
+        shouldDelete = true;
+        await GroupModel.findOneAndDelete({ id });
+        await MessageModel.deleteMany({ groupId: id });
+      } else {
+        if (normalizeHandle(group.creatorHandle) === userHandle) {
+          group.creatorHandle = group.memberHandles[0];
+        }
+        await group.save();
+        updatedGroup = group.toObject();
+      }
+    } else {
+      const db = readLocalDB();
+      const groupIndex = (db.groups || []).findIndex((g) => g.id === id);
+      if (groupIndex === -1) return res.status(404).json({ error: 'Group not found' });
+
+      const g = db.groups[groupIndex];
+      g.memberHandles = (g.memberHandles || []).filter((h) => normalizeHandle(h) !== userHandle);
+      if (g.memberHandles.length === 0) {
+        shouldDelete = true;
+        db.groups.splice(groupIndex, 1);
+        db.messages = (db.messages || []).filter((m) => m.groupId !== id && m.conversationKey !== `group__${id}`);
+      } else {
+        if (normalizeHandle(g.creatorHandle) === userHandle) {
+          g.creatorHandle = g.memberHandles[0];
+        }
+        updatedGroup = g;
+      }
+      writeLocalDB(db);
+    }
+
+    if (shouldDelete) {
+      io.to(`group_${id}`).emit('group_deleted', { groupId: id });
+      io.to(userHandle).emit('group_deleted', { groupId: id });
+    } else {
+      io.to(`group_${id}`).emit('group_updated', updatedGroup);
+      io.to(userHandle).emit('group_deleted', { groupId: id });
+    }
+
+    res.json({ success: true, groupId: id, left: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2079,6 +2139,25 @@ app.post('/api/messages/clear', authenticateToken, async (req, res) => {
   }
 });
 
+// --- DISPOSABLE TEMPORARY ROOMS API ---
+app.post('/api/disposable-rooms/create', (req, res) => {
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '127.0.0.1';
+  const { durationMinutes } = req.body || {};
+  const result = createDisposableRoom({ durationMinutes, ip: clientIp, io });
+  if (!result.success) {
+    return res.status(429).json(result);
+  }
+  res.json(result);
+});
+
+app.get('/api/disposable-rooms/:id/info', (req, res) => {
+  const info = getRoomInfo(req.params.id);
+  if (!info) {
+    return res.status(404).json({ success: false, error: 'ROOM_NOT_FOUND' });
+  }
+  res.json({ success: true, room: info });
+});
+
 // --- SOCKET.IO SECURE PRESENCE & SIGNALING ---
 const socketHandleMap = new Map(); // socket.id -> handle
 const disconnectTimers = new Map(); // handle -> timeoutId
@@ -2112,6 +2191,9 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
+  // Disposable Temporary Rooms Socket Handlers
+  setupDisposableSocketHandlers(io, socket);
+
   // Send current online users immediately on connection
   socket.emit('online_users', getOnlineHandles());
 
@@ -2127,6 +2209,18 @@ io.on('connection', (socket) => {
 
     socket.join(handle);
     socketHandleMap.set(socket.id, handle);
+
+    // Auto-join all group socket rooms for this user
+    if (isMongoConnected) {
+      GroupModel.find({ memberHandles: handle }).lean().then((userGroups) => {
+        (userGroups || []).forEach((g) => socket.join(`group_${g.id}`));
+      }).catch(() => {});
+    } else {
+      const db = readLocalDB();
+      (db.groups || []).filter((g) => (g.memberHandles || []).map(normalizeHandle).includes(handle)).forEach((g) => {
+        socket.join(`group_${g.id}`);
+      });
+    }
     
     // Clear any pending offline timer if user reconnected fast
     if (disconnectTimers.has(handle)) {
@@ -2138,19 +2232,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join_group', async (groupId) => {
-    if (groupId && socket.verifiedHandle) {
+    const handle = socket.verifiedHandle;
+    if (groupId && handle) {
       if (isMongoConnected) {
         const group = await GroupModel.findOne({ id: groupId }).lean();
-        if (group && Array.isArray(group.memberHandles) && group.memberHandles.includes(socket.verifiedHandle)) {
+        if (group && Array.isArray(group.memberHandles) && group.memberHandles.map(normalizeHandle).includes(handle)) {
           socket.join(`group_${groupId}`);
         }
       } else {
         const db = readLocalDB();
         const group = (db.groups || []).find((g) => g.id === groupId);
-        if (group && Array.isArray(group.memberHandles) && group.memberHandles.includes(socket.verifiedHandle)) {
+        if (group && Array.isArray(group.memberHandles) && group.memberHandles.map(normalizeHandle).includes(handle)) {
           socket.join(`group_${groupId}`);
         }
       }
+    }
+  });
+
+  socket.on('leave_group', (groupId) => {
+    if (groupId) {
+      socket.leave(`group_${groupId}`);
     }
   });
 
@@ -2299,8 +2400,8 @@ io.on('connection', (socket) => {
     const sHandle = socket.verifiedHandle || normalizeHandle(senderHandle);
     const rHandle = normalizeHandle(recipientHandle);
     if (sHandle && rHandle) {
-      // Echo draft to sender's other tabs/devices
-      io.to(sHandle).emit('draft_synced', {
+      // Echo draft to sender's other tabs/devices (excluding sender socket)
+      socket.to(sHandle).emit('draft_synced', {
         senderHandle: sHandle,
         recipientHandle: rHandle,
         text,

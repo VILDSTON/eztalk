@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Menu,
   Search,
@@ -9,10 +9,12 @@ import {
   Trash2,
   MessageSquare,
   Bookmark,
+  Flame,
 } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
+import { CreateDisposableModal } from '../Disposable/CreateDisposableModal';
 import { ChatContextMenu } from './ChatContextMenu';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
@@ -109,6 +111,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
   const { t, language } = useTranslation();
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isDisposableModalOpen, setIsDisposableModalOpen] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'friends' | 'groups' | 'online'>('all');
@@ -197,8 +200,14 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return timeB - timeA;
   });
 
+  const seenGroupIds = new Set<string>();
   const matchedGroups = groups.filter((g) => {
+    if (!g || !g.id || seenGroupIds.has(g.id)) return false;
+    seenGroupIds.add(g.id);
     if (activeTab === 'online') return false;
+    if (currentUser?.handle && !g.memberHandles.some((h) => normalizeHandle(h) === normalizeHandle(currentUser.handle))) {
+      return false;
+    }
     if (!cleanQuery) return true;
     return (
       g.name.toLowerCase().includes(cleanQuery) ||
@@ -234,6 +243,13 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         })
         .slice(0, 5)
     : [];
+
+  const onlyFriendsList = useMemo(() => {
+    return allExistingUsers.filter((u) => {
+      const h = normalizeHandle(u.handle).toLowerCase();
+      return h !== myHandle && isUserFriend(u.handle);
+    });
+  }, [allExistingUsers, myHandle, currentUser?.friends, addedFriends]);
 
   const tabs = [
     { id: 'all' as const, label: t.sidebar.allChats },
@@ -399,20 +415,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                       </div>
                     </div>
                   </div>
-
-                  {onDeleteGroup && group.creatorHandle === normalizeHandle(currentUser?.handle || '') && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setGroupToDelete({ id: group.id, name: group.name });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full text-ez-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-150 cursor-pointer shrink-0"
-                      title={t.groups.deleteGroup}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -597,6 +599,18 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 <Users className="w-4 h-4 text-neon-green" />
                 <span>{t.sidebar.newGroup}</span>
               </button>
+              <div className="h-px bg-white/10 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFabMenu(false);
+                  setIsDisposableModalOpen(true);
+                }}
+                className="w-full flex items-center space-x-2.5 p-2 rounded-xl text-xs font-semibold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors duration-150 cursor-pointer"
+              >
+                <Flame className="w-4 h-4 text-amber-400" />
+                <span>{(t as any)?.disposable?.newTempChat || 'Disposable Room'}</span>
+              </button>
             </div>
           )}
 
@@ -626,13 +640,21 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       {/* Create Group Modal */}
       <CreateGroupModal
         isOpen={isGroupModalOpen}
-        existingUsers={allExistingUsers}
+        friends={onlyFriendsList}
         currentUserHandle={currentUser?.handle}
         onClose={() => setIsGroupModalOpen(false)}
         onCreateGroup={(name, avatar, members) => {
           if (onCreateGroup) onCreateGroup(name, avatar, members);
           setIsGroupModalOpen(false);
         }}
+      />
+
+      {/* Create Disposable Room Modal */}
+      <CreateDisposableModal
+        isOpen={isDisposableModalOpen}
+        currentUserHandle={currentUser?.handle}
+        currentUserName={currentUser?.name}
+        onClose={() => setIsDisposableModalOpen(false)}
       />
 
       {/* Confirm Delete Group Modal */}

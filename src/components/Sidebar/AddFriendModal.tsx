@@ -66,19 +66,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
     }
   }, [handle, existingUsers]);
 
-  const suggestedUsers = useMemo(() => {
-    const clean = (handle || '').trim().toLowerCase().replace('@', '');
-    if (!clean) return [];
-    const myHandle = normalizeHandle(currentUser?.handle || '').toLowerCase();
-    return existingUsers
-      .filter(
-        (u) =>
-          normalizeHandle(u.handle).toLowerCase() !== myHandle &&
-          ((u.handle || '').toLowerCase().includes(clean) || (u.name && u.name.toLowerCase().includes(clean)))
-      )
-      .slice(0, 3);
-  }, [handle, existingUsers, currentUser]);
-
   if (!isOpen) return null;
 
   const handleAction = async (useAlias: boolean) => {
@@ -188,42 +175,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               </div>
             </div>
 
-            {/* Quick matching search suggestions */}
-            {suggestedUsers.length > 0 && (
-              <div className="space-y-1.5 bg-ez-base p-2.5 rounded-2xl border border-ez-border/50">
-                <span className="text-[10px] uppercase font-bold text-ez-muted px-1.5">
-                  {t.friends.matchingUsers}
-                </span>
-                {suggestedUsers.map((su) => (
-                  <div
-                    key={su.id}
-                    onClick={() => {
-                      onAddFriend(su);
-                      onClose();
-                    }}
-                    className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors duration-150 group"
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <img src={su.avatar} alt={su.handle} className="w-7 h-7 rounded-full object-cover shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <span className="text-xs font-bold text-white group-hover:text-neon-green transition-colors duration-150 truncate">
-                            {su.name || su.handle}
-                          </span>
-                          {su.statusEmoji && (
-                            <span className="text-[11px] shrink-0 select-none leading-none">{su.statusEmoji}</span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-ez-muted font-mono truncate">{su.handle}</span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold text-neon-green bg-neon-green/10 px-2 py-0.5 rounded-lg border border-neon-green/20">
-                      {t.chat.message || 'Chat'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div>
               <div className="flex items-center justify-between mb-1.5">

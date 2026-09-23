@@ -460,6 +460,19 @@ export class ApiService {
     }
   }
 
+  // Leave group
+  static async leaveGroup(groupId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/groups/${groupId}/leave`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // Clear Chat History
   static async clearChatHistory(targetId: string, isGroup: boolean): Promise<boolean> {
     try {
@@ -514,5 +527,40 @@ export class ApiService {
     } catch {
       return false;
     }
+  }
+
+  // Create Disposable Temporary Room
+  static async createDisposableRoom(durationMinutes: number = 15): Promise<{
+    id: string;
+    createdAt: number;
+    expiresAt: number;
+    durationMinutes: number;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/disposable-rooms/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ durationMinutes }),
+    });
+    const data = await handleResponse(res, 'Failed to create disposable room');
+    if (!data.success || !data.room) {
+      throw new Error(data.message || 'Could not create room');
+    }
+    return data.room;
+  }
+
+  // Get Disposable Temporary Room Info
+  static async getDisposableRoomInfo(roomId: string): Promise<{
+    id: string;
+    createdAt: number;
+    expiresAt: number;
+    durationMinutes: number;
+    participantCount: number;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/disposable-rooms/${roomId}/info`);
+    const data = await handleResponse(res, 'Failed to get room info');
+    if (!data.success || !data.room) {
+      throw new Error(data.error || 'Room not found');
+    }
+    return data.room;
   }
 }
