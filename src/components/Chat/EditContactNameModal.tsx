@@ -55,7 +55,7 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-ez-border/40">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--ez-accent)]/15 border border-[var(--ez-accent)]/30 text-[var(--ez-accent)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[var(--ez-accent)]/15 border border-neon-green/50 text-[var(--ez-accent)] flex items-center justify-center">
               <UserIcon className="w-4 h-4" />
             </div>
             <div>

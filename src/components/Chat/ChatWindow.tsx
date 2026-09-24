@@ -44,6 +44,7 @@ interface ChatWindowProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onLeaveGroup?: () => void;
+  onUpdateGroup?: (groupId: string, payload: { name: string; avatar: string; memberHandles: string[] }) => Promise<void>;
   onStartCall?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -87,6 +88,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onAddFriend,
   onDeleteGroup,
   onLeaveGroup,
+  onUpdateGroup,
   onStartCall,
   hasMore,
   isLoadingMore,
@@ -155,6 +157,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onAddFriend={onAddFriend}
         onDeleteGroup={onDeleteGroup}
         onLeaveGroup={onLeaveGroup}
+        onUpdateGroup={onUpdateGroup}
+        currentUser={currentUser}
         currentUserHandle={currentUserHandle}
         allUsers={allUsers}
         onlineHandles={onlineHandles}

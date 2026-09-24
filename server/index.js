@@ -1758,9 +1758,22 @@ app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
       // Bug 3 fix: find message first to verify ownership and target socket rooms
       const msgToDelete = await MessageModel.findOne({ id }).lean();
       if (!msgToDelete) return res.status(404).json({ error: 'Message not found' });
-      if (normalizeHandle(msgToDelete.senderHandle) !== callerHandle) {
-        return res.status(403).json({ error: 'Forbidden: You can only delete your own messages' });
+      
+      const sHandle = normalizeHandle(msgToDelete.senderHandle);
+      const rHandle = normalizeHandle(msgToDelete.recipientHandle);
+      let canDelete = sHandle === callerHandle || rHandle === callerHandle;
+
+      if (!canDelete && msgToDelete.groupId) {
+        const group = await GroupModel.findOne({ id: msgToDelete.groupId }).lean();
+        if (group && normalizeHandle(group.creatorHandle) === callerHandle) {
+          canDelete = true;
+        }
       }
+
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to delete this message' });
+      }
+
       await MessageModel.deleteOne({ id });
       if (msgToDelete.groupId) {
         io.to(`group_${msgToDelete.groupId}`).emit('message_deleted', { id });
@@ -1775,9 +1788,22 @@ app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
       const db = readLocalDB();
       const msgToDelete = db.messages.find((m) => m.id === id);
       if (!msgToDelete) return res.status(404).json({ error: 'Message not found' });
-      if (normalizeHandle(msgToDelete.senderHandle) !== callerHandle) {
-        return res.status(403).json({ error: 'Forbidden: You can only delete your own messages' });
+
+      const sHandle = normalizeHandle(msgToDelete.senderHandle);
+      const rHandle = normalizeHandle(msgToDelete.recipientHandle);
+      let canDelete = sHandle === callerHandle || rHandle === callerHandle;
+
+      if (!canDelete && msgToDelete.groupId) {
+        const group = (db.groups || []).find((g) => g.id === msgToDelete.groupId);
+        if (group && normalizeHandle(group.creatorHandle) === callerHandle) {
+          canDelete = true;
+        }
       }
+
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to delete this message' });
+      }
+
       db.messages = db.messages.filter((m) => m.id !== id);
       writeLocalDB(db);
       if (msgToDelete.groupId) {
@@ -2081,6 +2107,139 @@ app.post('/api/groups/:id/leave', authenticateToken, async (req, res) => {
     }
 
     res.json({ success: true, groupId: id, left: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Single Group (for invite preview or refresh)
+app.get('/api/groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let group = null;
+    if (isMongoConnected) {
+      group = await GroupModel.findOne({ id }).lean();
+    } else {
+      const db = readLocalDB();
+      group = (db.groups || []).find((g) => g.id === id);
+    }
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+    res.json({ group });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Group (Name, Avatar, Members) - Creator / Admin only
+app.put('/api/groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userHandle = normalizeHandle(req.user.handle);
+    const { name, avatar, memberHandles } = req.body;
+
+    let updatedGroup = null;
+
+    if (isMongoConnected) {
+      const group = await GroupModel.findOne({ id });
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+
+      if (normalizeHandle(group.creatorHandle) !== userHandle) {
+        return res.status(403).json({ error: 'Only group creator can edit this group' });
+      }
+
+      if (name && typeof name === 'string') group.name = name.trim();
+      if (avatar && typeof avatar === 'string') group.avatar = avatar;
+      if (Array.isArray(memberHandles)) {
+        const cleanMembers = Array.from(new Set(memberHandles.map(normalizeHandle)));
+        if (!cleanMembers.includes(normalizeHandle(group.creatorHandle))) {
+          cleanMembers.unshift(normalizeHandle(group.creatorHandle));
+        }
+        group.memberHandles = cleanMembers;
+      }
+
+      await group.save();
+      updatedGroup = group.toObject();
+    } else {
+      const db = readLocalDB();
+      const groupIndex = (db.groups || []).findIndex((g) => g.id === id);
+      if (groupIndex === -1) return res.status(404).json({ error: 'Group not found' });
+
+      const g = db.groups[groupIndex];
+      if (normalizeHandle(g.creatorHandle) !== userHandle) {
+        return res.status(403).json({ error: 'Only group creator can edit this group' });
+      }
+
+      if (name && typeof name === 'string') g.name = name.trim();
+      if (avatar && typeof avatar === 'string') g.avatar = avatar;
+      if (Array.isArray(memberHandles)) {
+        const cleanMembers = Array.from(new Set(memberHandles.map(normalizeHandle)));
+        if (!cleanMembers.includes(normalizeHandle(g.creatorHandle))) {
+          cleanMembers.unshift(normalizeHandle(g.creatorHandle));
+        }
+        g.memberHandles = cleanMembers;
+      }
+
+      writeLocalDB(db);
+      updatedGroup = g;
+    }
+
+    // Auto-join online member sockets to group room
+    for (const [sId, h] of socketHandleMap.entries()) {
+      if (updatedGroup.memberHandles.includes(h)) {
+        const s = io.sockets.sockets.get(sId);
+        if (s) s.join(`group_${id}`);
+      }
+    }
+
+    io.to(`group_${id}`).emit('group_updated', updatedGroup);
+    res.json({ success: true, group: updatedGroup });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Join Group via Invite Link
+app.post('/api/groups/:id/join', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userHandle = normalizeHandle(req.user.handle);
+
+    let updatedGroup = null;
+
+    if (isMongoConnected) {
+      const group = await GroupModel.findOne({ id });
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+
+      const existingMembers = (group.memberHandles || []).map(normalizeHandle);
+      if (!existingMembers.includes(userHandle)) {
+        group.memberHandles.push(userHandle);
+        await group.save();
+      }
+      updatedGroup = group.toObject();
+    } else {
+      const db = readLocalDB();
+      const groupIndex = (db.groups || []).findIndex((g) => g.id === id);
+      if (groupIndex === -1) return res.status(404).json({ error: 'Group not found' });
+
+      const g = db.groups[groupIndex];
+      const existingMembers = (g.memberHandles || []).map(normalizeHandle);
+      if (!existingMembers.includes(userHandle)) {
+        g.memberHandles.push(userHandle);
+        writeLocalDB(db);
+      }
+      updatedGroup = g;
+    }
+
+    // Auto-join user sockets to group room
+    for (const [sId, h] of socketHandleMap.entries()) {
+      if (h === userHandle) {
+        const s = io.sockets.sockets.get(sId);
+        if (s) s.join(`group_${id}`);
+      }
+    }
+
+    io.to(`group_${id}`).emit('group_updated', updatedGroup);
+    res.json({ success: true, group: updatedGroup });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

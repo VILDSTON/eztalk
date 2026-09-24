@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Message, QuotedMessage } from '../../types/chat';
 import {
@@ -115,6 +115,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
+
+  // Double-tap heart reaction state & refs (Mobile & Desktop)
+  const [showHeartBurst, setShowHeartBurst] = useState(false);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const heartBurstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Audio & Waveform player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -592,11 +597,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       setIsSwiping(false);
       isHorizontalSwipeRef.current = false;
       touchStartPosRef.current = null;
+      lastTapRef.current = null;
       return;
     }
 
     if (swipeOffset <= -55) {
       triggerReply();
+    } else if (!isHorizontalSwipeRef.current && touchStartPosRef.current) {
+      // Mobile Double-Tap to React with Heart ❤️
+      const now = Date.now();
+      const lastTap = lastTapRef.current;
+      const touch = e.changedTouches ? e.changedTouches[0] : null;
+
+      if (touch) {
+        if (lastTap && now - lastTap.time < 350) {
+          const dist = Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y);
+          if (dist < 40) {
+            triggerHeartReaction();
+            lastTapRef.current = null;
+            setSwipeOffset(0);
+            setIsSwiping(false);
+            isHorizontalSwipeRef.current = false;
+            touchStartPosRef.current = null;
+            return;
+          }
+        }
+        lastTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+      }
     }
 
     setSwipeOffset(0);
@@ -681,6 +708,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setIsMobileSheetOpen(false);
   };
 
+  const triggerHeartReaction = useCallback(() => {
+    if (onToggleReaction) {
+      onToggleReaction(message.id, '❤️');
+    }
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate([15, 35, 15]);
+      } catch { }
+    }
+    setShowHeartBurst(true);
+    if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
+    heartBurstTimerRef.current = setTimeout(() => {
+      setShowHeartBurst(false);
+    }, 700);
+  }, [message.id, onToggleReaction]);
+
 
   const handleMediaClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -742,7 +785,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
-          className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation ${
+          onDoubleClick={triggerHeartReaction}
+          className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation select-text ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
           } ${
             emojiInfo.isEmojiOnly
@@ -755,6 +799,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           }`}
           style={{ transform: `translateX(${swipeOffset}px)` }}
         >
+          {/* Double-tap Floating Heart Burst Animation */}
+          {showHeartBurst && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 select-none">
+              <span className="text-4xl sm:text-5xl animate-heart-burst filter drop-shadow-[0_0_12px_rgba(244,63,94,0.7)]">
+                ❤️
+              </span>
+            </div>
+          )}
           {/* Forwarded Header */}
           {message.isForwarded && (
             <div className="flex items-center space-x-1.5 text-[11px] mb-1 font-semibold select-none" style={{ color: 'var(--ez-accent)' }}>

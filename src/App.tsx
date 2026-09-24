@@ -8,6 +8,7 @@ import { CallModal } from './components/Chat/CallModal';
 import { TelegramDrawer } from './components/Sidebar/TelegramDrawer';
 import { TelegramSettingsModal } from './components/Settings/TelegramSettingsModal';
 import { CreateGroupModal } from './components/Groups/CreateGroupModal';
+import { JoinGroupModal } from './components/Groups/JoinGroupModal';
 import { EditProfileModal } from './components/Profile/EditProfileModal';
 import { AddFriendModal } from './components/Sidebar/AddFriendModal';
 import { EditContactNameModal } from './components/Chat/EditContactNameModal';
@@ -101,6 +102,7 @@ function MainApp() {
   });
   const [editingAliasUser, setEditingAliasUser] = useState<User | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
+  const [pendingJoinGroupId, setPendingJoinGroupId] = useState<string | null>(null);
 
   const [showPwaInstall, setShowPwaInstall] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -156,6 +158,18 @@ function MainApp() {
   useEffect(() => {
     const path = location.pathname.toLowerCase();
 
+    const joinGroupMatch = path.match(new RegExp(`^(?:/${lang})?/join/group/([^/]+)`));
+    if (joinGroupMatch) {
+      const targetGid = joinGroupMatch[1];
+      if (!currentUser) {
+        sessionStorage.setItem('eztalk_pending_join_group', targetGid);
+        sessionStorage.setItem('eztalk_redirect_after_login', `/${lang}/join/group/${targetGid}`);
+      } else {
+        setPendingJoinGroupId(targetGid);
+      }
+      return;
+    }
+
     const handleMatch = path.match(new RegExp(`^/${lang}/@([^/]+)`));
     const chatMatch = path.match(new RegExp(`^/${lang}/chat/([^/]+)`));
 
@@ -178,12 +192,12 @@ function MainApp() {
       setLegalModal({ isOpen: true, tab: 'privacy' });
     } else if (path === '/terms') {
       setLegalModal({ isOpen: true, tab: 'terms' });
-    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`) && !path.startsWith(`/${lang}/login`) && !path.startsWith(`/${lang}/about`) && !path.startsWith(`/${lang}/t`) && !path.startsWith(`/${lang}/room`)) {
+    } else if (path !== '/' && path !== `/${lang}` && path !== `/${lang}/` && !path.startsWith(`/${lang}/chat`) && !path.startsWith(`/${lang}/direct`) && !path.startsWith(`/${lang}/@`) && !path.startsWith(`/${lang}/login`) && !path.startsWith(`/${lang}/about`) && !path.startsWith(`/${lang}/t`) && !path.startsWith(`/${lang}/room`) && !path.startsWith(`/${lang}/join`) && !path.startsWith('/join')) {
       setIsNotFound(true);
     } else {
       setIsNotFound(false);
     }
-  }, [location.pathname, lang, navigate]);
+  }, [location.pathname, lang, navigate, currentUser]);
   const [addedFriends, setAddedFriends] = useState<string[]>(() =>
     currentUser?.friends && currentUser.friends.length > 0
       ? currentUser.friends.map(normalizeHandle)
@@ -250,6 +264,11 @@ function MainApp() {
         sessionStorage.setItem('eztalk_redirect_after_login', `/direct/t/${urlChatId}`);
       }
     } else {
+      const pendingJoin = sessionStorage.getItem('eztalk_pending_join_group');
+      if (pendingJoin) {
+        sessionStorage.removeItem('eztalk_pending_join_group');
+        setPendingJoinGroupId(pendingJoin);
+      }
       const pendingRedirect = sessionStorage.getItem('eztalk_redirect_after_login');
       if (pendingRedirect) {
         sessionStorage.removeItem('eztalk_redirect_after_login');
@@ -1895,6 +1914,20 @@ function MainApp() {
     }
   };
 
+  // Update Group
+  const handleUpdateGroup = async (
+    groupId: string,
+    payload: { name: string; avatar: string; memberHandles: string[] }
+  ) => {
+    try {
+      const updated = await ApiService.updateGroup(groupId, payload);
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...updated } : g)));
+    } catch (err: any) {
+      console.error('Failed to update group:', err);
+      throw err;
+    }
+  };
+
   // Delete Group
   const handleDeleteGroup = async (groupId?: string) => {
     const target = groupId || selectedGroupId;
@@ -1910,10 +1943,10 @@ function MainApp() {
   };
 
   // Leave Group
-  const handleLeaveGroup = async (groupId?: string) => {
+  const handleLeaveGroup = async (groupId?: string, skipConfirm = false) => {
     const target = groupId || selectedGroupId;
     if (!target) return;
-    if (confirm('Are you sure you want to leave this group chat?')) {
+    if (skipConfirm || confirm('Are you sure you want to leave this group chat?')) {
       setGroups((prev) => prev.filter((g) => g.id !== target));
       if (selectedGroupId === target) {
         setSelectedGroupId(null);
@@ -2366,7 +2399,8 @@ function MainApp() {
               onAddFriend={() => selectedUser && handleAddExistingFriend(selectedUser.handle)}
               onRemoveFriend={() => selectedUser && handleRemoveFriend(selectedUser.handle)}
               onDeleteGroup={() => handleDeleteGroup()}
-              onLeaveGroup={() => handleLeaveGroup()}
+              onLeaveGroup={() => handleLeaveGroup(selectedGroupId || undefined, true)}
+              onUpdateGroup={handleUpdateGroup}
               onStartCall={() => selectedUser && setActiveLiveCall({ user: selectedUser, isInitiator: true })}
               hasMore={Boolean(currentChatKey && hasMoreByChat[currentChatKey])}
               isLoadingMore={isLoadingMore}
@@ -2619,6 +2653,26 @@ function MainApp() {
           </div>
         </div>
       )}
+
+      {/* Join Group Modal */}
+      {pendingJoinGroupId && (
+        <JoinGroupModal
+          isOpen={Boolean(pendingJoinGroupId)}
+          groupId={pendingJoinGroupId}
+          currentUser={currentUser}
+          onClose={() => {
+            setPendingJoinGroupId(null);
+            navigate('/direct/t', { replace: true });
+          }}
+          onJoined={(joinedGroup) => {
+            setGroups((prev) => [...prev.filter((g) => g.id !== joinedGroup.id), joinedGroup]);
+            socketService.joinGroup(joinedGroup.id);
+            setSelectedGroupId(joinedGroup.id);
+            setPendingJoinGroupId(null);
+            navigate(`/direct/t/${joinedGroup.id}`, { replace: true });
+          }}
+        />
+      )}
     </div>
   );
 
@@ -2629,6 +2683,7 @@ function MainApp() {
       <Route path="room/:roomId" element={<DisposableRoomScreen />} />
       <Route path="login" element={isAuth ? <Navigate to={`/${lang}/direct/t`} replace /> : authContent} />
       <Route path="direct/t/*" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
+      <Route path="join/group/:groupId" element={!isAuth ? <Navigate to={`/${lang}/login`} replace /> : mainContent} />
       <Route path="t/direct/:chatId" element={<LegacyChatRedirect />} />
       <Route path="t/direct/t/:chatId" element={<LegacyChatRedirect />} />
       <Route path="chat/:chatId" element={<LegacyChatRedirect />} />

@@ -19,17 +19,20 @@ export function normalizeUser(user: any): User {
 
 // Хелпер для безопасного парсинга JSON и обработки 502/504/CORS ошибок
 async function handleResponse(res: Response, fallbackError: string) {
-  if (res.status === 401 || res.status === 403) {
-    localStorage.removeItem('eztalk_token');
-    window.dispatchEvent(new CustomEvent('ez:unauthorized'));
-  }
-
   let data: any = {};
   try {
     data = await res.json();
   } catch {
     data = { error: `Server error (${res.status})` };
   }
+
+  // Only invalidate session on true authentication failures (401 or token expiration/revocation 403)
+  const isTokenError = data?.error && (typeof data.error === 'string') && (data.error.toLowerCase().includes('token') || data.error.toLowerCase().includes('jwt'));
+  if (res.status === 401 || (res.status === 403 && isTokenError)) {
+    localStorage.removeItem('eztalk_token');
+    window.dispatchEvent(new CustomEvent('ez:unauthorized'));
+  }
+
   if (!res.ok) throw new Error(data.error || fallbackError);
   return data;
 }
@@ -471,6 +474,41 @@ export class ApiService {
     } catch {
       return false;
     }
+  }
+
+  // Get single group
+  static async getGroupById(groupId: string): Promise<Group | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.group || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Update group (Name, Avatar, Members)
+  static async updateGroup(groupId: string, payload: { name?: string; avatar?: string; memberHandles?: string[] }): Promise<Group> {
+    const res = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await handleResponse(res, 'Failed to update group');
+    return data.group;
+  }
+
+  // Join group via invite link
+  static async joinGroup(groupId: string): Promise<Group> {
+    const res = await fetch(`${API_BASE_URL}/groups/${groupId}/join`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    const data = await handleResponse(res, 'Failed to join group');
+    return data.group;
   }
 
   // Clear Chat History

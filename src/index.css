@@ -379,6 +379,36 @@ body,
   will-change: transform;
 }
 
+/* ─── Double Tap Heart Burst Animation ─── */
+@keyframes heartBurst {
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1.4) translateY(-4px);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1) translateY(-8px);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1.15) translateY(-14px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.9) translateY(-24px);
+    opacity: 0;
+  }
+}
+
+.animate-heart-burst {
+  animation: heartBurst 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
 .pb-safe {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
 }

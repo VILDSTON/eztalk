@@ -257,6 +257,40 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   };
 
+  const playRemoteAudio = (stream: MediaStream) => {
+    const audioEl = remoteAudioRef.current;
+    if (!audioEl) return;
+
+    if (audioEl.srcObject !== stream) {
+      audioEl.srcObject = stream;
+    }
+    audioEl.volume = 1.0;
+    audioEl.muted = !isSpeakerOn;
+
+    const playPromise = audioEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn('Remote audio autoplay blocked by browser policy, waiting for user gesture:', err);
+        const unlock = () => {
+          if (remoteAudioRef.current && remoteStreamRef.current) {
+            remoteAudioRef.current.srcObject = remoteStreamRef.current;
+            remoteAudioRef.current.muted = !isSpeakerOn;
+            remoteAudioRef.current.play().catch(() => {});
+          }
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume().catch(() => {});
+          }
+          window.removeEventListener('click', unlock);
+          window.removeEventListener('touchstart', unlock);
+          window.removeEventListener('pointerdown', unlock);
+        };
+        window.addEventListener('click', unlock, { once: true });
+        window.addEventListener('touchstart', unlock, { once: true });
+        window.addEventListener('pointerdown', unlock, { once: true });
+      });
+    }
+  };
+
   const createPeerConnection = (localStream: MediaStream) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
@@ -267,15 +301,16 @@ export const CallModal: React.FC<CallModalProps> = ({
     configureHighQualitySender(pc);
 
     pc.ontrack = (event) => {
+      console.log('WebRTC ontrack event received:', event.track?.kind, event.streams);
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
       remoteStreamRef.current = stream;
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
-        remoteAudioRef.current.volume = 1.0;
-        remoteAudioRef.current.muted = false;
-        remoteAudioRef.current.play().catch((err) => {
-          console.warn('Remote audio play failed:', err);
-        });
+      playRemoteAudio(stream);
+
+      if (event.track) {
+        event.track.onunmute = () => {
+          console.log('WebRTC remote audio track unmuted');
+          playRemoteAudio(stream);
+        };
       }
     };
 
@@ -292,6 +327,9 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (pc.connectionState === 'connected') {
         callSoundService.stopAll();
         setCallState('connected');
+        if (remoteStreamRef.current) {
+          playRemoteAudio(remoteStreamRef.current);
+        }
       } else if (pc.connectionState === 'failed') {
         // Only end on definitive failure, not on transient 'disconnected'
         handleEndCall();
@@ -304,6 +342,9 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         callSoundService.stopAll();
         setCallState('connected');
+        if (remoteStreamRef.current) {
+          playRemoteAudio(remoteStreamRef.current);
+        }
       } else if (pc.iceConnectionState === 'failed') {
         handleEndCall();
       }
@@ -318,10 +359,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false,
-          sampleRate: { ideal: 48000 },
-          sampleSize: { ideal: 16 },
-          channelCount: 1,
+          autoGainControl: true,
         },
       });
       localStreamRef.current = stream;
@@ -490,6 +528,12 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   useEffect(() => {
     if (callState === 'connected') {
+      if (remoteStreamRef.current) {
+        playRemoteAudio(remoteStreamRef.current);
+      }
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
       if (durationTimerRef.current) {
         clearInterval(durationTimerRef.current);
       }
@@ -619,7 +663,13 @@ export const CallModal: React.FC<CallModalProps> = ({
   };
 
   const toggleSpeaker = () => {
-    setIsSpeakerOn((prev) => !prev);
+    setIsSpeakerOn((prev) => {
+      const next = !prev;
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.muted = !next;
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -674,8 +724,18 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   return (
     <>
-      {/* Hidden audio element with autoplay for remote audio stream with reactive muted prop */}
-      <audio ref={remoteAudioRef} autoPlay playsInline muted={!isSpeakerOn} />
+      {/* Hidden audio element with autoplay for remote audio stream without buggy React JSX muted attribute */}
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+        onCanPlay={() => {
+          if (remoteStreamRef.current) playRemoteAudio(remoteStreamRef.current);
+        }}
+        onLoadedMetadata={() => {
+          if (remoteStreamRef.current) playRemoteAudio(remoteStreamRef.current);
+        }}
+      />
 
       {isMinimized ? (
         /* Floating Minimized Call Pill */
@@ -771,7 +831,12 @@ export const CallModal: React.FC<CallModalProps> = ({
         </div>
       ) : (
         /* Full Modal */
-        <div className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-2xl animate-fade-in select-none font-sans">
+        <div
+          onClick={() => {
+            if (remoteStreamRef.current) playRemoteAudio(remoteStreamRef.current);
+          }}
+          className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-2xl animate-fade-in select-none font-sans"
+        >
           <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.2)] p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden backdrop-blur-2xl">
             {/* Ambient Glow */}
             <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />

@@ -29,6 +29,8 @@ interface ChatHeaderProps {
   onAddFriend?: () => void;
   onDeleteGroup?: () => void;
   onLeaveGroup?: () => void;
+  onUpdateGroup?: (groupId: string, payload: { name: string; avatar: string; memberHandles: string[] }) => Promise<void>;
+  currentUser?: User | null;
   onStartCall?: () => void;
   currentUserHandle?: string;
   allUsers?: User[];
@@ -58,6 +60,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onAddFriend,
   onDeleteGroup,
   onLeaveGroup,
+  onUpdateGroup,
+  currentUser,
   onStartCall,
   currentUserHandle,
   allUsers,
@@ -308,20 +312,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
               <div className="h-px bg-ez-border/50 my-1" />
 
-              {/* Delete group (Creator) or Leave group (Members) */}
-              {isCreator && onDeleteGroup ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onDeleteGroup();
-                  }}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors duration-150 text-left cursor-pointer font-semibold"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>{t.groups?.deleteGroup || 'Delete group'}</span>
-                </button>
-              ) : !isCreator && onLeaveGroup ? (
+              {/* Leave group (Available for all members, including creator) */}
+              {onLeaveGroup && (
                 <button
                   type="button"
                   onClick={() => {
@@ -333,7 +325,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <LogOut className="w-4 h-4" />
                   <span>{(t as any)?.groups?.leaveGroup || 'Leave group'}</span>
                 </button>
-              ) : null}
+              )}
             </div>
           </>
         )}
@@ -341,12 +333,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <GroupInfoModal
           isOpen={isGroupInfoOpen}
           group={group}
+          currentUser={currentUser}
           currentUserHandle={currentUserHandle}
           allUsers={allUsers}
           onlineHandles={onlineHandles}
+          messages={messages}
+          isMuted={isMuted}
+          onToggleMute={onToggleMute}
           onClose={() => setIsGroupInfoOpen(false)}
-          onDeleteGroup={isCreator ? onDeleteGroup : undefined}
-          onLeaveGroup={!isCreator ? onLeaveGroup : undefined}
+          onUpdateGroup={onUpdateGroup}
+          onDeleteGroup={onDeleteGroup}
+          onLeaveGroup={onLeaveGroup}
         />
       </>
     );
