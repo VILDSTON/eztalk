@@ -96,7 +96,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center bg-black/90 backdrop-blur-2xl animate-fade-in select-none p-0 sm:p-4 font-sans">
-      <div className="bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm p-6 sm:p-7 shadow-[0_0_60px_rgba(16,185,129,0.2)] flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-2xl">
+      <div className="bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm p-6 sm:p-7 flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-2xl">
         {/* Ambient Glow */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-60 h-60 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
 
@@ -132,19 +132,21 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
           <button
             type="button"
             onClick={handleDecline}
-            className="w-16 h-16 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer border border-red-400/25 flex items-center justify-center shrink-0"
+            onTouchEnd={(e) => { e.preventDefault(); handleDecline(); }}
+            className="w-16 h-16 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.35)] transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer border border-red-400/25 flex items-center justify-center shrink-0 relative z-50"
             title={t.calls.declineCall}
           >
-            <PhoneOff className="w-6 h-6" />
+            <PhoneOff className="w-6 h-6 pointer-events-none" />
           </button>
 
           <button
             type="button"
             onClick={handleAccept}
-            className="w-16 h-16 rounded-2xl bg-neon-green hover:bg-neon-green-light text-black shadow-neon-lg transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer font-bold border border-neon-green flex items-center justify-center shrink-0"
+            onTouchEnd={(e) => { e.preventDefault(); handleAccept(); }}
+            className="w-16 h-16 rounded-2xl bg-neon-green hover:bg-neon-green-light text-black shadow-neon-lg transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer font-bold border border-neon-green flex items-center justify-center shrink-0 relative z-50"
             title={t.calls.acceptCall}
           >
-            <Phone className="w-6 h-6 animate-glow-pulse" />
+            <Phone className="w-6 h-6 animate-glow-pulse pointer-events-none" />
           </button>
         </div>
       </div>

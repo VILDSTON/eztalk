@@ -982,32 +982,17 @@ function MainApp() {
         mutedUsersRef.current[sHandle] ||
         (isForGroup && mutedUsersRef.current[newMsg.groupId!]);
 
-      // If message is from someone else and NOT muted, handle sound, desktop notifications, and floating toasts
+      // If message is from someone else and NOT muted, handle sound and desktop notifications
       if (sHandle !== myHandle && !isMuted) {
-        // 1. Audible Chimes: Trigger chime if enabled and chat not focused or app in background
+        // 1. Audible Chimes: Always trigger soap chime when receiving a message (including while inside the chat)
         if (currentUserRef.current?.settings?.soundNotifications !== false) {
-          if (!isCurrentChatOpen || document.hidden) {
-            playMessageChime();
-          }
+          playMessageChime();
         }
 
         const sender = allUsersRef.current.find((u) => normalizeHandle(u.handle) === sHandle);
         const senderName = sender?.name || sHandle;
         const senderAvatar = sender?.avatar || DEFAULT_AVATAR;
         const senderId = sender?.id || sHandle;
-
-        // 2. In-App Floating Toasts: Render animated floating toast if enabled and chat is NOT open
-        if (currentUserRef.current?.settings?.floatingToasts !== false && !isCurrentChatOpen) {
-          setToast({
-            id: `toast_${Date.now()}`,
-            senderName: isForGroup ? `Group message` : senderName,
-            senderHandle: sHandle,
-            senderAvatar,
-            text: newMsg.text || (newMsg.attachment ? `Sent an attachment` : 'New message'),
-            senderId: isForGroup ? undefined : senderId,
-            groupId: newMsg.groupId || undefined,
-          });
-        }
 
         // 3. Browser Desktop Notifications: Show system toast when enabled and app in background
         if (
@@ -1219,24 +1204,24 @@ function MainApp() {
     const unsubCallDeclined = socketService.onCallDeclined(() => {
       callSoundService.stopAll();
       setIncomingCall(null);
-      // Give CallModal 1.2s to show status and record chat history, with fallback timeout
+      // Give CallModal time to show status and record chat history, with fallback timeout
       setTimeout(() => {
         if (activeLiveCallRef.current) {
           setActiveLiveCall(null);
         }
-      }, 2500);
+      }, 3500);
     });
 
     // Call ended event
     const unsubCallEnded = socketService.onCallEnded(() => {
       callSoundService.stopAll();
       setIncomingCall(null);
-      // Give CallModal 1.2s to show status and record chat history, with fallback timeout
+      // Give CallModal time to show status and record chat history, with fallback timeout
       setTimeout(() => {
         if (activeLiveCallRef.current) {
           setActiveLiveCall(null);
         }
-      }, 2500);
+      }, 3500);
     });
 
     // Chat cleared event
@@ -1826,15 +1811,6 @@ function MainApp() {
       true,
       originalSender
     );
-
-    setToast({
-      id: Date.now().toString(),
-      senderName: targetGroup ? targetGroup.name : (targetUser?.name || targetUser?.handle || 'Recipient'),
-      senderHandle: targetGroup ? targetGroup.name : (targetUser?.handle || 'Recipient'),
-      senderAvatar: targetGroup ? targetGroup.avatar : (targetUser?.avatar || DEFAULT_AVATAR),
-      text: `↪ Forwarded message from ${originalSender}`,
-      groupId: targetGroupId,
-    });
   };
 
   // Edit Message
@@ -2200,69 +2176,10 @@ function MainApp() {
 
   const mainContent = (
     <div className="w-full h-full min-h-[100dvh] h-[100dvh] bg-ez-base text-slate-100 flex flex-col overflow-hidden font-sans relative">
-      {/* Top Right In-App Notification Toast */}
-      {toast && (
-        <div
-          onClick={() => {
-            if (toast.groupId) {
-              setSelectedGroupId(toast.groupId);
-              setSelectedUserId('');
-              setUnreadCounts((prev) => ({ ...prev, [toast.groupId!]: 0 }));
-            } else if (toast.senderId) {
-              const target = allUsers.find(
-                (u) => u.id === toast.senderId || normalizeHandle(u.handle) === normalizeHandle(toast.senderHandle)
-              );
-              if (target) {
-                setSelectedUserId(target.id);
-                setSelectedGroupId(null);
-                setUnreadCounts((prev) => ({
-                  ...prev,
-                  [normalizeHandle(target.handle)]: 0,
-                  [target.id]: 0,
-                }));
-              }
-            }
-            setToast(null);
-          }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 bg-ez-elevated/95 border border-neon-green/40 hover:border-neon-green p-3.5 rounded-2xl shadow-glass-lg text-white cursor-pointer transition-all animate-slide-up w-[92vw] sm:w-auto sm:max-w-md backdrop-blur-md"
-        >
-          <div className="relative shrink-0">
-            <img
-              src={toast.senderAvatar}
-              alt={toast.senderHandle}
-              className="w-10 h-10 rounded-full object-cover border border-neon-green/50"
-            />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green border-2 border-ez-elevated shadow-neon-dot" />
-          </div>
-          <div className="flex flex-col min-w-0 pr-1 flex-1">
-            <div className="flex items-center space-x-1.5">
-              <span className="text-xs font-bold text-neon-green truncate">{toast.senderName}</span>
-              <span className="text-[10px] text-ez-muted font-mono truncate">{toast.senderHandle}</span>
-            </div>
-            <p className="text-xs text-gray-200 truncate mt-0.5">{toast.text}</p>
-          </div>
-          <div className="flex items-center space-x-1 shrink-0">
-            <span className="text-[10px] text-ez-muted flex items-center mr-1">
-              <MessageSquare className="w-3 h-3 text-neon-green" />
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setToast(null);
-              }}
-              className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main EzTalk 3-Panel Application Body */}
       <div className="flex-1 flex overflow-hidden bg-ez-base w-full h-full">
         {/* Panel 1: Left Mini-Bar Rail (64px) - Always visible on desktop */}
-        <div className="hidden md:flex h-full shrink-0">
+        <div className="hidden lg:flex h-full shrink-0">
           <LeftSidebar
             currentUser={currentUser}
             myAccounts={myAccounts}
@@ -2290,7 +2207,7 @@ function MainApp() {
         </div>
 
         {/* Panel 2: Friends & Conversations Panel */}
-        <div className={`h-full ${selectedUser || selectedGroup ? 'hidden md:flex' : 'flex'} w-full md:w-auto shrink-0`}>
+        <div className={`h-full ${selectedUser || selectedGroup ? 'hidden lg:flex' : 'flex'} w-full lg:w-auto shrink-0`}>
           <FriendsList
             key={currentUser?.id || 'guest'}
             currentUser={currentUser}
@@ -2335,7 +2252,7 @@ function MainApp() {
         </div>
 
         {/* Panel 3: Main Chat View Area */}
-        <div className={`flex-1 flex flex-col min-w-0 w-full overflow-hidden bg-ez-base ${!selectedUser && !selectedGroup ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex-1 flex flex-col min-w-0 w-full overflow-hidden bg-ez-base ${!selectedUser && !selectedGroup ? 'hidden lg:flex' : 'flex'}`}>
           {selectedUser || selectedGroup ? (
             <ChatWindow
               user={selectedUser}

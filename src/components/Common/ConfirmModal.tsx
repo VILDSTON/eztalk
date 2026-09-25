@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  isDanger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }

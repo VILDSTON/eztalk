@@ -624,6 +624,34 @@ function formatUser(u) {
   };
 }
 
+// Mask profile information (avatar, bio, banner, customStatus) if viewerHandle is blocked by targetUser
+function sanitizeUserForViewer(targetUser, viewerHandle) {
+  if (!targetUser) return null;
+  const formatted = formatUser(targetUser);
+  if (!viewerHandle) return formatted;
+  const cleanViewer = normalizeHandle(viewerHandle);
+  const cleanTarget = normalizeHandle(formatted.handle);
+  if (cleanViewer === cleanTarget) return formatted;
+
+  const isBlockedByTarget = Array.isArray(formatted.blockedUsers) &&
+    formatted.blockedUsers.map(normalizeHandle).includes(cleanViewer);
+
+  if (isBlockedByTarget) {
+    const fallbackAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(formatted.handle || formatted.name || 'user')}`;
+    return {
+      ...formatted,
+      avatar: fallbackAvatar,
+      bio: '',
+      banner: null,
+      customStatusText: null,
+      statusEmoji: null,
+      status: 'Offline',
+      isOnline: false,
+    };
+  }
+  return formatted;
+}
+
 // Helper to format message objects and decrypt message text
 function formatMessage(m) {
   if (!m) return null;
@@ -809,12 +837,13 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
 // Get All Users (authenticated — prevents anonymous user enumeration)
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
+    const viewerHandle = req.user ? req.user.handle : null;
     if (isMongoConnected) {
       const users = await UserModel.find().lean();
-      res.json({ users: users.map(formatUser) });
+      res.json({ users: users.map(u => sanitizeUserForViewer(u, viewerHandle)) });
     } else {
       const db = readLocalDB();
-      res.json({ users: db.users.map(formatUser) });
+      res.json({ users: db.users.map(u => sanitizeUserForViewer(u, viewerHandle)) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -825,13 +854,21 @@ app.get('/api/users', authenticateToken, async (req, res) => {
 app.get('/api/users/by-handle/:handle', async (req, res) => {
   try {
     const cleanHandle = normalizeHandle(req.params.handle);
+    const authHeader = req.headers['authorization'];
+    let viewerHandle = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        viewerHandle = decoded.handle;
+      } catch {}
+    }
     if (isMongoConnected) {
       const user = await UserModel.findOne({ handle: cleanHandle }).lean();
-      res.json({ user: formatUser(user) });
+      res.json({ user: sanitizeUserForViewer(user, viewerHandle) });
     } else {
       const db = readLocalDB();
       const user = db.users.find((u) => u.handle.toLowerCase() === cleanHandle);
-      res.json({ user: formatUser(user) });
+      res.json({ user: sanitizeUserForViewer(user, viewerHandle) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -846,20 +883,28 @@ app.get('/api/users/profile', async (req, res) => {
       return res.status(400).json({ error: 'User handle or id is required to fetch profile.' });
     }
     const cleanHandle = normalizeHandle(rawHandle);
+    const authHeader = req.headers['authorization'];
+    let viewerHandle = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        viewerHandle = decoded.handle;
+      } catch {}
+    }
 
     if (isMongoConnected) {
       const user = await UserModel.findOne({
         $or: [{ handle: cleanHandle }, { _id: req.query.id || null }],
       }).lean();
       if (!user) return res.status(404).json({ error: 'User profile not found.' });
-      return res.json({ user: formatUser(user) });
+      return res.json({ user: sanitizeUserForViewer(user, viewerHandle) });
     } else {
       const db = readLocalDB();
       const user = db.users.find(
         (u) => u.handle.toLowerCase() === cleanHandle.toLowerCase() || (req.query.id && u.id === req.query.id)
       );
       if (!user) return res.status(404).json({ error: 'User profile not found.' });
-      return res.json({ user: formatUser(user) });
+      return res.json({ user: sanitizeUserForViewer(user, viewerHandle) });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1000,6 +1045,11 @@ app.all(['/api/users/profile', '/api/users/settings'], authenticateToken, async 
 
       const formatted = formatUser(updated);
       io.emit('user_updated', formatted);
+      if (Array.isArray(formatted.blockedUsers) && formatted.blockedUsers.length > 0) {
+        formatted.blockedUsers.forEach((bHandle) => {
+          io.to(normalizeHandle(bHandle)).emit('user_updated', sanitizeUserForViewer(formatted, bHandle));
+        });
+      }
       io.to(targetHandle).emit('profile_updated', formatted);
       if (prevHandle && prevHandle !== targetHandle) {
         io.to(prevHandle).emit('profile_updated', formatted);
@@ -1089,6 +1139,11 @@ app.all(['/api/users/profile', '/api/users/settings'], authenticateToken, async 
       writeLocalDB(db);
       const formatted = formatUser(user);
       io.emit('user_updated', formatted);
+      if (Array.isArray(formatted.blockedUsers) && formatted.blockedUsers.length > 0) {
+        formatted.blockedUsers.forEach((bHandle) => {
+          io.to(normalizeHandle(bHandle)).emit('user_updated', sanitizeUserForViewer(formatted, bHandle));
+        });
+      }
       io.to(targetHandle).emit('profile_updated', formatted);
       if (prevHandle && prevHandle !== targetHandle) {
         io.to(prevHandle).emit('profile_updated', formatted);
@@ -1121,6 +1176,9 @@ app.post('/api/users/:handle/block', authenticateToken, async (req, res) => {
       await user.save();
       const formatted = formatUser(user);
       io.emit('user_updated', formatted);
+      if (cleanTarget) {
+        io.to(cleanTarget).emit('user_updated', sanitizeUserForViewer(formatted, cleanTarget));
+      }
       res.json({ success: true, blockedUsers: user.blockedUsers });
     } else {
       const db = readLocalDB();
@@ -1136,7 +1194,11 @@ app.post('/api/users/:handle/block', authenticateToken, async (req, res) => {
       }
       writeLocalDB(db);
       // FIX: Use formatUser() to strip password hash before broadcasting
-      io.emit('user_updated', formatUser(db.users[idx]));
+      const formatted = formatUser(db.users[idx]);
+      io.emit('user_updated', formatted);
+      if (cleanTarget) {
+        io.to(cleanTarget).emit('user_updated', sanitizeUserForViewer(formatted, cleanTarget));
+      }
       res.json({ success: true, blockedUsers: db.users[idx].blockedUsers });
     }
   } catch (err) {

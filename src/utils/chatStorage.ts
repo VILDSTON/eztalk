@@ -34,6 +34,44 @@ export function getConversationKey(handle1: string, handle2: string): string {
   return [h1, h2].sort().join('__');
 }
 
+// Checks if targetUser has blocked viewerHandle
+export function isUserBlockedBy(
+  targetUser?: { handle?: string; blockedUsers?: string[] } | null,
+  viewerHandle?: string | null
+): boolean {
+  if (!targetUser || !viewerHandle) return false;
+  const cleanViewer = normalizeHandle(viewerHandle);
+  if (!cleanViewer) return false;
+  const list = targetUser.blockedUsers;
+  if (!Array.isArray(list)) return false;
+  return list.map(normalizeHandle).includes(cleanViewer);
+}
+
+// Mask avatar for blocked users
+export function getDisplayAvatar(
+  user?: { handle?: string; name?: string; avatar?: string; blockedUsers?: string[] } | null,
+  viewerHandle?: string | null
+): string {
+  const fallback = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user?.handle || user?.name || 'user')}`;
+  if (!user) return fallback;
+  if (isUserBlockedBy(user, viewerHandle)) {
+    return fallback;
+  }
+  return user.avatar || fallback;
+}
+
+// Mask bio for blocked users
+export function getDisplayBio(
+  user?: { bio?: string; blockedUsers?: string[] } | null,
+  viewerHandle?: string | null
+): string {
+  if (!user) return '';
+  if (isUserBlockedBy(user, viewerHandle)) {
+    return '';
+  }
+  return user.bio || '';
+}
+
 // Initial mockup messages matching image_0.png
 const INITIAL_SHARED_CONVERSATIONS: Record<string, Message[]> = {
   [getConversationKey('@AlexR', '@User_A')]: [

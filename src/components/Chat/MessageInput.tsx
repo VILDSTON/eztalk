@@ -107,10 +107,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   }, [recipientHandle, initialDraft, isRecording]);
 
+  const previousDraftRef = useRef<string>('');
+  const prevEditingRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (editingMessage) {
+      if (!prevEditingRef.current) {
+        previousDraftRef.current = inputText;
+      }
       setInputText(editingMessage.text);
       inputRef.current?.focus();
+      prevEditingRef.current = true;
+    } else if (prevEditingRef.current) {
+      const restored = previousDraftRef.current || '';
+      previousDraftRef.current = '';
+      prevEditingRef.current = false;
+      setInputText(restored);
+      if (onDraftChange) onDraftChange(restored);
     }
   }, [editingMessage]);
 
@@ -169,7 +182,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onSendMessage(inputText.trim());
         }
       }
-      setInputText('');
+      const restored = previousDraftRef.current || '';
+      previousDraftRef.current = '';
+      prevEditingRef.current = false;
+      setInputText(restored);
+      if (onDraftChange) onDraftChange(restored);
       if (onCancelEdit) onCancelEdit();
       return;
     }
@@ -190,6 +207,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape' && editingMessage) {
+      e.preventDefault();
+      const restored = previousDraftRef.current || '';
+      previousDraftRef.current = '';
+      prevEditingRef.current = false;
+      setInputText(restored);
+      if (onDraftChange) onDraftChange(restored);
+      if (onCancelEdit) onCancelEdit();
+      return;
+    }
+
     const localSetting = localStorage.getItem('eztalk_enter_to_send');
     const shouldEnterToSend = localSetting !== null ? JSON.parse(localSetting) : (enterToSend !== false);
 
@@ -493,7 +521,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             </div>
             <button
               type="button"
-              onClick={onCancelEdit}
+              onClick={() => {
+                const restored = previousDraftRef.current || '';
+                previousDraftRef.current = '';
+                prevEditingRef.current = false;
+                setInputText(restored);
+                if (onDraftChange) onDraftChange(restored);
+                if (onCancelEdit) onCancelEdit();
+              }}
               className="w-6 h-6 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
             >
               <X className="w-3.5 h-3.5" />

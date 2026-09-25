@@ -478,3 +478,15 @@ button:not([class*="w-"]):not([class*="h-"]),
 .custom-scrollbar {
   -webkit-overflow-scrolling: touch;
 }
+
+/* Chat Row Selected State with Dynamic Accent Color */
+.chat-row-selected {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 12%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ez-accent, #10b981) 28%, transparent) !important;
+}
+
+.saved-avatar-badge {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ez-accent, #10b981) 28%, transparent) !important;
+  color: var(--ez-accent, #10b981) !important;
+}

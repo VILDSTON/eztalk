@@ -156,7 +156,7 @@ export const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="relative group w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-neon-green/40 shadow-neon-sm bg-black/40 cursor-pointer hover:border-neon-green transition-all"
-                  title={t.groups?.changePhoto || 'Click to change photo'}
+                  title={(t.groups as any)?.changePhoto || 'Click to change photo'}
                 >
                   <img src={groupAvatar} alt="Group Avatar" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity">
@@ -176,20 +176,21 @@ export const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingAvatar}
                     className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-semibold text-gray-200 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
-                    title={t.groups?.uploadPhoto || 'Upload custom photo'}
+                    title={(t.groups as any)?.uploadPhoto || 'Upload custom photo'}
                   >
                     <Upload className="w-3 h-3 text-neon-green" />
-                    <span>{t.groups?.upload || 'Upload'}</span>
+                    <span>{(t.groups as any)?.upload || 'Upload'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleRandomizeAvatar}
+                    disabled={isUploadingAvatar}
                     className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-semibold text-gray-200 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
-                    title={t.groups?.randomizeAvatar || 'Generate random avatar'}
+                    title={(t.groups as any)?.randomizeAvatar || 'Generate random avatar'}
                   >
                     <RefreshCw className="w-3 h-3 text-neon-green" />
-                    <span>{t.groups?.random || 'Random'}</span>
+                    <span>{(t.groups as any)?.random || 'Random'}</span>
                   </button>
                 </div>
 
@@ -353,7 +354,7 @@ export const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
               className="px-5 py-2.5 rounded-xl bg-neon-green hover:brightness-110 text-black font-bold text-xs shadow-neon-sm transition-all cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>{isSubmitting ? (t.common?.saving || 'Saving...') : (t.common?.save || 'Save Changes')}</span>
+              <span>{isSubmitting ? ((t.common as any)?.saving || 'Saving...') : (t.common?.save || 'Save Changes')}</span>
             </button>
           </div>
         </div>

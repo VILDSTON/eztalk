@@ -54,6 +54,15 @@ export const THEME_OPTIONS: ThemeOption[] = [
   },
 ];
 
+export const THEME_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
+  neon: { en: 'Neon Green', ru: 'Изумрудный', uz: 'Yashil' },
+  cyan: { en: 'Cyber Blue', ru: 'Кибер Синий', uz: 'Moviy' },
+  purple: { en: 'Purple Night', ru: 'Фиолетовый', uz: 'Binafsha' },
+  amber: { en: 'Sunset Amber', ru: 'Янтарный', uz: 'Qahrabo' },
+  rose: { en: 'Ruby Glow', ru: 'Рубиновый', uz: 'Yoqut' },
+  slate: { en: 'Deep Gray', ru: 'Глубокий серый', uz: 'To‘q kulrang' },
+};
+
 export function applyTheme(themeId: string = 'neon') {
   if (typeof document === 'undefined') return;
   const theme = THEME_OPTIONS.find((t) => t.id === themeId) || THEME_OPTIONS[0];

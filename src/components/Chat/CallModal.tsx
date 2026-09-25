@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, Minimize2, Maximize2, Signal, Clock } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, Minimize2, Maximize2, Signal, Clock, AlertCircle } from 'lucide-react';
 import { User, CallInfo } from '../../types/chat';
 import { socketService } from '../../services/socket';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { callSoundService } from '../../utils/callSounds';
 import { useTranslation } from '../../context/LanguageContext';
+import { getWebRTCConfiguration } from '../../constants/webrtc';
 
 interface CallModalProps {
   user: User;
@@ -13,13 +14,6 @@ interface CallModalProps {
   isInitiator?: boolean;
   onClose: (info?: CallInfo) => void;
 }
-
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ],
-};
 
 // Modifies SDP to set Opus to 64kbps high-fidelity voice, enable DTX, in-band FEC, and stable 20ms packetization
 function optimizeAudioSDP(sdp: string): string {
@@ -76,8 +70,8 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [callState, setCallState] = useState<'calling' | 'connected' | 'ended'>('calling');
-  const [endReason, setEndReason] = useState<'ended' | 'declined' | 'no_answer' | 'canceled' | null>(null);
+  const [callState, setCallState] = useState<'calling' | 'connecting' | 'connected' | 'ended'>(isInitiator ? 'calling' : 'connecting');
+  const [endReason, setEndReason] = useState<'ended' | 'declined' | 'no_answer' | 'canceled' | 'failed' | null>(null);
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 25, 45, 60, 35, 20]);
   const [callQuality, setCallQuality] = useState<{
     rtt: number | null;
@@ -222,7 +216,6 @@ export const CallModal: React.FC<CallModalProps> = ({
         socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
           answer: pc.localDescription,
         });
-        setCallState('connected');
         callSoundService.stopAll();
       } else if (signal.answer) {
         if (pc.signalingState === 'have-local-offer') {
@@ -238,7 +231,6 @@ export const CallModal: React.FC<CallModalProps> = ({
               }
             }
           }
-          setCallState('connected');
           callSoundService.stopAll();
         }
       } else if (signal.candidate) {
@@ -275,10 +267,10 @@ export const CallModal: React.FC<CallModalProps> = ({
           if (remoteAudioRef.current && remoteStreamRef.current) {
             remoteAudioRef.current.srcObject = remoteStreamRef.current;
             remoteAudioRef.current.muted = !isSpeakerOn;
-            remoteAudioRef.current.play().catch(() => {});
+            remoteAudioRef.current.play().catch(() => { });
           }
           if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume().catch(() => {});
+            audioContextRef.current.resume().catch(() => { });
           }
           window.removeEventListener('click', unlock);
           window.removeEventListener('touchstart', unlock);
@@ -291,8 +283,68 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   };
 
+  const cleanupCallResources = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => { });
+      audioContextRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.oniceconnectionstatechange = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  };
+
+  const handleCallConnectionFailed = () => {
+    if (callState === 'ended') return;
+    console.warn('WebRTC Call Connection Failed: ICE failed or peer disconnected');
+    callSoundService.stopAll();
+    setCallState('ended');
+    setEndReason('failed');
+    socketService.endCall(currentUser.handle, user.handle, 'failed');
+    cleanupCallResources();
+
+    if (endCallTimerRef.current) {
+      clearTimeout(endCallTimerRef.current);
+    }
+    endCallTimerRef.current = setTimeout(() => {
+      onClose({
+        type: 'missed',
+        duration: 0,
+      });
+    }, 2500);
+  };
+
+  const handleEndCall = () => {
+    // Guard against double-close when socket event fires after user already ended call
+    if (callState === 'ended') return;
+    callSoundService.stopAll();
+    const actionReason = durationRef.current > 0 ? 'ended' : 'canceled';
+    socketService.endCall(currentUser.handle, user.handle, actionReason);
+    setCallState('ended');
+    setEndReason(actionReason);
+    cleanupCallResources();
+
+    const info: CallInfo = {
+      type: durationRef.current > 0 ? (isInitiator ? 'outgoing' : 'incoming') : (isInitiator ? 'canceled' : 'missed'),
+      duration: durationRef.current,
+    };
+    onClose(info);
+  };
+
   const createPeerConnection = (localStream: MediaStream) => {
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(getWebRTCConfiguration());
     peerConnectionRef.current = pc;
 
     localStream.getTracks().forEach((track) => {
@@ -331,8 +383,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           playRemoteAudio(remoteStreamRef.current);
         }
       } else if (pc.connectionState === 'failed') {
-        // Only end on definitive failure, not on transient 'disconnected'
-        handleEndCall();
+        handleCallConnectionFailed();
       }
     };
 
@@ -346,7 +397,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           playRemoteAudio(remoteStreamRef.current);
         }
       } else if (pc.iceConnectionState === 'failed') {
-        handleEndCall();
+        handleCallConnectionFailed();
       }
     };
 
@@ -420,7 +471,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (callerH && normalizeHandle(callerH) === normalizeHandle(currentUser.handle)) {
         recipientAcceptedRef.current = true;
         callSoundService.stopAll();
-        setCallState('connected');
+        setCallState('connecting');
 
         const pc = peerConnectionRef.current;
         if (pc) {
@@ -466,8 +517,9 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (isRel) {
         callSoundService.stopAll();
         setCallState('ended');
-        let resReason: 'ended' | 'declined' | 'no_answer' | 'canceled' = 'ended';
-        if (reason === 'timeout') resReason = 'no_answer';
+        let resReason: 'ended' | 'declined' | 'no_answer' | 'canceled' | 'failed' = 'ended';
+        if (reason === 'failed') resReason = 'failed';
+        else if (reason === 'timeout') resReason = 'no_answer';
         else if (reason === 'declined') resReason = 'declined';
         else if (reason === 'canceled') resReason = 'canceled';
         else if (durationRef.current === 0) resReason = isInitiator ? 'declined' : 'canceled';
@@ -487,7 +539,7 @@ export const CallModal: React.FC<CallModalProps> = ({
                   : (isInitiator ? 'canceled' : 'missed'),
             duration: durationRef.current,
           });
-        }, 1200);
+        }, resReason === 'failed' ? 2500 : 1200);
       }
     });
 
@@ -513,6 +565,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       }
       if (peerConnectionRef.current) {
         peerConnectionRef.current.onconnectionstatechange = null;
+        peerConnectionRef.current.oniceconnectionstatechange = null;
         peerConnectionRef.current.onicecandidate = null;
         peerConnectionRef.current.ontrack = null;
         peerConnectionRef.current.close();
@@ -532,7 +585,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         playRemoteAudio(remoteStreamRef.current);
       }
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(() => {});
+        audioContextRef.current.resume().catch(() => { });
       }
       if (durationTimerRef.current) {
         clearInterval(durationTimerRef.current);
@@ -573,6 +626,19 @@ export const CallModal: React.FC<CallModalProps> = ({
       return () => clearTimeout(ringTimer);
     }
   }, [callState, isInitiator, currentUser.handle, user.handle, onClose]);
+
+  // 30-second Connecting Timeout (Auto fail if ICE handshake gets permanently stuck)
+  useEffect(() => {
+    if (callState === 'connecting') {
+      const connTimer = setTimeout(() => {
+        if (callState === 'connecting') {
+          console.warn('ICE connection timeout: exceeded 30s without reaching connected state');
+          handleCallConnectionFailed();
+        }
+      }, 30000);
+      return () => clearTimeout(connTimer);
+    }
+  }, [callState]);
 
   // Immediate notify & track cleanup on tab close / reload
   useEffect(() => {
@@ -678,42 +744,6 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   }, [isSpeakerOn]);
 
-  const handleEndCall = () => {
-    // Bug 1 fix: guard against double-close when socket event fires after user already ended call
-    if (callState === 'ended') return;
-    callSoundService.stopAll();
-    const actionReason = durationRef.current > 0 ? 'ended' : 'canceled';
-    socketService.endCall(currentUser.handle, user.handle, actionReason);
-    setCallState('ended');
-    setEndReason(actionReason);
-
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => { });
-      audioContextRef.current = null;
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.onconnectionstatechange = null;
-      peerConnectionRef.current.onicecandidate = null;
-      peerConnectionRef.current.ontrack = null;
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-
-    const info: CallInfo = {
-      type: durationRef.current > 0 ? (isInitiator ? 'outgoing' : 'incoming') : (isInitiator ? 'canceled' : 'missed'),
-      duration: durationRef.current,
-    };
-    onClose(info);
-  };
-
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -762,16 +792,20 @@ export const CallModal: React.FC<CallModalProps> = ({
                 {user?.name || user?.handle || 'User'}
               </span>
               <div className="flex items-center space-x-1.5 text-[10px]">
-                <span className="text-neon-green font-mono font-semibold">
+                <span className={`font-mono font-semibold ${callState === 'ended' && endReason === 'failed' ? 'text-rose-400' : 'text-neon-green'}`}>
                   {callState === 'connected'
                     ? formatDuration(callDuration)
-                    : callState === 'ended'
-                      ? (endReason === 'declined'
-                          ? (t.calls?.callDeclinedStatus || 'Вызов отклонён')
-                          : endReason === 'no_answer'
-                            ? (t.calls?.noAnswer || 'Не отвечает')
-                            : (t.calls?.callEnded || 'Звонок завершён'))
-                      : (isInitiator ? t.calls.calling : t.calls.ringing)}
+                    : callState === 'connecting'
+                      ? (t.calls?.connecting || 'Connecting...')
+                      : callState === 'ended'
+                        ? (endReason === 'failed'
+                          ? (t.calls?.connectionFailed || 'Connection failed')
+                          : endReason === 'declined'
+                            ? (t.calls?.callDeclinedStatus || 'Вызов отклонён')
+                            : endReason === 'no_answer'
+                              ? (t.calls?.noAnswer || 'Не отвечает')
+                              : (t.calls?.callEnded || 'Звонок завершён'))
+                        : (isInitiator ? t.calls.calling : t.calls.ringing)}
                 </span>
                 {callQuality.rtt !== null && (
                   <span className="text-gray-400 font-mono">
@@ -800,11 +834,10 @@ export const CallModal: React.FC<CallModalProps> = ({
             <button
               type="button"
               onClick={toggleMute}
-              className={`w-9 h-9 min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
-                isMuted
-                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                  : 'bg-white/10 hover:bg-white/20 text-gray-200 border border-white/10'
-              }`}
+              className={`w-9 h-9 min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${isMuted
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                : 'bg-white/10 hover:bg-white/20 text-gray-200 border border-white/10'
+                }`}
               title={isMuted ? t.calls.unmuteMic : t.calls.muteMic}
             >
               {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -837,7 +870,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           }}
           className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-2xl animate-fade-in select-none font-sans"
         >
-          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.2)] p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden backdrop-blur-2xl">
+          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden backdrop-blur-2xl">
             {/* Ambient Glow */}
             <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
 
@@ -851,135 +884,146 @@ export const CallModal: React.FC<CallModalProps> = ({
               <Minimize2 className="w-4 h-4" />
             </button>
 
-        {/* User Avatar with Waveform Pulsing Rings */}
-        <div className="relative mb-6">
-          {callState === 'calling' && (
-            <>
-              <div className="absolute inset-0 rounded-full bg-neon-green/20 animate-ping" />
-              <div className="absolute -inset-3 rounded-full border border-neon-green/30 animate-pulse" />
-            </>
-          )}
+            {/* User Avatar with Waveform Pulsing Rings */}
+            <div className="relative mb-6">
+              {(callState === 'calling' || callState === 'connecting') && (
+                <>
+                  <div className="absolute inset-0 rounded-full bg-neon-green/20 animate-ping" />
+                  <div className="absolute -inset-3 rounded-full border border-neon-green/30 animate-pulse" />
+                </>
+              )}
 
-          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neon-green shadow-neon-md bg-ez-surface relative z-10">
-            <img
-              src={avatarUrl}
-              alt={user?.handle || 'User'}
-              className="w-full h-full object-cover"
-              onError={() => setAvatarUrl(fallbackAvatar)}
-            />
-          </div>
-        </div>
-
-        {/* User Name & Handle */}
-        <h3 className="text-xl font-bold text-white tracking-tight leading-tight">{user?.name || user?.handle || 'User'}</h3>
-        <p className="text-xs text-neon-green font-mono mt-1">{user?.handle || ''}</p>
-
-        {/* Call State / Duration */}
-        <div className="my-5 flex flex-col items-center">
-          {callState === 'calling' ? (
-            <span className="text-xs font-bold text-gray-400 animate-pulse flex items-center space-x-1.5">
-              <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
-              <span>{isInitiator ? t.calls.calling : t.calls.ringing}</span>
-            </span>
-          ) : callState === 'connected' ? (
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-sm font-bold text-neon-green font-mono tracking-widest bg-neon-green/10 px-3.5 py-1 rounded-full border border-neon-green/20">
-                {formatDuration(callDuration)}
-              </span>
-
-              {/* Dynamic Equalizer Waveform */}
-              <div className="flex items-center space-x-1.5 h-6">
-                {audioLevels.map((lvl, idx) => (
-                  <div
-                    key={idx}
-                    className="w-1 bg-neon-green rounded-full transition-all duration-75"
-                    style={{ height: `${lvl}px` }}
-                  />
-                ))}
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neon-green shadow-neon-md bg-ez-surface relative z-10">
+                <img
+                  src={avatarUrl}
+                  alt={user?.handle || 'User'}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarUrl(fallbackAvatar)}
+                />
               </div>
+            </div>
 
-              {/* Real-time WebRTC Ping & Quality Indicator Badge */}
-              {callQuality.rtt !== null && (
-                <div
-                  className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-mono border transition-colors mt-1"
-                  style={{
-                    borderColor: callQuality.rating === 'excellent' ? 'rgba(0, 230, 118, 0.35)' : callQuality.rating === 'good' ? 'rgba(234, 179, 8, 0.35)' : 'rgba(239, 68, 68, 0.35)',
-                    backgroundColor: callQuality.rating === 'excellent' ? 'rgba(0, 230, 118, 0.1)' : callQuality.rating === 'good' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: callQuality.rating === 'excellent' ? '#00e676' : callQuality.rating === 'good' ? '#eab308' : '#ef4444'
-                  }}
-                  title={`Round-trip time: ${callQuality.rtt}ms, Packet loss: ${callQuality.lossRate}%`}
-                >
-                  <Signal className="w-3 h-3" />
-                  <span>{callQuality.rtt}ms</span>
-                  {callQuality.rating === 'excellent' && <span>• HD Voice</span>}
+            {/* User Name & Handle */}
+            <h3 className="text-xl font-bold text-white tracking-tight leading-tight">{user?.name || user?.handle || 'User'}</h3>
+            <p className="text-xs text-neon-green font-mono mt-1">{user?.handle || ''}</p>
+
+            {/* Call State / Duration */}
+            <div className="my-5 flex flex-col items-center">
+              {callState === 'calling' ? (
+                <span className="text-xs font-bold text-gray-400 animate-pulse flex items-center space-x-1.5">
+                  <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
+                  <span>{isInitiator ? t.calls.calling : t.calls.ringing}</span>
+                </span>
+              ) : callState === 'connecting' ? (
+                <span className="text-xs font-bold text-neon-green animate-pulse flex items-center space-x-1.5">
+                  <Activity className="w-3.5 h-3.5 text-neon-green animate-spin" />
+                  <span>{t.calls?.connecting || 'Connecting...'}</span>
+                </span>
+              ) : callState === 'connected' ? (
+                <div className="flex flex-col items-center space-y-2">
+                  <span className="text-sm font-bold text-neon-green font-mono tracking-widest bg-neon-green/10 px-3.5 py-1 rounded-full border border-neon-green/20">
+                    {formatDuration(callDuration)}
+                  </span>
+
+                  {/* Dynamic Equalizer Waveform */}
+                  <div className="flex items-center space-x-1.5 h-6">
+                    {audioLevels.map((lvl, idx) => (
+                      <div
+                        key={idx}
+                        className="w-1 bg-neon-green rounded-full transition-all duration-75"
+                        style={{ height: `${lvl}px` }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Real-time WebRTC Ping & Quality Indicator Badge */}
+                  {callQuality.rtt !== null && (
+                    <div
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-mono border transition-colors mt-1"
+                      style={{
+                        borderColor: callQuality.rating === 'excellent' ? 'rgba(0, 230, 118, 0.35)' : callQuality.rating === 'good' ? 'rgba(234, 179, 8, 0.35)' : 'rgba(239, 68, 68, 0.35)',
+                        backgroundColor: callQuality.rating === 'excellent' ? 'rgba(0, 230, 118, 0.1)' : callQuality.rating === 'good' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        color: callQuality.rating === 'excellent' ? '#00e676' : callQuality.rating === 'good' ? '#eab308' : '#ef4444'
+                      }}
+                      title={`Round-trip time: ${callQuality.rtt}ms, Packet loss: ${callQuality.lossRate}%`}
+                    >
+                      <Signal className="w-3 h-3" />
+                      <span>{callQuality.rtt}ms</span>
+                      {callQuality.rating === 'excellent' && <span>• HD Voice</span>}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-white/5 border border-white/10">
+                  {endReason === 'failed' ? (
+                    <>
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="text-xs font-bold text-rose-400">{t.calls?.connectionFailed || 'Connection failed (check network)'}</span>
+                    </>
+                  ) : endReason === 'declined' ? (
+                    <>
+                      <PhoneOff className="w-3.5 h-3.5 text-rose-400" />
+                      <span className="text-xs font-bold text-rose-400">{t.calls?.callDeclinedStatus || 'Вызов отклонён'}</span>
+                    </>
+                  ) : endReason === 'no_answer' ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-bold text-amber-400">{t.calls?.noAnswer || 'Не отвечает'}</span>
+                    </>
+                  ) : endReason === 'canceled' ? (
+                    <>
+                      <PhoneOff className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-xs font-bold text-gray-400">{t.calls?.callCanceled || 'Отменено'}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-rose-400">{t.calls?.callEnded || 'Звонок завершён'}</span>
+                  )}
                 </div>
               )}
             </div>
-          ) : (
-            <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-white/5 border border-white/10">
-              {endReason === 'declined' ? (
-                <>
-                  <PhoneOff className="w-3.5 h-3.5 text-rose-400" />
-                  <span className="text-xs font-bold text-rose-400">{t.calls?.callDeclinedStatus || 'Вызов отклонён'}</span>
-                </>
-              ) : endReason === 'no_answer' ? (
-                <>
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-bold text-amber-400">{t.calls?.noAnswer || 'Не отвечает'}</span>
-                </>
-              ) : endReason === 'canceled' ? (
-                <>
-                  <PhoneOff className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-xs font-bold text-gray-400">{t.calls?.callCanceled || 'Отменено'}</span>
-                </>
-              ) : (
-                <span className="text-xs font-bold text-rose-400">{t.calls?.callEnded || 'Звонок завершён'}</span>
-              )}
+
+            {/* Action Controls */}
+            <div className="flex items-center justify-center space-x-5 mt-4">
+              {/* Mute Mic Button */}
+              <button
+                type="button"
+                onClick={toggleMute}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all cursor-pointer ${isMuted
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10'
+                  }`}
+                title={isMuted ? t.calls.unmuteMic : t.calls.muteMic}
+              >
+                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+
+              {/* End Call Button */}
+              <button
+                type="button"
+                onClick={handleEndCall}
+                onTouchEnd={(e) => { e.preventDefault(); handleEndCall(); }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_25px_rgba(244,63,94,0.45)] hover:scale-105 active:scale-95 transition-all cursor-pointer border border-rose-400/30 relative z-50"
+                title={t.calls.endCall}
+              >
+                <PhoneOff className="w-6 h-6 pointer-events-none" />
+              </button>
+
+              {/* Speaker Button */}
+              <button
+                type="button"
+                onClick={toggleSpeaker}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all cursor-pointer ${!isSpeakerOn
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10'
+                  }`}
+                title={isSpeakerOn ? t.calls.muteSpeaker : t.calls.unmuteSpeaker}
+              >
+                {!isSpeakerOn ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </button>
             </div>
-          )}
+          </div>
         </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center justify-center space-x-5 mt-4">
-          {/* Mute Mic Button */}
-          <button
-            type="button"
-            onClick={toggleMute}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all cursor-pointer ${isMuted
-                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
-                : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10'
-              }`}
-            title={isMuted ? t.calls.unmuteMic : t.calls.muteMic}
-          >
-            {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-
-          {/* End Call Button */}
-          <button
-            type="button"
-            onClick={handleEndCall}
-            className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_25px_rgba(244,63,94,0.45)] hover:scale-105 active:scale-95 transition-all cursor-pointer border border-rose-400/30"
-            title={t.calls.endCall}
-          >
-            <PhoneOff className="w-6 h-6" />
-          </button>
-
-          {/* Speaker Button */}
-          <button
-            type="button"
-            onClick={toggleSpeaker}
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all cursor-pointer ${!isSpeakerOn
-                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
-                : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10'
-              }`}
-            title={isSpeakerOn ? t.calls.muteSpeaker : t.calls.unmuteSpeaker}
-          >
-            {!isSpeakerOn ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
-</>
-);
+      )}
+    </>
+  );
 };

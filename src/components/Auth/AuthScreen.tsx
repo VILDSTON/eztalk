@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck, Palette, Rocket, Image as ImageIcon } from 'lucide-react';
 import { User } from '../../types/chat';
 import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
@@ -7,6 +7,7 @@ import { compressAvatar } from '../../utils/imageCompressor';
 import { useTranslation } from '../../context/LanguageContext';
 import { LanguageSwitch } from '../Common/LanguageSwitch';
 import { CURATED_AVATARS, DEFAULT_AVATAR } from '../../constants/avatars';
+import { THEME_OPTIONS, THEME_NAMES, applyTheme } from '../../utils/theme';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
@@ -29,8 +30,16 @@ function getPasswordStrength(password: string): { score: number; color: string }
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, onCancel }) => {
-  const { t } = useTranslation();
-  const [mode, setMode] = useState<'login' | 'register'>('register');
+  const { t, language } = useTranslation();
+  const [mode, setMode] = useState<'login' | 'register' | 'onboarding'>('register');
+  const [onboardingStep, setOnboardingStep] = useState<1 | 2 | 3>(1);
+  const [registeredUser, setRegisteredUser] = useState<User | null>(null);
+  const [selectedThemeId, setSelectedThemeId] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('eztalk_theme') || 'neon';
+    }
+    return 'neon';
+  });
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -190,12 +199,55 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
         bio: 'Hey there! I am using EzTalk.',
         ...(honeypot ? { b_username: honeypot } as any : {}),
       });
-      if (rememberMe) {
-        ChatStorageService.saveAuthUser(user);
-      }
-      onLogin(user);
+      setRegisteredUser(user);
+      setMode('onboarding');
+      setOnboardingStep(1);
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Username may already be in use.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishOnboarding = async () => {
+    if (!registeredUser) return;
+    setLoading(true);
+    try {
+      const selectedTheme = THEME_OPTIONS.find((th) => th.id === selectedThemeId) || THEME_OPTIONS[0];
+      const updatedUser: User = {
+        ...registeredUser,
+        avatar: selectedAvatar,
+        theme: selectedThemeId,
+        settings: {
+          ...(registeredUser.settings || {}),
+          theme: selectedThemeId,
+          accentColor: selectedTheme.color,
+        },
+      };
+      applyTheme(selectedThemeId);
+      await ApiService.updateProfile(updatedUser);
+      if (rememberMe) {
+        ChatStorageService.saveAuthUser(updatedUser);
+      }
+      onLogin(updatedUser);
+    } catch (err) {
+      console.warn('Failed to update profile on server during onboarding:', err);
+      const selectedTheme = THEME_OPTIONS.find((th) => th.id === selectedThemeId) || THEME_OPTIONS[0];
+      const fallbackUser: User = {
+        ...registeredUser,
+        avatar: selectedAvatar,
+        theme: selectedThemeId,
+        settings: {
+          ...(registeredUser.settings || {}),
+          theme: selectedThemeId,
+          accentColor: selectedTheme.color,
+        },
+      };
+      applyTheme(selectedThemeId);
+      if (rememberMe) {
+        ChatStorageService.saveAuthUser(fallbackUser);
+      }
+      onLogin(fallbackUser);
     } finally {
       setLoading(false);
     }
@@ -229,6 +281,140 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
 
       {/* Main Auth Card */}
       <div className="w-full max-w-md bg-[var(--ez-surface)] border border-[var(--ez-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative z-10 animate-fade-in my-auto shrink-0">
+        
+        {mode === 'onboarding' && registeredUser ? (
+          <div className="flex flex-col animate-fade-in space-y-5">
+            {onboardingStep === 1 && (
+              <div className="text-center animate-fade-in">
+                <Palette className="w-12 h-12 text-[var(--ez-accent)] mx-auto mb-3" />
+                <h2 className="text-2xl font-black text-white mb-2">{t.auth.chooseAccent}</h2>
+                <p className="text-sm text-zinc-400 mb-6">{t.auth.chooseAccentSubtitle}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                  {THEME_OPTIONS.map((th) => {
+                    const isSelected = selectedThemeId === th.id;
+                    const themeName = THEME_NAMES[th.id]?.[language as 'en' | 'ru' | 'uz'] || th.name;
+                    return (
+                      <button
+                        key={th.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedThemeId(th.id);
+                          applyTheme(th.id);
+                        }}
+                        className={`p-3 rounded-2xl border flex flex-col items-center space-y-2 transition-all duration-150 cursor-pointer ${
+                          isSelected
+                            ? 'border-white/50 bg-white/10 ring-2 ring-white/30 shadow-glass scale-105'
+                            : 'border-[var(--ez-border)] bg-[var(--ez-elevated)] hover:bg-white/5'
+                        }`}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full transition-transform duration-150"
+                          style={{ backgroundColor: th.color, boxShadow: `0 0 12px ${th.glow}70` }}
+                        />
+                        <span className="text-xs font-bold text-white truncate">{themeName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOnboardingStep(2)}
+                  className="w-full py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold rounded-xl flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                >
+                  <span>{t.common.continue}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {onboardingStep === 2 && (
+              <div className="text-center animate-fade-in">
+                <ImageIcon className="w-12 h-12 text-[var(--ez-accent)] mx-auto mb-3" />
+                <h2 className="text-2xl font-black text-white mb-2">{t.auth.chooseAvatar}</h2>
+                <p className="text-sm text-zinc-400 mb-6">{t.auth.chooseAvatarSubtitle}</p>
+                
+                <div className="flex items-center justify-center gap-2.5 flex-wrap mb-6 max-h-52 overflow-y-auto custom-scrollbar p-1">
+                  {customAvatar && (
+                    <img
+                      onClick={() => setSelectedAvatar(customAvatar)}
+                      src={customAvatar}
+                      alt="Custom Avatar"
+                      className={`w-14 h-14 rounded-full cursor-pointer border-2 transition-all hover:opacity-100 object-cover ${
+                        selectedAvatar === customAvatar ? 'border-[var(--ez-accent)] scale-110' : 'border-transparent opacity-60'
+                      }`}
+                    />
+                  )}
+                  {PRESET_AVATARS.map((url) => (
+                    <img
+                      key={url}
+                      onClick={() => setSelectedAvatar(url)}
+                      src={url}
+                      alt="Preset Avatar"
+                      className={`w-14 h-14 rounded-full cursor-pointer border-2 transition-all hover:opacity-100 object-cover ${
+                        selectedAvatar === url ? 'border-[var(--ez-accent)] scale-110' : 'border-transparent opacity-60'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center space-x-2 text-sm text-[var(--ez-accent)] mb-8 hover:underline hover:brightness-110 cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>{t.auth.uploadPhoto}</span>
+                </button>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingStep(1)}
+                    className="w-1/3 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    {t.common.back}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingStep(3)}
+                    className="w-2/3 py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-2"
+                  >
+                    <span>{t.common.continue}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            {onboardingStep === 3 && (
+              <div className="text-center animate-fade-in">
+                <Rocket className="w-12 h-12 text-[var(--ez-accent)] mx-auto mb-3" />
+                <h2 className="text-2xl font-black text-white mb-2">{t.auth.allSet}</h2>
+                <p className="text-sm text-zinc-400 mb-6">
+                  {t.auth.welcomeToEzTalk.replace('{name}', registeredUser?.name || registeredUser?.handle || 'User')}
+                </p>
+                <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-[var(--ez-accent)] mb-8 bg-[var(--ez-elevated)] shadow-lg">
+                  <img src={selectedAvatar} alt="Profile Avatar" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingStep(2)}
+                    className="w-1/3 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    {t.common.back}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={finishOnboarding}
+                    disabled={loading}
+                    className="w-2/3 py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? t.common.loading : t.auth.enterApp}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {/* Brand Header */}
         <div className="text-center mb-5 sm:mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-[16px] bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[var(--ez-accent)] mb-2 shadow-sm">
@@ -518,49 +704,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
               </div>
             </div>
 
-            {/* Profile Avatar Selection (Wrap enabled for small screens) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  {t.auth.chooseAvatar}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-[11px] font-semibold text-[var(--ez-accent)] hover:underline flex items-center space-x-1 cursor-pointer"
-                >
-                  <Upload className="w-3 h-3" />
-                  <span>{t.auth.uploadPhoto}</span>
-                </button>
-              </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto py-1">
-                {customAvatar && (
-                  <div
-                    onClick={() => setSelectedAvatar(customAvatar)}
-                    className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${selectedAvatar === customAvatar
-                      ? 'border-[var(--ez-accent)] scale-105'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                  >
-                    <img src={customAvatar} alt="Custom" className="w-full h-full object-cover" />
-                  </div>
-                )}
-
-                {PRESET_AVATARS.map((url, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setSelectedAvatar(url)}
-                    className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${selectedAvatar === url
-                      ? 'border-[var(--ez-accent)] scale-105'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                  >
-                    <img src={url} alt="Avatar" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
 
             <div className="flex items-center space-x-2 pt-0.5">
               <label className="flex items-center space-x-2 cursor-pointer">
@@ -606,6 +750,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
             </button>
           </p>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

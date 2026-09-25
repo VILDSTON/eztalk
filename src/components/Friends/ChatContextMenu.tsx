@@ -87,7 +87,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
           }}
           className="w-full text-left px-3.5 py-2.5 text-sm text-gray-200 hover:bg-neutral-800/60 hover:text-white flex items-center transition-colors cursor-pointer"
         >
-          <Pin className={`w-4 h-4 mr-3 ${isPinned ? 'text-neon-green' : 'text-gray-400'}`} />
+          <Pin className={`w-4 h-4 mr-3 ${isPinned ? 'text-[var(--ez-accent)]' : 'text-gray-400'}`} />
           {isPinned ? t.contextMenu?.unpin || 'Unpin' : t.contextMenu?.pin || 'Pin to top'}
         </button>
 
@@ -99,7 +99,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
           className="w-full text-left px-3.5 py-2.5 text-sm text-gray-200 hover:bg-neutral-800/60 hover:text-white flex items-center transition-colors cursor-pointer"
         >
           {isMuted ? (
-            <Volume2 className="w-4 h-4 mr-3 text-neon-green" />
+            <Volume2 className="w-4 h-4 mr-3 text-[var(--ez-accent)]" />
           ) : (
             <BellOff className="w-4 h-4 mr-3 text-gray-400" />
           )}

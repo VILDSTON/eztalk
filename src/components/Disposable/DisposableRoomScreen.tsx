@@ -33,6 +33,7 @@ import { MessageThread } from '../Chat/MessageThread';
 import { MessageInput } from '../Chat/MessageInput';
 import { MediaLightboxModal } from '../Chat/MediaLightboxModal';
 import { downloadOrOpenFile, isImageMedia, isVideoMedia } from '../../utils/fileDownloader';
+import { getWebRTCConfiguration } from '../../constants/webrtc';
 
 const EMOJI_ONLY_REGEX = /^[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\s]+$/u;
 
@@ -399,12 +400,7 @@ export const DisposableRoomScreen: React.FC = () => {
   };
 
   const createPeerConnection = (targetId: string) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ],
-    });
+    const pc = new RTCPeerConnection(getWebRTCConfiguration());
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {

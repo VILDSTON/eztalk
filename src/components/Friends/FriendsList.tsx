@@ -9,6 +9,7 @@ import {
   Trash2,
   MessageSquare,
   Bookmark,
+  Pin,
   Flame,
 } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
@@ -16,7 +17,7 @@ import { ComposeModal } from './ComposeModal';
 import { CreateGroupModal } from '../Groups/CreateGroupModal';
 import { CreateDisposableModal } from '../Disposable/CreateDisposableModal';
 import { ChatContextMenu } from './ChatContextMenu';
-import { normalizeHandle } from '../../utils/chatStorage';
+import { normalizeHandle, getDisplayAvatar, getDisplayBio, isUserBlockedBy } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
 import { formatChatListTime } from '../../utils/dateTime';
 import { ConfirmModal } from '../Common/ConfirmModal';
@@ -251,6 +252,196 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     });
   }, [allExistingUsers, myHandle, currentUser?.friends, addedFriends]);
 
+  const visibleChatStream = useMemo(() => {
+    const items: (
+      | { type: 'group'; data: Group; isPinned: boolean; lastTimestamp: number }
+      | { type: 'user'; data: User; isPinned: boolean; lastTimestamp: number }
+    )[] = [];
+
+    if (activeTab === 'all' || activeTab === 'groups') {
+      for (const group of filteredGroups) {
+        const isPinned = pinnedChats.includes(group.id);
+        const groupLastMsg = lastMessages[`group__${group.id}`] || lastMessages[group.id];
+        const lastTimestamp = groupLastMsg ? new Date(groupLastMsg.createdAt || groupLastMsg.timestamp || 0).getTime() : 0;
+        items.push({ type: 'group', data: group, isPinned, lastTimestamp });
+      }
+    }
+
+    if (activeTab === 'all' || activeTab === 'friends' || activeTab === 'online') {
+      for (const user of filteredUsers) {
+        const handleClean = normalizeHandle(user.handle).toLowerCase();
+        const isPinned = pinnedChats.includes(handleClean) || Boolean(user.id && pinnedChats.includes(user.id));
+        const lastMsg =
+          lastMessages[handleClean] ||
+          lastMessages[normalizeHandle(user.handle)] ||
+          (user.id ? lastMessages[user.id] : undefined);
+        const lastTimestamp = lastMsg ? new Date(lastMsg.createdAt || lastMsg.timestamp || 0).getTime() : 0;
+        items.push({ type: 'user', data: user, isPinned, lastTimestamp });
+      }
+    }
+
+    // Pinned chats always on top, then sorted by most recent activity timestamp descending
+    items.sort((a, b) => {
+      const pinA = a.isPinned ? 1 : 0;
+      const pinB = b.isPinned ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
+      return b.lastTimestamp - a.lastTimestamp;
+    });
+
+    return items;
+  }, [activeTab, filteredGroups, filteredUsers, pinnedChats, lastMessages]);
+
+  const renderGroupItem = (group: Group) => {
+    const isSelected = selectedGroupId === group.id;
+    const unread = unreadCounts[group.id] || 0;
+    const isGroupMuted = Boolean(mutedUsers[group.id]);
+    const groupLastMsg = lastMessages[`group__${group.id}`] || lastMessages[group.id];
+
+    return (
+      <div
+        key={`group-${group.id}`}
+        onClick={() => onSelectGroup && onSelectGroup(group)}
+        onContextMenu={(e) => handleContextMenu(e, group.id, true)}
+        onTouchStart={(e) => handleTouchStart(e, group.id, true)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
+          isSelected
+            ? 'chat-row-selected border'
+            : 'hover:bg-white/[0.03] border border-transparent'
+        }`}
+      >
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
+            <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[var(--ez-accent)] text-zinc-950 flex items-center justify-center text-[7px] font-bold border-2 border-ez-surface shadow-sm">
+              <Users className="w-2 h-2" />
+            </div>
+          </div>
+          <div className="flex flex-col min-w-0 flex-1 justify-center">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 min-w-0 pr-1">
+                <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
+                {pinnedChats.includes(group.id) && <Pin className="w-3.5 h-3.5 text-[var(--ez-accent)] shrink-0 fill-[var(--ez-accent)]" />}
+              </div>
+              {groupLastMsg && (
+                <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
+                  {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp, language, t)}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-0.5">
+              <div className="text-[12px] truncate pr-2 min-w-0 flex-1">
+                {groupLastMsg ? (
+                  renderMessagePreview(groupLastMsg, currentUser?.handle, t)
+                ) : (
+                  <span className="text-[11px] text-ez-muted font-mono truncate">
+                    {group.memberHandles.length} members
+                  </span>
+                )}
+              </div>
+              {unread > 0 && (
+                <span
+                  className={`min-w-[19px] h-[19px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm animate-scale-up ml-1.5 ${
+                    isGroupMuted
+                      ? 'bg-zinc-700 text-zinc-300'
+                      : 'bg-[var(--ez-accent)] text-zinc-950'
+                  }`}
+                >
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUserItem = (user: User) => {
+    const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
+    const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));
+    const online = !isUserBlocked && isUserOnline(user.handle);
+    const handleClean = normalizeHandle(user.handle).toLowerCase();
+    const unread = unreadCounts[handleClean] || unreadCounts[normalizeHandle(user.handle)] || (user.id ? unreadCounts[user.id] : 0) || 0;
+    const isChatMuted = Boolean(
+      mutedUsers[handleClean] ||
+      mutedUsers[normalizeHandle(user.handle)] ||
+      (user.id && mutedUsers[user.id])
+    );
+    const lastMsg =
+      lastMessages[handleClean] ||
+      lastMessages[normalizeHandle(user.handle)] ||
+      (user.id ? lastMessages[user.id] : undefined);
+
+    return (
+      <div
+        key={`user-${user.id || user.handle}`}
+        onClick={() => onSelectUser(user)}
+        onContextMenu={(e) => handleContextMenu(e, normalizeHandle(user.handle), false)}
+        onTouchStart={(e) => handleTouchStart(e, normalizeHandle(user.handle), false)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
+          isSelected
+            ? 'chat-row-selected border'
+            : 'hover:bg-white/[0.03] border border-transparent'
+        }`}
+      >
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
+            <img src={getDisplayAvatar(user, currentUser?.handle)} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+            <div
+              className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-ez-surface ${
+                online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
+              }`}
+            />
+          </div>
+          <div className="flex flex-col min-w-0 flex-1 justify-center">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 min-w-0 pr-1">
+                <span className="text-[13px] font-bold text-white truncate tracking-tight">
+                  {user.name || user.handle}
+                </span>
+                {!isUserBlockedBy(user, currentUser?.handle) && user.statusEmoji && (
+                  <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
+                )}
+                {pinnedChats.includes(handleClean) && <Pin className="w-3.5 h-3.5 text-[var(--ez-accent)] shrink-0 fill-[var(--ez-accent)]" />}
+              </div>
+              {lastMsg && (
+                <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
+                  {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp, language, t)}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-0.5">
+              <div className="text-[12px] truncate pr-2 min-w-0 flex-1">
+                {lastMsg ? (
+                  renderMessagePreview(lastMsg, currentUser?.handle, t)
+                ) : (
+                  <span className={`text-[11px] truncate ${online ? 'text-neon-green' : 'text-ez-muted'}`}>
+                    {getDisplayBio(user, currentUser?.handle) || (online ? 'online' : ((t.chat as any).lastSeenRecently || 'last seen recently'))}
+                  </span>
+                )}
+              </div>
+              {unread > 0 && (
+                <span
+                  className={`min-w-[19px] h-[19px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm animate-scale-up ml-1.5 ${
+                    isChatMuted
+                      ? 'bg-zinc-700 text-zinc-300'
+                      : 'bg-[var(--ez-accent)] text-zinc-950'
+                  }`}
+                >
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const tabs = [
     { id: 'all' as const, label: t.sidebar.allChats },
     { id: 'friends' as const, label: t.sidebar.friends },
@@ -260,7 +451,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   return (
     <>
-      <div className="w-full md:w-80 lg:w-[340px] h-full flex flex-col bg-ez-surface border-r border-ez-border/50 select-none shrink-0 relative overflow-hidden font-sans">
+      <div className="w-full lg:w-[340px] h-full flex flex-col bg-ez-surface border-r border-ez-border/50 select-none shrink-0 relative overflow-hidden font-sans">
         <div className="p-3 pb-2 flex items-center space-x-2.5 bg-ez-surface">
           <button
             type="button"
@@ -300,7 +491,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
               onClick={() => setActiveTab(tab.id)}
               className={`shrink-0 py-2.5 px-3 border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-neon-green text-neon-green'
+                  ? 'border-[var(--ez-accent)] text-[var(--ez-accent)]'
                   : 'border-transparent text-ez-muted hover:text-gray-200'
               }`}
             >
@@ -326,12 +517,12 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                   }
                   className={`contain-content flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
                     isSelected
-                      ? 'bg-neon-green/10 border border-neon-green/30'
+                      ? 'chat-row-selected border'
                       : 'hover:bg-white/[0.03] border border-transparent'
                   }`}
                 >
                   <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-neon-green/15 border border-neon-green/30 flex items-center justify-center text-neon-green shrink-0">
+                    <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full saved-avatar-badge border flex items-center justify-center shrink-0">
                       <Bookmark className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
@@ -357,69 +548,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             })()
           )}
 
-          {/* Group Chats */}
-          {(activeTab === 'all' || activeTab === 'groups') &&
-            filteredGroups.map((group) => {
-              const isSelected = selectedGroupId === group.id;
-              const unread = unreadCounts[group.id] || 0;
-              const groupLastMsg = lastMessages[`group__${group.id}`] || lastMessages[group.id];
-
-              return (
-                <div
-                  key={group.id}
-                  onClick={() => onSelectGroup && onSelectGroup(group)}
-                  onContextMenu={(e) => handleContextMenu(e, group.id, true)}
-                  onTouchStart={(e) => handleTouchStart(e, group.id, true)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
-                    isSelected
-                      ? 'bg-neon-green/10 border border-neon-green/30'
-                      : 'hover:bg-white/[0.03] border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
-                      <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
-                      {/* Group icon — bottom-right */}
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neon-green text-black flex items-center justify-center text-[7px] font-bold border-2 border-ez-surface shadow-sm">
-                        <Users className="w-2 h-2" />
-                      </div>
-                      {/* Unread badge — top-right on avatar */}
-                      {unread > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-neon-green text-black text-[10px] font-black flex items-center justify-center shadow-neon-sm border border-ez-surface animate-scale-up z-10">
-                          {unread > 99 ? '99+' : unread}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <span className="text-[13px] font-bold text-white truncate tracking-tight">{group.name}</span>
-                          {pinnedChats.includes(group.id) && <Bookmark className="w-3 h-3 text-neon-green shrink-0 fill-neon-green" />}
-                        </div>
-                        {groupLastMsg && (
-                          <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
-                            {formatChatListTime(groupLastMsg.createdAt || groupLastMsg.timestamp, language, t)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[12px] truncate">
-                        {groupLastMsg ? (
-                          renderMessagePreview(groupLastMsg, currentUser?.handle, t)
-                        ) : (
-                          <span className="text-[11px] text-ez-muted font-mono truncate">
-                            {group.memberHandles.length} members
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-          {/* User Chats */}
+          {/* Skeleton Loaders */}
           {isLoading && (activeTab === 'all' || activeTab === 'friends') && Array.from({ length: 5 }).map((_, i) => (
             <div key={`skeleton-${i}`} className="flex items-center p-2.5 space-x-3 mb-1 bg-white/[0.01] rounded-2xl animate-pulse">
               <div className="w-10 h-10 rounded-full bg-ez-border/30 shrink-0" />
@@ -430,80 +559,10 @@ export const FriendsList: React.FC<FriendsListProps> = ({
             </div>
           ))}
 
-          {!isLoading && (activeTab === 'all' || activeTab === 'friends' || activeTab === 'online') &&
-            filteredUsers.map((user) => {
-              const isSelected = (selectedUserId === user.id || normalizeHandle(user.handle) === normalizeHandle(selectedUserId)) && !selectedGroupId;
-              const isUserBlocked = blockedUsers.includes(normalizeHandle(user.handle));
-              const online = !isUserBlocked && isUserOnline(user.handle);
-              const unread = unreadCounts[normalizeHandle(user.handle)] || unreadCounts[user.id] || 0;
-              const handleClean = normalizeHandle(user.handle).toLowerCase();
-              const lastMsg =
-                lastMessages[handleClean] ||
-                lastMessages[normalizeHandle(user.handle)] ||
-                (user.id ? lastMessages[user.id] : undefined);
-
-              return (
-                <div
-                  key={user.id || user.handle}
-                  onClick={() => onSelectUser(user)}
-                  onContextMenu={(e) => handleContextMenu(e, normalizeHandle(user.handle), false)}
-                  onTouchStart={(e) => handleTouchStart(e, normalizeHandle(user.handle), false)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
-                    isSelected
-                      ? 'bg-neon-green/10 border border-neon-green/30'
-                      : 'hover:bg-white/[0.03] border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
-                      <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
-                      {/* Online/Blocked dot — bottom-right */}
-                      <div
-                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-surface ${
-                          isUserBlocked ? 'bg-rose-500' : online ? 'bg-neon-green-glow shadow-neon-dot' : 'bg-ez-muted'
-                        }`}
-                      />
-                      {/* Unread badge — top-right on avatar */}
-                      {unread > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-neon-green text-black text-[10px] font-black flex items-center justify-center shadow-neon-sm border border-ez-surface animate-scale-up z-10">
-                          {unread > 99 ? '99+' : unread}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <span className="text-[13px] font-bold text-white truncate tracking-tight">
-                            {user.name || user.handle}
-                          </span>
-                          {user.statusEmoji && (
-                            <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
-                          )}
-                          {pinnedChats.includes(handleClean) && <Bookmark className="w-3 h-3 text-neon-green shrink-0 fill-neon-green" />}
-                        </div>
-                        {lastMsg && (
-                          <span className="text-[10px] text-ez-muted font-mono shrink-0 ml-1.5">
-                            {formatChatListTime(lastMsg.createdAt || lastMsg.timestamp, language, t)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[12px] truncate">
-                        {isUserBlocked ? (
-                          <span className="text-rose-400 font-semibold text-[11px]">{t.chat.blocked}</span>
-                        ) : lastMsg ? (
-                          renderMessagePreview(lastMsg, currentUser?.handle, t)
-                        ) : (
-                          <span className={`text-[11px] truncate ${online ? 'text-neon-green' : 'text-ez-muted'}`}>
-                            {user.bio || (online ? 'online' : 'offline')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
+          {/* Unified Chat & Contact Stream (Pinned chats always on top, then sorted by activity) */}
+          {!isLoading &&
+            visibleChatStream.map((item) => {
+              return item.type === 'group' ? renderGroupItem(item.data) : renderUserItem(item.data);
             })}
 
           {/* Global Search Results */}
@@ -521,12 +580,12 @@ export const FriendsList: React.FC<FriendsListProps> = ({
                 >
                   <div className="flex items-center space-x-3 min-w-0 pr-2">
                     <div className="w-10 h-10 min-w-[40px] min-h-[40px] shrink-0">
-                      <img src={user.avatar} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
+                      <img src={getDisplayAvatar(user, currentUser?.handle)} alt={user.handle} className="w-full h-full rounded-full object-cover border border-ez-border bg-ez-elevated" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center space-x-1.5 min-w-0">
                         <span className="text-[13px] font-bold text-white truncate">{user.name || user.handle}</span>
-                        {user.statusEmoji && (
+                        {!isUserBlockedBy(user, currentUser?.handle) && user.statusEmoji && (
                           <span className="text-xs shrink-0 select-none leading-none">{user.statusEmoji}</span>
                         )}
                       </div>

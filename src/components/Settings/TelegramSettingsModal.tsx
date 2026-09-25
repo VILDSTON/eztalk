@@ -19,7 +19,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { User } from '../../types/chat';
-import { THEME_OPTIONS, applyTheme, applyCompactMode } from '../../utils/theme';
+import { THEME_OPTIONS, THEME_NAMES, applyTheme, applyCompactMode } from '../../utils/theme';
 import { playMessageChime } from '../../utils/callSounds';
 import { sanitizeDisplayName } from '../../utils/chatStorage';
 
@@ -33,15 +33,6 @@ interface TelegramSettingsModalProps {
 
 import { PRESET_AVATARS } from '../../constants/avatars';
 import { useTranslation } from '../../context/LanguageContext';
-
-const THEME_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
-  neon: { en: 'Neon Green', ru: 'Изумрудный', uz: 'Yashil' },
-  cyan: { en: 'Cyber Blue', ru: 'Кибер Синий', uz: 'Moviy' },
-  purple: { en: 'Purple Night', ru: 'Фиолетовый', uz: 'Binafsha' },
-  amber: { en: 'Sunset Amber', ru: 'Янтарный', uz: 'Qahrabo' },
-  rose: { en: 'Ruby Glow', ru: 'Рубиновый', uz: 'Yoqut' },
-  slate: { en: 'Deep Gray', ru: 'Глубокий серый', uz: 'To‘q kulrang' },
-};
 
 const BANNER_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
   dark: { en: 'Obsidian Night', ru: 'Обсидиановая ночь', uz: 'Obsidian kechasi' },
@@ -587,31 +578,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   }`}
                 >
                   {desktopNotificationsEnabled ? t.settings.enabled : t.settings.enable}
-                </button>
-              </div>
-
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{t.settings.floatingToasts}</h4>
-                    <p className="text-xs text-ez-muted">{t.settings.floatingToastsDesc}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFloatingToastsEnabled(!floatingToastsEnabled)}
-                  className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
-                    floatingToastsEnabled ? 'bg-neon-green' : 'bg-ez-muted'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-black absolute top-1 transition-transform duration-150 ${
-                      floatingToastsEnabled ? 'right-1' : 'left-1'
-                    }`}
-                  />
                 </button>
               </div>
 

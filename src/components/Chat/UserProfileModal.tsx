@@ -19,6 +19,7 @@ import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
 import { ConfirmModal } from '../Common/ConfirmModal';
 import { EditContactNameModal } from './EditContactNameModal';
+import { isUserBlockedBy } from '../../utils/chatStorage';
 
 interface UserProfileModalProps {
   user: User;
@@ -27,6 +28,8 @@ interface UserProfileModalProps {
   isMuted?: boolean;
   isFriend?: boolean;
   isBlocked?: boolean;
+  currentUser?: User | null;
+  currentUserHandle?: string;
   messages?: Message[];
   onClose: () => void;
   onStartCall: () => void;
@@ -47,6 +50,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isMuted = false,
   isFriend = true,
   isBlocked = false,
+  currentUser,
+  currentUserHandle,
   messages = [],
   onClose,
   onStartCall,
@@ -85,9 +90,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     };
   }, [isOpen, previewAttachment, onClose]);
 
-  const isUserOnline = Boolean(!isBlocked && isOnline);
+  if (!isOpen || !user) return null;
 
-  if (!isOpen) return null;
+  const fallbackAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user?.handle || user?.name || 'user')}`;
+  const effectiveViewerHandle = currentUserHandle || currentUser?.handle;
+  const isBlockedByPeer = isUserBlockedBy(user, effectiveViewerHandle);
+  const isBlockedState = isBlocked || isBlockedByPeer;
+
+  const isUserOnline = Boolean(!isBlockedState && isOnline);
+
+  const displayAvatar = isBlockedByPeer ? fallbackAvatar : (user?.avatar || fallbackAvatar);
+  const displayBio = isBlockedByPeer ? '' : (user?.bio || '');
+  const displayBanner = isBlockedByPeer ? null : user?.banner;
 
   const handleShareProfile = async () => {
     const profileUrl = `${window.location.origin}/${language}/@${user.handle.replace('@', '')}`;
@@ -122,8 +136,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     .filter((m) => m.attachment)
     .map((m) => m.attachment as Attachment);
 
-  const bannerStyle = user.banner || 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)';
-  const isImageBanner = user.banner && (user.banner.startsWith('http') || user.banner.startsWith('data:image'));
+  const bannerStyle = displayBanner || 'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)';
+  const isImageBanner = Boolean(displayBanner && (displayBanner.startsWith('http') || displayBanner.startsWith('data:image')));
 
   const handleExportChat = () => {
     if (messages.length === 0) {
@@ -198,27 +212,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="overflow-y-auto custom-scrollbar flex-1 flex flex-col">
           {/* Banner */}
           <div
-            className={`h-28 sm:h-32 w-full shrink-0 relative bg-cover bg-center overflow-hidden ${isImageBanner ? 'cursor-pointer group' : ''}`}
+            className={`h-28 sm:h-32 w-full shrink-0 relative bg-cover bg-center overflow-hidden ${isImageBanner && displayBanner && !isBlockedByPeer ? 'cursor-pointer group' : ''}`}
             onClick={() => {
-              if (isImageBanner && user.banner) {
+              if (isImageBanner && displayBanner && !isBlockedByPeer) {
                 setPreviewAttachment({
                   id: 'banner-preview',
                   name: `${user.name || user.handle}'s Background`,
-                  url: user.banner,
+                  url: displayBanner,
                   type: 'image',
                   size: '',
                 });
               }
             }}
             style={
-              isImageBanner
-                ? { backgroundImage: `url(${user.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              isImageBanner && displayBanner
+                ? { backgroundImage: `url(${displayBanner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : { background: bannerStyle }
             }
-            title={isImageBanner ? t.profile.viewBackground : undefined}
+            title={isImageBanner && displayBanner && !isBlockedByPeer ? t.profile.viewBackground : undefined}
           >
-            {/* Ambient radial glow — only shown when user has no custom banner */}
-            {!user.banner && (
+            {/* Ambient radial glow — only shown when user has no custom banner or blocked */}
+            {(!displayBanner || isBlockedByPeer) && (
               <>
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,var(--ez-accent-glow),transparent_70%)]" />
                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
@@ -235,35 +249,33 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <div className="absolute -inset-1 rounded-full bg-[var(--ez-accent)] opacity-30 blur-md" />
                 <div
                   onClick={() => {
-                    if (user.avatar) {
+                    if (displayAvatar && !isBlockedByPeer) {
                       setPreviewAttachment({
                         id: 'avatar-preview',
                         name: `${user.name || user.handle}'s Avatar`,
-                        url: user.avatar,
+                        url: displayAvatar,
                         type: 'image',
                         size: '',
                       });
                     }
                   }}
-                  className="relative w-20 h-20 sm:w-24 sm:h-24 min-w-[80px] min-h-[80px] rounded-full overflow-hidden bg-ez-surface shadow-neon-sm shrink-0 cursor-pointer hover:scale-105 transition-transform duration-150"
-                  title={t.profile.viewAvatar}
+                  className={`relative w-20 h-20 sm:w-24 sm:h-24 min-w-[80px] min-h-[80px] rounded-full overflow-hidden bg-ez-surface shadow-neon-sm shrink-0 ${!isBlockedByPeer ? 'cursor-pointer hover:scale-105' : 'cursor-default'} transition-transform duration-150`}
+                  title={!isBlockedByPeer ? t.profile.viewAvatar : undefined}
                 >
-                  <img src={user.avatar} alt={user.handle} className="w-full h-full object-cover" />
+                  <img src={displayAvatar} alt={user.handle} className="w-full h-full object-cover" />
                 </div>
                 <div
-                  className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${isBlocked
-                    ? 'bg-rose-500'
-                    : isUserOnline
-                      ? 'bg-neon-green-glow shadow-neon-dot'
-                      : 'bg-ez-muted'
+                  className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-ez-elevated z-30 ${isUserOnline
+                    ? 'bg-neon-green-glow shadow-neon-dot'
+                    : 'bg-ez-muted'
                     }`}
-                  title={isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
+                  title={isUserOnline ? t.chat.online : ((t.chat as any).lastSeenRecently || t.chat.offline)}
                 />
               </div>
 
               {/* Name row */}
               <div className="flex items-center justify-center gap-2 mb-0.5 w-full max-w-full px-10 relative">
-                {user.statusEmoji && (
+                {!isBlockedByPeer && user.statusEmoji && (
                   <span className="text-xl leading-none shrink-0 opacity-0 pointer-events-none select-none" aria-hidden="true">
                     {user.statusEmoji}
                   </span>
@@ -271,7 +283,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <h3 className="text-xl font-bold text-white tracking-tight leading-tight truncate text-center">
                   {user.name || user.handle}
                 </h3>
-                {user.statusEmoji && (
+                {!isBlockedByPeer && user.statusEmoji && (
                   <span className="text-xl leading-none shrink-0">{user.statusEmoji}</span>
                 )}
                 {isFriend && (onEditAlias || onSaveAlias) && (
@@ -296,7 +308,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <p className="text-xs font-mono font-bold text-[var(--ez-accent)] mt-0.5 tracking-wide">{user.handle}</p>
 
               {/* Custom status */}
-              {user.customStatusText && (
+              {!isBlockedByPeer && user.customStatusText && (
                 <p className="text-[13px] text-gray-200 mt-1.5 font-medium italic">
                   "{user.customStatusText}"
                 </p>
@@ -304,21 +316,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
               {/* Online / offline label */}
               <span
-                className={`text-[11px] font-mono mt-1 ${isBlocked
-                  ? 'text-rose-400 font-semibold'
-                  : isUserOnline
-                    ? 'text-[var(--ez-accent)] font-medium'
-                    : 'text-ez-muted'
+                className={`text-[11px] font-mono mt-1 ${isUserOnline
+                  ? 'text-[var(--ez-accent)] font-medium'
+                  : 'text-ez-muted'
                   }`}
               >
-                {isBlocked ? t.chat.blocked : isUserOnline ? t.chat.online : t.chat.offline}
+                {isUserOnline ? t.chat.online : ((t.chat as any).lastSeenRecently || t.chat.offline)}
               </span>
 
               {/* Bio */}
-              {user.bio && (
+              {displayBio && (
                 <div className="mt-3 w-full max-w-xs">
                   <p className="text-[13px] text-gray-300 px-4 py-2.5 bg-white/5 rounded-2xl border-l-2 border-[var(--ez-accent)] border-t border-r border-b border-t-white/5 border-r-white/5 border-b-white/5 leading-relaxed text-left">
-                    {user.bio}
+                    {displayBio}
                   </p>
                 </div>
               )}
@@ -457,7 +467,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   type="button"
                   onClick={() => setActionToConfirm(isBlocked ? 'unblock' : 'block')}
                   className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all duration-150 active:scale-[0.98] cursor-pointer ${isBlocked
-                    ? 'bg-[var(--ez-accent)]/10 text-[var(--ez-accent)] border border-[var(--ez-accent)]/25 hover:bg-[var(--ez-accent)]/20'
+                    ? 'bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20'
                     : 'bg-white/5 hover:bg-rose-500/10 text-rose-400 border border-white/5 hover:border-rose-500/25'
                     }`}
                 >

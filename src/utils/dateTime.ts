@@ -7,7 +7,7 @@
 export function isSystem12Hour(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const opts = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
+    const opts = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions() as any;
     if (opts.hour12 !== undefined) return Boolean(opts.hour12);
     if (opts.hourCycle === 'h11' || opts.hourCycle === 'h12') return true;
     if (opts.hourCycle === 'h23' || opts.hourCycle === 'h24') return false;

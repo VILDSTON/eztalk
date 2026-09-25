@@ -5,9 +5,8 @@ import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
 import { GroupInfoModal } from '../Groups/GroupInfoModal';
 import { useTranslation } from '../../context/LanguageContext';
-import { TranslationKeys } from '../../locales/en';
 import { DEFAULT_AVATAR } from '../../constants/avatars';
-import { normalizeHandle } from '../../utils/chatStorage';
+import { normalizeHandle, getDisplayAvatar, isUserBlockedBy } from '../../utils/chatStorage';
 
 // Relative time formatting removed per UX requirements.
 interface ChatHeaderProps {
@@ -399,6 +398,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   // ─── User Chat Header ───
   const fallbackAvatar = DEFAULT_AVATAR;
+  const effectiveViewerHandle = currentUserHandle || currentUser?.handle;
+  const isBlockedByPeer = isUserBlockedBy(user, effectiveViewerHandle);
+  const isBlockedState = isBlocked || isBlockedByPeer;
+  const isUserOnline = Boolean(!isBlockedState && isOnline);
+  const displayAvatar = getDisplayAvatar(user, effectiveViewerHandle);
 
   return (
     <>
@@ -444,7 +448,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <div className="relative shrink-0">
               <div className="w-9 h-9 rounded-full overflow-hidden border border-ez-border group-hover:border-neon-green/50 transition-colors duration-150 bg-ez-elevated">
                 <img
-                  src={user.avatar || fallbackAvatar}
+                  src={displayAvatar}
                   alt={user.handle || 'avatar'}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -454,9 +458,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-ez-elevated z-10 ${
-                  isBlocked
-                    ? 'bg-rose-500'
-                    : isOnline
+                  isUserOnline
                     ? 'bg-neon-green-glow shadow-neon-dot'
                     : 'bg-ez-muted'
                 }`}
@@ -467,7 +469,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
                   {user.name || user.handle || 'User'}
                 </span>
-                {user.statusEmoji && (
+                {!isBlockedByPeer && user.statusEmoji && (
                   <span className="text-sm shrink-0 select-none leading-none" title={t.profile?.status || 'Status'}>{user.statusEmoji}</span>
                 )}
                 {isMuted && (
@@ -478,16 +480,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </div>
               <span
                 className={`text-[10px] sm:text-[11px] font-mono leading-tight truncate max-w-[140px] sm:max-w-none ${
-                  isBlocked
-                    ? 'text-rose-400 font-semibold'
-                    : isTyping
+                  isTyping && !isBlockedState
                     ? 'text-neon-green font-bold animate-pulse'
-                    : isOnline
+                    : isUserOnline
                     ? 'text-neon-green font-medium'
                     : 'text-ez-muted'
                 }`}
               >
-                {isBlocked ? t.chat.blocked : isTyping ? t.chat.typing : isOnline ? t.chat.online : (t.chat as any).lastSeenRecently || 'last seen recently'}
+                {isTyping && !isBlockedState ? t.chat.typing : isUserOnline ? t.chat.online : (t.chat as any).lastSeenRecently || 'last seen recently'}
               </span>
             </div>
           </div>
@@ -510,10 +510,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onClick={() => {
                   if (onStartCall) onStartCall();
                 }}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  if (onStartCall) onStartCall();
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer relative z-50"
                 title={t.chat?.voiceCall || "Voice Call"}
               >
-                <Phone className="w-[18px] h-[18px]" />
+                <Phone className="w-[18px] h-[18px] pointer-events-none" />
               </button>
             )}
             <button
@@ -571,6 +575,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         isMuted={isMuted}
         isFriend={isFriend}
         isBlocked={isBlocked}
+        currentUser={currentUser}
+        currentUserHandle={currentUserHandle || currentUser?.handle}
         messages={messages}
         onClose={() => setIsProfileOpen(false)}
         onStartCall={() => {
