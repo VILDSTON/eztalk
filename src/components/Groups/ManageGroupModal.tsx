@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { X, Users, RefreshCw, Trash2, UserPlus, UserMinus, Shield, Check, Camera, Upload, Loader2 } from 'lucide-react';
 import { Group, User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -41,13 +41,19 @@ export const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
   const myHandle = normalizeHandle(currentUser.handle).toLowerCase();
   const creatorHandle = normalizeHandle(group.creatorHandle).toLowerCase();
 
-  // Friends of the current user who are NOT yet in the group
-  const availableFriends = allUsers.filter((u) => {
-    const clean = normalizeHandle(u.handle).toLowerCase();
-    const isFriend = (currentUser.friends || []).map((f) => normalizeHandle(f).toLowerCase()).includes(clean);
-    const alreadyInGroup = memberHandles.map((m) => normalizeHandle(m).toLowerCase()).includes(clean);
-    return isFriend && !alreadyInGroup && clean !== myHandle;
-  });
+  // Memoized: O(n) set-based lookups instead of O(n²) .includes() chains
+  const availableFriends = useMemo(() => {
+    const friendSet = new Set(
+      (currentUser.friends || []).map((f) => normalizeHandle(f).toLowerCase())
+    );
+    const memberSet = new Set(
+      memberHandles.map((m) => normalizeHandle(m).toLowerCase())
+    );
+    return allUsers.filter((u) => {
+      const clean = normalizeHandle(u.handle).toLowerCase();
+      return friendSet.has(clean) && !memberSet.has(clean) && clean !== myHandle;
+    });
+  }, [allUsers, currentUser.friends, memberHandles, myHandle]);
 
   const handleRandomizeAvatar = () => {
     const seed = `group_${Date.now()}_${Math.random().toString(36).substring(7)}`;

@@ -136,7 +136,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       setEnterToSend(currentUser.settings?.enterToSend !== false);
 
       setSavedSuccess(false);
-      calculateStorage();
+      // Defer localStorage scan so modal opens instantly, then calculates in background
+      setTimeout(calculateStorage, 300);
     }
   }, [isOpen, currentUser]);
 

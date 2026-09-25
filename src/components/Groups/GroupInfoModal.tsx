@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Users,
@@ -99,24 +99,27 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   };
 
   // Build members list with full profiles and presence
-  const membersList = (group.memberHandles || []).map((handle) => {
-    const clean = normalizeHandle(handle);
-    const userObj = allUsers.find(
-      (u) => normalizeHandle(u.handle).toLowerCase() === clean.toLowerCase()
+  const membersList = useMemo(() => {
+    const userMap = new Map(
+      allUsers.map((u) => [normalizeHandle(u.handle).toLowerCase(), u])
     );
-    const isOnline = onlineHandles.some(
-      (h) => normalizeHandle(h).toLowerCase() === clean.toLowerCase()
+    const onlineSet = new Set(
+      onlineHandles.map((h) => normalizeHandle(h).toLowerCase())
     );
-    return {
-      handle: clean,
-      name: userObj?.name || clean.replace('@', ''),
-      avatar:
-        userObj?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${clean.replace('@', '')}`,
-      isAdmin: clean.toLowerCase() === creatorHandle,
-      isOnline,
-      isMe: clean.toLowerCase() === myHandle,
-    };
-  });
+    return (group.memberHandles || []).map((handle) => {
+      const clean = normalizeHandle(handle);
+      const userObj = userMap.get(clean.toLowerCase());
+      return {
+        handle: clean,
+        name: userObj?.name || clean.replace('@', ''),
+        avatar:
+          userObj?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${clean.replace('@', '')}`,
+        isAdmin: clean.toLowerCase() === creatorHandle,
+        isOnline: onlineSet.has(clean.toLowerCase()),
+        isMe: clean.toLowerCase() === myHandle,
+      };
+    });
+  }, [group.memberHandles, allUsers, onlineHandles, creatorHandle, myHandle]);
 
   const filteredMembers = membersList.filter((m) => {
     const q = searchQuery.toLowerCase().trim();
@@ -125,9 +128,10 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   });
 
   // Extract shared media attachments from group messages
-  const sharedAttachments: Attachment[] = messages
-    .filter((m) => m.attachment)
-    .map((m) => m.attachment as Attachment);
+  const sharedAttachments: Attachment[] = useMemo(() =>
+    messages.filter((m) => m.attachment).map((m) => m.attachment as Attachment),
+    [messages]
+  );
 
   // Invite link handler
   const handleShareInviteLink = async () => {
