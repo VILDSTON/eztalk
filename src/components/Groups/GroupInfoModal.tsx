@@ -84,8 +84,6 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     };
   }, [isOpen, previewAttachment, isManageOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const myHandle = normalizeHandle(currentUser?.handle || currentUserHandle || '').toLowerCase();
   const creatorHandle = normalizeHandle(group.creatorHandle || '').toLowerCase();
   const isCreator = myHandle === creatorHandle;
@@ -98,7 +96,7 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     status: 'Online',
   };
 
-  // Build members list with full profiles and presence
+  // Build members list with full profiles and presence (memoized, O(n) lookups)
   const membersList = useMemo(() => {
     const userMap = new Map(
       allUsers.map((u) => [normalizeHandle(u.handle).toLowerCase(), u])
@@ -121,17 +119,19 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     });
   }, [group.memberHandles, allUsers, onlineHandles, creatorHandle, myHandle]);
 
+  // Extract shared media attachments from group messages (memoized)
+  const sharedAttachments: Attachment[] = useMemo(() =>
+    messages.filter((m) => m.attachment).map((m) => m.attachment as Attachment),
+    [messages]
+  );
+
+  if (!isOpen) return null;
+
   const filteredMembers = membersList.filter((m) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return m.name.toLowerCase().includes(q) || m.handle.toLowerCase().includes(q);
   });
-
-  // Extract shared media attachments from group messages
-  const sharedAttachments: Attachment[] = useMemo(() =>
-    messages.filter((m) => m.attachment).map((m) => m.attachment as Attachment),
-    [messages]
-  );
 
   // Invite link handler
   const handleShareInviteLink = async () => {
