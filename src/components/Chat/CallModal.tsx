@@ -101,6 +101,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const endCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disconnectGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
   const fallbackProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const fallbackSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const fallbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -351,6 +352,13 @@ export const CallModal: React.FC<CallModalProps> = ({
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    if (fallbackWorkletNodeRef.current) {
+      try {
+        fallbackWorkletNodeRef.current.port.onmessage = null;
+        fallbackWorkletNodeRef.current.disconnect();
+      } catch {}
+      fallbackWorkletNodeRef.current = null;
+    }
     if (fallbackProcessorRef.current) {
       try {
         fallbackProcessorRef.current.onaudioprocess = null;
@@ -513,7 +521,15 @@ export const CallModal: React.FC<CallModalProps> = ({
         if (remoteStreamRef.current) {
           playRemoteAudio(remoteStreamRef.current);
         }
+        // Suspend fallback relay to save battery and network bandwidth when P2P direct audio is active
+        if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'running') {
+          fallbackAudioContextRef.current.suspend().catch(() => {});
+        }
       } else if (pc.connectionState === 'disconnected') {
+        // Resume fallback relay while self-healing
+        if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'suspended') {
+          fallbackAudioContextRef.current.resume().catch(() => {});
+        }
         // Give 5 seconds for self-healing before treating as failed
         if (disconnectGraceRef.current) clearTimeout(disconnectGraceRef.current);
         disconnectGraceRef.current = setTimeout(() => {
@@ -538,6 +554,14 @@ export const CallModal: React.FC<CallModalProps> = ({
         setCallState('connected');
         if (remoteStreamRef.current) {
           playRemoteAudio(remoteStreamRef.current);
+        }
+        // Suspend fallback relay when direct ICE audio is active
+        if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'running') {
+          fallbackAudioContextRef.current.suspend().catch(() => {});
+        }
+      } else if (pc.iceConnectionState === 'disconnected') {
+        if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'suspended') {
+          fallbackAudioContextRef.current.resume().catch(() => {});
         }
       } else if (pc.iceConnectionState === 'failed') {
         handleCallConnectionFailed();
@@ -579,25 +603,91 @@ export const CallModal: React.FC<CallModalProps> = ({
         fallbackAudioContextRef.current = relayCtx;
         const source = relayCtx.createMediaStreamSource(stream);
         fallbackSourceRef.current = source;
-        const processor = relayCtx.createScriptProcessor(2048, 1, 1);
-        fallbackProcessorRef.current = processor;
 
-        processor.onaudioprocess = (e) => {
-          const pc = peerConnectionRef.current;
-          const isP2PConnected = pc && pc.connectionState === 'connected' && pc.iceConnectionState === 'connected';
-          if (isP2PConnected || isMutedRef.current) return;
-
-          const float32 = e.inputBuffer.getChannelData(0);
-          const int16 = new Int16Array(float32.length);
-          for (let i = 0; i < float32.length; i++) {
-            const s = Math.max(-1, Math.min(1, float32[i]));
-            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-          }
-          socketService.sendCallAudioChunk(user.handle, currentUser.handle, int16.buffer);
+        const isP2PActive = () => {
+          const p = peerConnectionRef.current;
+          if (!p) return false;
+          return (
+            p.connectionState === 'connected' ||
+            p.iceConnectionState === 'connected' ||
+            p.iceConnectionState === 'completed'
+          );
         };
 
-        source.connect(processor);
-        processor.connect(relayCtx.destination);
+        const setupScriptProcessorFallback = () => {
+          try {
+            const processor = relayCtx.createScriptProcessor(4096, 1, 1);
+            fallbackProcessorRef.current = processor;
+            processor.onaudioprocess = (e) => {
+              if (isP2PActive() || isMutedRef.current) return;
+              const float32 = e.inputBuffer.getChannelData(0);
+              const int16 = new Int16Array(float32.length);
+              for (let i = 0; i < float32.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+              socketService.sendCallAudioChunk(user.handle, currentUser.handle, int16.buffer);
+            };
+            source.connect(processor);
+            processor.connect(relayCtx.destination);
+          } catch (spErr) {
+            console.warn('ScriptProcessor fallback failed:', spErr);
+          }
+        };
+
+        if (relayCtx.audioWorklet && typeof relayCtx.audioWorklet.addModule === 'function') {
+          const workletCode = `
+            class AudioRelayProcessor extends AudioWorkletProcessor {
+              constructor() {
+                super();
+                this.buffer = new Int16Array(4096);
+                this.offset = 0;
+              }
+              process(inputs) {
+                const input = inputs[0];
+                if (!input || !input[0]) return true;
+                const channel = input[0];
+                for (let i = 0; i < channel.length; i++) {
+                  const s = Math.max(-1, Math.min(1, channel[i]));
+                  this.buffer[this.offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                  if (this.offset >= this.buffer.length) {
+                    this.port.postMessage(this.buffer.buffer, [this.buffer.buffer]);
+                    this.buffer = new Int16Array(4096);
+                    this.offset = 0;
+                  }
+                }
+                return true;
+              }
+            }
+            registerProcessor('audio-relay-processor', AudioRelayProcessor);
+          `;
+          const blob = new Blob([workletCode], { type: 'application/javascript' });
+          const workletUrl = URL.createObjectURL(blob);
+          relayCtx.audioWorklet.addModule(workletUrl).then(() => {
+            URL.revokeObjectURL(workletUrl);
+            if (!mountedRef.current || !fallbackAudioContextRef.current) return;
+            try {
+              const workletNode = new AudioWorkletNode(relayCtx, 'audio-relay-processor');
+              fallbackWorkletNodeRef.current = workletNode;
+              workletNode.port.onmessage = (event) => {
+                if (isP2PActive() || isMutedRef.current) return;
+                if (event.data) {
+                  socketService.sendCallAudioChunk(user.handle, currentUser.handle, event.data);
+                }
+              };
+              source.connect(workletNode);
+            } catch (createErr) {
+              console.warn('Failed to create AudioWorkletNode, using ScriptProcessor:', createErr);
+              setupScriptProcessorFallback();
+            }
+          }).catch((loadErr) => {
+            URL.revokeObjectURL(workletUrl);
+            console.warn('AudioWorklet module loading failed, falling back:', loadErr);
+            setupScriptProcessorFallback();
+          });
+        } else {
+          setupScriptProcessorFallback();
+        }
       } catch (relayErr) {
         console.warn('Fallback audio sender initialization skipped:', relayErr);
       }
@@ -661,7 +751,11 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (fromH !== normalizeHandle(user.handle)) return;
 
       const pc = peerConnectionRef.current;
-      const isP2PConnected = pc && pc.connectionState === 'connected' && pc.iceConnectionState === 'connected';
+      const isP2PConnected = pc && (
+        pc.connectionState === 'connected' ||
+        pc.iceConnectionState === 'connected' ||
+        pc.iceConnectionState === 'completed'
+      );
       if (isP2PConnected) return;
 
       try {

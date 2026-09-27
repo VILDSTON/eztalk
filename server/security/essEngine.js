@@ -27,7 +27,16 @@ class SecurityEngine {
   }
 
   _addStrike(ip, points) {
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.endsWith('127.0.0.1')) {
+    if (
+      !ip ||
+      ip === '127.0.0.1' ||
+      ip === '::1' ||
+      ip.includes('127.0.0.1') ||
+      ip.startsWith('192.168.') ||
+      ip.startsWith('10.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+      process.env.NODE_ENV !== 'production'
+    ) {
       return;
     }
     if (!this.ipStrikes.has(ip)) {
@@ -52,6 +61,18 @@ class SecurityEngine {
   }
 
   _isBanned(ip) {
+    if (
+      !ip ||
+      ip === '127.0.0.1' ||
+      ip === '::1' ||
+      ip.includes('127.0.0.1') ||
+      ip.startsWith('192.168.') ||
+      ip.startsWith('10.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+      process.env.NODE_ENV !== 'production'
+    ) {
+      return false;
+    }
     const record = this.ipStrikes.get(ip);
     if (!record) return false;
     if (record.banExpires > Date.now()) return true;
@@ -297,7 +318,8 @@ class SecurityEngine {
           'answer_call', 'answer-call', 
           'accept_call', 'accept-call', 
           'decline_call', 'decline-call', 
-          'end_call', 'end-call'
+          'end_call', 'end-call',
+          'call_audio_chunk', 'call-audio-chunk'
         ];
         if (ignoredEvents.includes(event)) {
           return next();
