@@ -88,6 +88,11 @@
   height: 2rem !important;
 }
 
+/* ─── Global Mobile Interaction & Reset ─── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 html,
 body,
 #root {
@@ -103,10 +108,77 @@ body,
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
-  /* Prevent mobile browser pull-to-refresh from reloading the app */
+  /* Prevent system browser pull-to-refresh & full-page rubber-band bounce */
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
   overscroll-behavior: none;
-  /* Prevent iOS bounce/rubber-band scroll effect */
-  -webkit-overflow-scrolling: auto;
+  touch-action: pan-x pan-y;
+}
+
+/* ─── Safe Area Insets (PWA & iOS/Android Notches) ─── */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.safe-area-bottom-bar {
+  padding-bottom: max(env(safe-area-inset-bottom, 16px), 12px);
+}
+
+.safe-area-all {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ─── Prevent Accidental Selection on Interactive Chrome ─── */
+button,
+a,
+[role="button"],
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Maintain text selection for message content and inputs */
+.selectable-text,
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ─── Mobile Input Font Size: Strictly >= 16px (Prevents iOS Safari auto-zoom on focus) ─── */
+@media screen and (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ─── Native Scroll Inertia & Containment ─── */
+.custom-scrollbar,
+.scroll-touch,
+[data-scrollable="true"] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+}
+
+/* ─── Touch Device Native Active Feedback (75ms Snappy Haptics) ─── */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.96) translateZ(0);
+    opacity: 0.9;
+    transition: transform 75ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 75ms ease;
+  }
 }
 
 /* ─── Chat Background Pattern (Чистый фон без размытого пятна) ─── */
@@ -136,11 +208,13 @@ body,
   background: var(--ez-accent-glow);
 }
 
-/* ─── GPU-Accelerated Utilities ─── */
-.gpu-layer {
+/* ─── GPU-Accelerated Hardware Utilities ─── */
+.gpu-layer,
+.hardware-accelerated {
   transform: translateZ(0);
   will-change: transform;
   backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* ─── Neon Glow Utilities ─── */

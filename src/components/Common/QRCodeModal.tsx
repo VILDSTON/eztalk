@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Copy, Check, QrCode } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
+import { haptic } from '../../utils/haptics';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(url);
+      haptic.medium();
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

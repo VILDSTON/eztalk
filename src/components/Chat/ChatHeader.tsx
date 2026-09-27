@@ -136,7 +136,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
     return (
       <>
-        <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans relative">
+        <div className="min-h-[56px] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans relative">
           {showSearch ? (
             <div className="flex-1 flex items-center space-x-2 mr-2 animate-fade-in">
               <Search className="w-4 h-4 text-ez-muted shrink-0" />
@@ -406,7 +406,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   return (
     <>
-      <div className="h-14 px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
+      <div className="min-h-[56px] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center justify-between border-b border-ez-border/50 bg-ez-elevated/80 backdrop-blur-md select-none sticky top-0 z-20 w-full shrink-0 flex-shrink-0 font-sans">
         {showSearch ? (
           <div className="flex-1 flex items-center space-x-2 mr-2 animate-fade-in">
             <Search className="w-4 h-4 text-ez-muted shrink-0" />

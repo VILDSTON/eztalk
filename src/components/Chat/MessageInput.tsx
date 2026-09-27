@@ -5,6 +5,7 @@ import { ApiService } from '../../services/api';
 import { compressImage } from '../../utils/imageCompressor';
 import { useTranslation } from '../../context/LanguageContext';
 import { socketService } from '../../services/socket';
+import { haptic } from '../../utils/haptics';
 
 interface MessageInputProps {
   recipientHandle?: string;
@@ -192,6 +193,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
 
     if (!inputText.trim() && !currentAttachment) return;
+
+    haptic.light();
 
     onSendMessage(
       inputText.trim(),
@@ -431,6 +434,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           size: uploaded.size,
           peaks: finalPeaks,
         };
+        haptic.medium();
         onSendMessage(
           '',
           audioAttachment,
@@ -481,7 +485,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   ];
 
   return (
-    <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[max(env(safe-area-inset-bottom,16px),12px)] sticky bottom-0 z-20">
       <div className="w-full px-4 sm:px-6 py-2.5 sm:py-3 relative min-w-0">
         {/* Hidden File Input */}
         <input

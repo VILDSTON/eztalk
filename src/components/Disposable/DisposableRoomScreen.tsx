@@ -33,6 +33,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import { playMessageChime } from '../../utils/callSounds';
 import { MessageThread } from '../Chat/MessageThread';
 import { MessageInput } from '../Chat/MessageInput';
+import { haptic } from '../../utils/haptics';
 import { MediaLightboxModal } from '../Chat/MediaLightboxModal';
 import { downloadOrOpenFile, isImageMedia, isVideoMedia } from '../../utils/fileDownloader';
 import { getWebRTCConfiguration } from '../../constants/webrtc';
@@ -587,12 +588,14 @@ export const DisposableRoomScreen: React.FC = () => {
 
   const handleBurn = () => {
     setShowBurnConfirm(false);
+    haptic.heavy();
     const socket = socketService.getSocket();
     socket?.emit('disposable_burn', { roomId });
   };
 
   const copyRoomLink = () => {
     navigator.clipboard.writeText(window.location.href);
+    haptic.medium();
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
@@ -704,7 +707,7 @@ export const DisposableRoomScreen: React.FC = () => {
       {remoteAudioElem}
 
       {/* ─── Top Header Bar ─── */}
-      <header className="relative h-14 sm:h-16 px-2.5 sm:px-6 bg-ez-surface/90 backdrop-blur-xl border-b border-ez-border/60 flex items-center justify-between shrink-0 z-20">
+      <header className="relative min-h-[56px] pt-[env(safe-area-inset-top,0px)] px-2.5 sm:px-6 bg-ez-surface/90 backdrop-blur-xl border-b border-ez-border/60 flex items-center justify-between shrink-0 z-20">
         {/* Left: Back & Room / Companion info */}
         <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0 flex-1 sm:max-w-[40%] mr-1 sm:mr-2">
           <button
