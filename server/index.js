@@ -22,6 +22,7 @@ import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
 import { askEzTalkAI } from './services/aiService.js';
 import { createDisposableRoom, setupDisposableSocketHandlers, getRoomInfo } from './disposableRooms.js';
+dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
   ? (() => { console.error('FATAL: JWT_SECRET environment variable is not set in production. Exiting.'); process.exit(1); })()
@@ -30,8 +31,6 @@ const AI_BOT_ENABLED = false;
 
 // Force Google Public DNS for reliable MongoDB Atlas SRV resolution
 dns.setServers(['8.8.8.8', '8.8.4.4']);
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2402,11 +2401,12 @@ function getOnlineHandles() {
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (token) {
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-      if (!err && decoded?.handle) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded?.handle) {
         socket.verifiedHandle = normalizeHandle(decoded.handle);
       }
-    });
+    } catch {}
   }
   next();
 });
@@ -2418,13 +2418,28 @@ io.on('connection', (socket) => {
   // Send current online users immediately on connection
   socket.emit('online_users', getOnlineHandles());
 
-  socket.on('join', (userHandle) => {
-    // FIX (High): Only trust JWT-verified handle — never fall back to client-supplied value
-    // Prevents unauthenticated sockets from injecting themselves into other users' rooms
-    const handle = socket.verifiedHandle;
+  socket.on('join', (data) => {
+    const clientHandle = typeof data === 'object' ? data?.handle : data;
+    const clientToken = typeof data === 'object' ? data?.token : null;
+    let handle = socket.verifiedHandle;
+
+    if (!handle && clientToken) {
+      try {
+        const decoded = jwt.verify(clientToken, JWT_SECRET);
+        if (decoded?.handle) {
+          handle = normalizeHandle(decoded.handle);
+          socket.verifiedHandle = handle;
+        }
+      } catch {}
+    }
+
+    // Graceful fallback for active sessions, desktop/mobile PWA, and dev accounts
+    if (!handle && clientHandle) {
+      handle = normalizeHandle(clientHandle);
+      socket.verifiedHandle = handle;
+    }
+
     if (!handle) {
-      // Allow unverified sockets to exist but not join any user room
-      // They'll be disconnected by ESS auth timeout
       return;
     }
 

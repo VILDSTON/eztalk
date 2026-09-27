@@ -1166,7 +1166,7 @@ function MainApp() {
       const recipientHandle = data.recipientHandle || data.to;
       const cUser = currentUserRef.current;
       if (!cUser || !callerHandle) return;
-      if (normalizeHandle(recipientHandle || '') === normalizeHandle(cUser.handle)) {
+      if (!recipientHandle || normalizeHandle(recipientHandle) === normalizeHandle(cUser.handle)) {
         if (!blockedUsersRef.current.includes(normalizeHandle(callerHandle))) {
           // If already in an active call, auto-decline so caller receives busy signal
           if (activeLiveCallRef.current) {

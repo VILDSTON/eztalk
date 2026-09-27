@@ -174,11 +174,21 @@ export const CallModal: React.FC<CallModalProps> = ({
     hasOfferedRef.current = true;
     try {
       const offer = await pc.createOffer({ offerToReceiveAudio: true });
-      const optimizedSDP = optimizeAudioSDP(offer.sdp || '');
-      await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: optimizedSDP }));
+      let finalOfferSDP = offer.sdp || '';
+      try {
+        finalOfferSDP = optimizeAudioSDP(offer.sdp || '');
+        await pc.setLocalDescription(new RTCSessionDescription({ type: offer.type, sdp: finalOfferSDP }));
+      } catch (sdpErr) {
+        console.warn('Optimized offer SDP rejected, using standard SDP:', sdpErr);
+        await pc.setLocalDescription(offer);
+        finalOfferSDP = pc.localDescription?.sdp || offer.sdp || '';
+      }
       configureHighQualitySender(pc);
       socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-        offer: pc.localDescription,
+        offer: {
+          type: pc.localDescription?.type || offer.type,
+          sdp: pc.localDescription?.sdp || finalOfferSDP,
+        },
       });
     } catch (err) {
       console.error('Failed to create/send WebRTC offer:', err);
@@ -205,9 +215,9 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         while (pendingCandidatesRef.current.length > 0) {
           const cand = pendingCandidatesRef.current.shift();
-          if (cand) {
+          if (cand && (cand.candidate || cand.candidate === '')) {
             try {
-              await pc.addIceCandidate(new RTCIceCandidate(cand));
+              await pc.addIceCandidate(cand);
             } catch (iceErr) {
               console.warn('Buffered ICE candidate error:', iceErr);
             }
@@ -215,11 +225,21 @@ export const CallModal: React.FC<CallModalProps> = ({
         }
 
         const answer = await pc.createAnswer();
-        const optimizedSDP = optimizeAudioSDP(answer.sdp || '');
-        await pc.setLocalDescription(new RTCSessionDescription({ type: answer.type, sdp: optimizedSDP }));
+        let finalAnswerSDP = answer.sdp || '';
+        try {
+          finalAnswerSDP = optimizeAudioSDP(answer.sdp || '');
+          await pc.setLocalDescription(new RTCSessionDescription({ type: answer.type, sdp: finalAnswerSDP }));
+        } catch (sdpErr) {
+          console.warn('Optimized answer SDP rejected, using standard SDP:', sdpErr);
+          await pc.setLocalDescription(answer);
+          finalAnswerSDP = pc.localDescription?.sdp || answer.sdp || '';
+        }
         configureHighQualitySender(pc);
         socketService.sendWebRTCSignal(user.handle, currentUser.handle, {
-          answer: pc.localDescription,
+          answer: {
+            type: pc.localDescription?.type || answer.type,
+            sdp: pc.localDescription?.sdp || finalAnswerSDP,
+          },
         });
         callSoundService.stopAll();
       } else if (signal.answer) {
@@ -228,9 +248,9 @@ export const CallModal: React.FC<CallModalProps> = ({
           configureHighQualitySender(pc);
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();
-            if (cand) {
+            if (cand && (cand.candidate || cand.candidate === '')) {
               try {
-                await pc.addIceCandidate(new RTCIceCandidate(cand));
+                await pc.addIceCandidate(cand);
               } catch (iceErr) {
                 console.warn('Buffered ICE candidate error:', iceErr);
               }
@@ -241,7 +261,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       } else if (signal.candidate) {
         if (pc.remoteDescription && pc.remoteDescription.type) {
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            await pc.addIceCandidate(signal.candidate);
           } catch (iceErr) {
             console.warn('ICE candidate error:', iceErr);
           }
@@ -367,10 +387,19 @@ export const CallModal: React.FC<CallModalProps> = ({
       remoteStreamRef.current = stream;
       playRemoteAudio(stream);
 
+      // Transition to connected immediately as soon as media flows
+      if (disconnectGraceRef.current) {
+        clearTimeout(disconnectGraceRef.current);
+        disconnectGraceRef.current = null;
+      }
+      callSoundService.stopAll();
+      setCallState('connected');
+
       if (event.track) {
         event.track.onunmute = () => {
           console.log('WebRTC remote audio track unmuted');
           playRemoteAudio(stream);
+          setCallState('connected');
         };
       }
     };

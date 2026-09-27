@@ -8,7 +8,7 @@
 
 export const getWebRTCConfiguration = (): RTCConfiguration => {
   const iceServers: RTCIceServer[] = [
-    // High-availability Public STUN Servers
+    // High-availability Public STUN Servers (Google, Cloudflare, Matrix, Syncthing, Nextcloud)
     {
       urls: [
         'stun:stun.l.google.com:19302',
@@ -17,6 +17,9 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
         'stun:stun3.l.google.com:19302',
         'stun:stun4.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
+        'stun:turn.matrix.org:3478',
+        'stun:stun.syncthing.net:3478',
+        'stun:stun.nextcloud.com:443',
       ],
     },
   ];
@@ -40,19 +43,6 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
       });
     }
   }
-
-  // Free OpenRelay (Metered.ca) TURN servers for guaranteed fallback
-  // Includes UDP, TCP, and TLS on port 443 (which penetrates virtually all enterprise/carrier firewalls)
-  iceServers.push({
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp',
-      'turns:openrelay.metered.ca:443?transport=tcp',
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  });
 
   return {
     iceServers,

@@ -32,7 +32,11 @@ class SocketService {
       // Переподключение комнаты при первичном коннекте и при восстановлении сети
       const handleJoin = () => {
         if (this.currentHandle && this.socket?.connected) {
-          this.socket.emit('join', normalizeHandle(this.currentHandle));
+          const token = localStorage.getItem('eztalk_token');
+          this.socket.emit('join', {
+            handle: normalizeHandle(this.currentHandle),
+            token: token || undefined,
+          });
         }
       };
 
@@ -60,7 +64,11 @@ class SocketService {
         }
       });
     } else if (this.socket.connected && this.currentHandle) {
-      this.socket.emit('join', normalizeHandle(this.currentHandle));
+      const token = localStorage.getItem('eztalk_token');
+      this.socket.emit('join', {
+        handle: normalizeHandle(this.currentHandle),
+        token: token || undefined,
+      });
     }
 
     return this.socket;
@@ -74,7 +82,11 @@ class SocketService {
     const cleanHandle = normalizeHandle(userHandle);
     this.currentHandle = cleanHandle;
     if (this.socket?.connected) {
-      this.socket.emit('join', cleanHandle);
+      const token = localStorage.getItem('eztalk_token');
+      this.socket.emit('join', {
+        handle: cleanHandle,
+        token: token || undefined,
+      });
     }
   }
 
