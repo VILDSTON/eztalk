@@ -104,8 +104,8 @@ export default {
           '40%': { transform: 'scale(1)' },
         },
         flashHighlight: {
-          '0%': { backgroundColor: 'rgba(16, 185, 129, 0.4)' },
-          '100%': { backgroundColor: 'transparent' },
+          '0%': { filter: 'brightness(1.25)' },
+          '100%': { filter: 'brightness(1)' },
         },
       },
       animation: {

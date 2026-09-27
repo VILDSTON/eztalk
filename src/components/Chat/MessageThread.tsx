@@ -238,10 +238,10 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col relative py-3"
+        className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-3"
       >
         {/* Message Canvas (Full width) */}
-        <div className="w-full pl-3 pr-2 sm:pl-4 sm:pr-3 flex flex-col flex-1 min-h-full">
+        <div className="w-full px-2 sm:px-3 flex flex-col flex-1 min-h-full">
           {/* Top flexible spacer: pushes few messages down to the bottom (like Telegram/WhatsApp) */}
           {messages.length > 0 && <div className="flex-1 min-h-0" />}
 

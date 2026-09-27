@@ -189,12 +189,7 @@ textarea {
   background-attachment: fixed;
 }
 
-/* ─── Scrollbar ─── */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
-}
-
+/* ─── Scrollbar (Original Sleek Floating WebKit Scrollbar) ─── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -211,6 +206,26 @@ textarea {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--ez-accent-glow);
+}
+
+/* ─── Reply Flash Highlight (Active Theme Glow & Pulse) ─── */
+@keyframes flashHighlight {
+  0% {
+    box-shadow: 0 0 0 2.5px var(--ez-accent), 0 0 24px var(--ez-accent-glow) !important;
+    filter: brightness(1.25) !important;
+  }
+  35% {
+    box-shadow: 0 0 0 2.5px var(--ez-accent), 0 0 18px var(--ez-accent-glow) !important;
+    filter: brightness(1.15) !important;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, 0 0 0 transparent !important;
+    filter: brightness(1) !important;
+  }
+}
+
+.animate-flash-highlight {
+  animation: flashHighlight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 /* ─── GPU-Accelerated Hardware Utilities ─── */

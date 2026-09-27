@@ -761,7 +761,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       >
         {/* Group Sender Name */}
         {isGroupChat && !isMe && message.senderHandle && (
-          <span className="text-[11px] font-bold text-neon-green mb-0.5 ml-3">
+          <span className="text-[11px] font-bold mb-0.5 ml-2" style={{ color: 'var(--ez-accent)' }}>
             {message.senderHandle}
           </span>
         )}
@@ -777,7 +777,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               opacity: Math.min(1, Math.abs(swipeOffset) / 40),
             }}
           >
-            <div className="w-8 h-8 rounded-full bg-neon-green/20 border border-neon-green/50 flex items-center justify-center text-neon-green shadow-neon-sm">
+            <div
+              className="w-8 h-8 rounded-full border flex items-center justify-center shadow-neon-sm"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--ez-accent) 20%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--ez-accent) 50%, transparent)',
+                color: 'var(--ez-accent)'
+              }}
+            >
               <CornerUpLeft className="w-4 h-4" />
             </div>
           </div>
@@ -785,6 +792,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Main Message Bubble with Mobile Smooth Spring Reset */}
         <div
+          data-bubble="true"
           onDoubleClick={triggerHeartReaction}
           className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation select-text ${
             isSwiping ? '' : 'transition-transform duration-200 ease-out'
@@ -826,15 +834,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 const target = document.getElementById(`message-${message.replyTo?.id}`);
                 if (target) {
                   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  target.classList.add('animate-flash-highlight');
-                  setTimeout(() => target.classList.remove('animate-flash-highlight'), 1500);
+                  const bubble = target.querySelector<HTMLElement>('[data-bubble="true"]') || target;
+                  bubble.classList.remove('animate-flash-highlight');
+                  void bubble.offsetWidth;
+                  bubble.classList.add('animate-flash-highlight');
+                  setTimeout(() => bubble.classList.remove('animate-flash-highlight'), 1600);
                 }
               }}
-              className={`mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none cursor-pointer hover:opacity-80 transition-opacity ${isMe ? 'bg-black/20 border-neon-green' : 'bg-black/25 border-neon-green'
-                }`}
+              className="mb-1.5 px-2.5 py-1 rounded-lg border-l-2 text-xs truncate select-none cursor-pointer hover:opacity-80 transition-opacity bg-black/20"
+              style={{ borderLeftColor: 'var(--ez-accent)' }}
             >
-              <span className="font-bold block text-[11px] text-neon-green">{message.replyTo.senderHandle}</span>
-              <span className="text-gray-300 italic text-[11px] truncate block">{message.replyTo.text}</span>
+              <span className="font-bold block text-[11px]" style={{ color: 'var(--ez-accent)' }}>
+                {message.replyTo.senderHandle}
+              </span>
+              <span className="text-gray-300 italic text-[11px] truncate block">
+                {message.replyTo.text}
+              </span>
             </div>
           )}
 

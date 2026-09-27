@@ -486,7 +486,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[env(safe-area-inset-bottom,0px)] sticky bottom-0 z-20">
-      <div className="w-full px-3 sm:px-4 py-2 sm:py-2.5 relative min-w-0">
+      <div className="w-full px-2.5 sm:px-3.5 py-2 sm:py-2.5 relative min-w-0">
         {/* Hidden File Input */}
         <input
           type="file"
@@ -498,11 +498,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
         {/* Reply Banner */}
         {replyingTo && (
-          <div className="mb-2 flex items-center justify-between bg-ez-elevated border-l-2 border-neon-green px-3 py-1.5 rounded-lg text-xs animate-fade-in">
+          <div
+            className="mb-2 flex items-center justify-between bg-ez-elevated border-l-2 px-3 py-1.5 rounded-lg text-xs animate-fade-in"
+            style={{ borderLeftColor: 'var(--ez-accent)' }}
+          >
             <div className="flex items-center space-x-2 min-w-0 pr-2">
-              <CornerUpLeft className="w-4 h-4 text-neon-green shrink-0" />
+              <CornerUpLeft className="w-4 h-4 shrink-0" style={{ color: 'var(--ez-accent)' }} />
               <div className="truncate">
-                <span className="font-bold text-neon-green mr-1.5">{replyingTo.senderHandle}:</span>
+                <span className="font-bold mr-1.5" style={{ color: 'var(--ez-accent)' }}>{replyingTo.senderHandle}:</span>
                 <span className="text-gray-300 italic truncate">{replyingTo.text || (t as any)?.chat?.attachment || 'Attachment'}</span>
               </div>
             </div>
