@@ -15,7 +15,8 @@ interface CallModalProps {
   onClose: (info?: CallInfo) => void;
 }
 
-// Modifies SDP to set Opus to 64kbps high-fidelity voice, enable DTX, in-band FEC, and stable 20ms packetization
+// Modifies SDP to set Opus to 48kbps broadcast voice, disable DTX (usedtx=0) to prevent voice cut-offs,
+// enable in-band FEC for packet loss protection, and enforce stable 20ms packetization with constant bitrate
 function optimizeAudioSDP(sdp: string): string {
   if (!sdp) return sdp;
 
@@ -24,7 +25,7 @@ function optimizeAudioSDP(sdp: string): string {
   if (!opusMatch) return sdp;
   const pt = opusMatch[1];
 
-  const opusParams = 'maxaveragebitrate=64000;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0;maxplaybackrate=48000;minptime=20;ptime=20';
+  const opusParams = 'maxaveragebitrate=48000;useinbandfec=1;usedtx=0;stereo=0;sprop-stereo=0;maxplaybackrate=48000;minptime=10;ptime=20;maxptime=20;cbr=1';
 
   const fmtpRegex = new RegExp(`a=fmtp:${pt}[^\r\n]*`, 'i');
   if (fmtpRegex.test(sdp)) {
@@ -37,15 +38,18 @@ function optimizeAudioSDP(sdp: string): string {
   }
 }
 
-// Configures RTCRtpSender encoding bitrate and priority for crystal clear voice
+// Configures RTCRtpSender encoding bitrate, speech contentHint, and priority for crystal clear, zero-latency voice
 function configureHighQualitySender(pc: RTCPeerConnection) {
   try {
     pc.getSenders().forEach((sender) => {
       if (sender.track && sender.track.kind === 'audio') {
+        if ('contentHint' in sender.track) {
+          sender.track.contentHint = 'speech';
+        }
         const params = sender.getParameters();
         if (params && params.encodings && params.encodings.length > 0) {
           params.encodings.forEach((enc) => {
-            enc.maxBitrate = 64000;
+            enc.maxBitrate = 48000;
             enc.priority = 'high';
             enc.networkPriority = 'high';
           });
@@ -105,9 +109,12 @@ export const CallModal: React.FC<CallModalProps> = ({
   const fallbackProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const fallbackSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const fallbackAudioContextRef = useRef<AudioContext | null>(null);
+  const relayPlaybackContextRef = useRef<AudioContext | null>(null);
   const nextAudioStartTimeRef = useRef(0);
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
+  const isSpeakerOnRef = useRef(isSpeakerOn);
+  isSpeakerOnRef.current = isSpeakerOn;
   const connectGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const icePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -290,10 +297,15 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         await addCandidateSafe(candObj);
 
-        // Supplement .local candidate with window.location.hostname if LAN IPv4
-        if (candObj.candidate.includes('.local') && typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)) {
-          const replaced = candObj.candidate.replace(/[a-zA-Z0-9-]+\.local/g, window.location.hostname);
-          await addCandidateSafe({ ...candObj, candidate: replaced });
+        // Supplement .local candidate with window.location.hostname for LAN IPv4 or 127.0.0.1 for localhost
+        if (candObj.candidate.includes('.local') && typeof window !== 'undefined') {
+          const isIp = /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
+          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const targetHost = isIp ? window.location.hostname : (isLocalhost ? '127.0.0.1' : '');
+          if (targetHost) {
+            const replaced = candObj.candidate.replace(/[a-zA-Z0-9-]+\.local/g, targetHost);
+            await addCandidateSafe({ ...candObj, candidate: replaced });
+          }
         }
       }
     } catch (err) {
@@ -375,6 +387,10 @@ export const CallModal: React.FC<CallModalProps> = ({
     if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state !== 'closed') {
       fallbackAudioContextRef.current.close().catch(() => {});
       fallbackAudioContextRef.current = null;
+    }
+    if (relayPlaybackContextRef.current && relayPlaybackContextRef.current.state !== 'closed') {
+      relayPlaybackContextRef.current.close().catch(() => {});
+      relayPlaybackContextRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close().catch(() => { });
@@ -469,6 +485,9 @@ export const CallModal: React.FC<CallModalProps> = ({
             if (remoteStreamRef.current) {
               playRemoteAudio(remoteStreamRef.current);
             }
+            if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'running') {
+              fallbackAudioContextRef.current.suspend().catch(() => {});
+            }
             if (icePollIntervalRef.current) clearInterval(icePollIntervalRef.current);
           }
         });
@@ -479,6 +498,19 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     pc.ontrack = (event) => {
       console.log('WebRTC ontrack event received:', event.track?.kind, event.streams);
+      if (event.receiver && event.track?.kind === 'audio') {
+        if ('playoutDelayHint' in event.receiver) {
+          (event.receiver as any).playoutDelayHint = 0;
+        }
+        if ('jitterBufferTarget' in event.receiver) {
+          (event.receiver as any).jitterBufferTarget = 0;
+        }
+      }
+      if (event.track) {
+        if ('contentHint' in event.track) {
+          event.track.contentHint = 'speech';
+        }
+      }
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
       remoteStreamRef.current = stream;
       playRemoteAudio(stream);
@@ -490,12 +522,18 @@ export const CallModal: React.FC<CallModalProps> = ({
       }
       callSoundService.stopAll();
       setCallState('connected');
+      if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'running') {
+        fallbackAudioContextRef.current.suspend().catch(() => {});
+      }
 
       if (event.track) {
         event.track.onunmute = () => {
           console.log('WebRTC remote audio track unmuted');
           playRemoteAudio(stream);
           setCallState('connected');
+          if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state === 'running') {
+            fallbackAudioContextRef.current.suspend().catch(() => {});
+          }
         };
       }
     };
@@ -578,7 +616,14 @@ export const CallModal: React.FC<CallModalProps> = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          latency: 0,
+          sampleRate: 48000,
         },
+      });
+      stream.getAudioTracks().forEach((track) => {
+        if ('contentHint' in track) {
+          track.contentHint = 'speech';
+        }
       });
       localStreamRef.current = stream;
       initAudioVisualizer(stream);
@@ -596,7 +641,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         if (queuedSignal) await processSignal(queuedSignal);
       }
 
-      // Initialize fallback audio relay sender (16kHz PCM)
+      // Initialize fallback audio relay sender (16kHz PCM with low-latency 60ms chunks)
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         const relayCtx = new AudioCtx({ sampleRate: 16000 });
@@ -616,7 +661,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         const setupScriptProcessorFallback = () => {
           try {
-            const processor = relayCtx.createScriptProcessor(4096, 1, 1);
+            const processor = relayCtx.createScriptProcessor(1024, 1, 1);
             fallbackProcessorRef.current = processor;
             processor.onaudioprocess = (e) => {
               if (isP2PActive() || isMutedRef.current) return;
@@ -640,7 +685,8 @@ export const CallModal: React.FC<CallModalProps> = ({
             class AudioRelayProcessor extends AudioWorkletProcessor {
               constructor() {
                 super();
-                this.buffer = new Int16Array(4096);
+                // 960 samples at 16kHz = 60ms low-latency chunking
+                this.buffer = new Int16Array(960);
                 this.offset = 0;
               }
               process(inputs) {
@@ -652,7 +698,7 @@ export const CallModal: React.FC<CallModalProps> = ({
                   this.buffer[this.offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                   if (this.offset >= this.buffer.length) {
                     this.port.postMessage(this.buffer.buffer, [this.buffer.buffer]);
-                    this.buffer = new Int16Array(4096);
+                    this.buffer = new Int16Array(960);
                     this.offset = 0;
                   }
                 }
@@ -767,11 +813,11 @@ export const CallModal: React.FC<CallModalProps> = ({
           float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
         }
 
-        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        if (!relayPlaybackContextRef.current || relayPlaybackContextRef.current.state === 'closed') {
           const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          audioContextRef.current = new AudioCtx({ sampleRate: 16000 });
+          relayPlaybackContextRef.current = new AudioCtx({ sampleRate: 16000 });
         }
-        const ctx = audioContextRef.current;
+        const ctx = relayPlaybackContextRef.current;
         if (ctx.state === 'suspended') {
           ctx.resume().catch(() => {});
         }
@@ -781,10 +827,23 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         const bufferSource = ctx.createBufferSource();
         bufferSource.buffer = audioBuf;
-        bufferSource.connect(ctx.destination);
+
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = isSpeakerOnRef.current ? 1.0 : 0.0;
+        bufferSource.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
         const now = ctx.currentTime;
-        const startTime = Math.max(now, nextAudioStartTimeRef.current);
+        const targetLead = 0.025; // 25ms lead for smooth jitter-free playback
+        let startTime = nextAudioStartTimeRef.current;
+
+        // Anti-latency clamp:
+        // If scheduled playout fell behind real-time (underrun)
+        // OR if the queue drifted more than 60ms into the future (latency accumulation from packet bursts):
+        if (startTime < now || startTime > now + 0.06) {
+          startTime = now + targetLead;
+        }
+
         bufferSource.start(startTime);
         nextAudioStartTimeRef.current = startTime + audioBuf.duration;
 
@@ -1085,6 +1144,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const toggleSpeaker = () => {
     setIsSpeakerOn((prev) => {
       const next = !prev;
+      isSpeakerOnRef.current = next;
       if (remoteAudioRef.current) {
         remoteAudioRef.current.muted = !next;
       }
@@ -1093,6 +1153,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   };
 
   useEffect(() => {
+    isSpeakerOnRef.current = isSpeakerOn;
     if (remoteAudioRef.current) {
       remoteAudioRef.current.muted = !isSpeakerOn;
     }
