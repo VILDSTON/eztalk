@@ -493,7 +493,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         )}
 
-        {/* Right Actions — Search & Menu */}
+        {/* Right Actions */}
         {!showSearch && (
           <div className="flex items-center space-x-0.5">
             <button
@@ -504,13 +504,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
-            {/* Phone button: hidden on mobile (shown centred below), visible on sm+ */}
             {!isSavedMessages && user?.handle !== '@ai' && (
               <button
                 type="button"
-                onClick={() => { if (onStartCall) onStartCall(); }}
-                onTouchEnd={(e) => { e.preventDefault(); if (onStartCall) onStartCall(); }}
-                className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer relative z-50"
+                onClick={() => {
+                  if (onStartCall) onStartCall();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  if (onStartCall) onStartCall();
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer relative z-50"
                 title={t.chat?.voiceCall || "Voice Call"}
               >
                 <Phone className="w-[18px] h-[18px] pointer-events-none" />
@@ -524,19 +528,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <MoreVertical className="w-[18px] h-[18px]" />
             </button>
           </div>
-        )}
-
-        {/* Phone button centred on mobile only */}
-        {!showSearch && !isSavedMessages && user?.handle !== '@ai' && (
-          <button
-            type="button"
-            onClick={() => { if (onStartCall) onStartCall(); }}
-            onTouchEnd={(e) => { e.preventDefault(); if (onStartCall) onStartCall(); }}
-            className="sm:hidden absolute left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center text-ez-muted hover:text-neon-green hover:bg-white/10 transition-colors duration-150 cursor-pointer z-50"
-            title={t.chat?.voiceCall || "Voice Call"}
-          >
-            <Phone className="w-[18px] h-[18px] pointer-events-none" />
-          </button>
         )}
 
         {/* Dropdown Menu */}
