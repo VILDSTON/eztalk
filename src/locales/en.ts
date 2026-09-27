@@ -486,6 +486,10 @@ export const en = {
     waitingTitle: 'Waiting for companion to join',
     waitingDesc: 'Share this link to start chatting. The room will automatically close after the timer expires.',
     waitingPeer: 'Waiting for companion...',
+    qrCodeTitle: 'QR Code to Join',
+    qrCodeSubtitle: 'Scan with your smartphone camera to connect to this room instantly',
+    qrCodeTip: 'Fast camera scan • No login required',
+    showQr: 'Show QR Code',
   }
 };
 

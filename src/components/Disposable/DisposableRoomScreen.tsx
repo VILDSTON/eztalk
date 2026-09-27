@@ -24,8 +24,10 @@ import {
   X,
   FileText,
   Download,
+  QrCode,
 } from 'lucide-react';
 import { socketService } from '../../services/socket';
+import { QRCodeModal } from '../Common/QRCodeModal';
 import { Message, QuotedMessage, DisposableMessage, DisposableParticipant, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
 import { playMessageChime } from '../../utils/callSounds';
@@ -81,6 +83,7 @@ export const DisposableRoomScreen: React.FC = () => {
 
   // Message & Lightbox State
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' } | null>(null);
 
@@ -797,6 +800,17 @@ export const DisposableRoomScreen: React.FC = () => {
             <span className="hidden md:inline">{copiedLink ? ((t as any)?.common?.copied || 'Copied') : ((t as any)?.disposable?.copyLink || 'Share')}</span>
           </button>
 
+          {/* QR Code Button */}
+          <button
+            type="button"
+            onClick={() => setShowQRModal(true)}
+            className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl bg-ez-elevated hover:bg-ez-hover border border-ez-border hover:border-neon-green/40 text-gray-300 hover:text-neon-green items-center space-x-1 sm:space-x-1.5 text-xs transition-all cursor-pointer shrink-0 flex"
+            title={(t as any)?.disposable?.showQr || 'QR Code'}
+          >
+            <QrCode className="w-3.5 h-3.5 text-neon-green" />
+            <span className="hidden md:inline font-medium">QR</span>
+          </button>
+
           {/* Voice Call Button */}
           {!isInCall ? (
             <button
@@ -911,6 +925,15 @@ export const DisposableRoomScreen: React.FC = () => {
               {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedLink ? ((t as any)?.common?.copied || 'Copied') : ((t as any)?.common?.copy || 'Copy Link')}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setShowQRModal(true)}
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-ez-elevated hover:bg-ez-hover border border-neon-green/40 text-neon-green font-bold text-xs rounded-xl shadow-neon-sm flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+              title={(t as any)?.disposable?.showQr || 'QR Code'}
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>QR</span>
+            </button>
           </div>
         </div>
       )}
@@ -1006,6 +1029,14 @@ export const DisposableRoomScreen: React.FC = () => {
           </div>
         </div>
       )}
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        url={window.location.href}
+        title={(t as any)?.disposable?.qrCodeTitle || 'QR Code to Join'}
+        subtitle={(t as any)?.disposable?.qrCodeSubtitle || 'Scan with your smartphone camera to connect to this room instantly'}
+      />
     </div>
   );
 };

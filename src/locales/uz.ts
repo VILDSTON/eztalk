@@ -489,5 +489,9 @@ export const uz: TranslationKeys = {
     waitingTitle: 'Suhbatdosh kutilmoqda',
     waitingDesc: 'Suhbatni boshlash uchun ushbu havolani yuboring. Taymer tugagach xona yopiladi.',
     waitingPeer: 'Suhbatdosh kutilmoqda...',
+    qrCodeTitle: 'Kirish uchun QR-kod',
+    qrCodeSubtitle: 'Xonaga darhol ulanish uchun smartfon kamerasini qarating',
+    qrCodeTip: 'Tezkor skanerlash • Parolsiz',
+    showQr: 'QR-kodni ko‘rsatish',
   }
 };

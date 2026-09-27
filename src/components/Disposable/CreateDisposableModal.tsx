@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Flame, Clock, Copy, Check, X, Shield, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
+import { Flame, Clock, Copy, Check, X, Shield, ArrowRight, Sparkles, Loader2, QrCode } from 'lucide-react';
 import { ApiService } from '../../services/api';
 import { useTranslation } from '../../context/LanguageContext';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { QRCodeModal } from '../Common/QRCodeModal';
 
 interface CreateDisposableModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -65,6 +67,7 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
   const handleClose = () => {
     setCreatedRoomId(null);
     setCopied(false);
+    setShowQRModal(false);
     setError(null);
     onClose();
   };
@@ -228,6 +231,15 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
                   </>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowQRModal(true)}
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-neon-green/15 hover:bg-neon-green/25 border border-neon-green/30 text-neon-green text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer shrink-0"
+                title={(t as any)?.disposable?.showQr || 'QR Code'}
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">QR</span>
+              </button>
             </div>
 
             {/* Action Buttons */}
@@ -251,6 +263,14 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        url={roomLink}
+        title={(t as any)?.disposable?.qrCodeTitle || 'QR Code to Join'}
+      />
     </div>
   );
 };
