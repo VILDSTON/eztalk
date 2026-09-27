@@ -136,7 +136,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages, inChatSearchQuery]);
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full min-w-0 min-h-0 bg-ez-base select-none overflow-hidden relative font-sans">
+    <div id="chat-window-root" className="flex-1 flex flex-col h-full w-full min-w-0 min-h-0 bg-ez-base select-none overflow-hidden relative font-sans">
       {/* Header */}
       <ChatHeader
         user={user}

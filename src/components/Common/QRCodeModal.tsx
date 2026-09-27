@@ -53,11 +53,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-[120] bg-black/85 flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm bg-ez-elevated qr-modal-card rounded-3xl p-6 backdrop-blur-xl flex flex-col items-center text-center animate-scale-up overflow-hidden"
+        className="relative w-full max-w-sm bg-ez-elevated qr-modal-card rounded-3xl p-6 flex flex-col items-center text-center animate-scale-up overflow-hidden transform-gpu will-change-[transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}

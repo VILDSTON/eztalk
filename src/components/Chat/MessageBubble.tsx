@@ -24,7 +24,9 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
-import { normalizeHandle } from '../../utils/chatStorage';
+import { normalizeHandle, ChatStorageService } from '../../utils/chatStorage';
+import { ApiService } from '../../services/api';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 import { MobileMessageActionSheet } from './MobileMessageActionSheet';
 import { useTranslation } from '../../context/LanguageContext';
 import { formatMessageTime } from '../../utils/dateTime';
@@ -45,6 +47,8 @@ interface MessageBubbleProps {
   onCallBack?: () => void;
   onRetry?: (message: Message) => void;
   isNewMessage?: boolean;
+  showTail?: boolean;
+  isFirstInGroup?: boolean;
 }
 
 function formatTelegramTime(createdAt?: string, fallbackText?: string, language?: string): string {
@@ -97,6 +101,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onCallBack,
   onRetry,
   isNewMessage = false,
+  showTail = true,
+  isFirstInGroup = true,
 }) => {
   const { t, language } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -134,6 +140,67 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // External URL Confirmation State
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
+
+  const navigate = useLocalizedNavigate();
+  const [notFoundUsername, setNotFoundUsername] = useState<string | null>(null);
+  const notFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (notFoundTimerRef.current) {
+        clearTimeout(notFoundTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleMentionClick = async (e: React.MouseEvent, mention: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rawUsername = mention.replace(/^@/, '').trim();
+    if (!rawUsername) return;
+    const normalizedWithAt = normalizeHandle(rawUsername);
+    const cleanHandle = rawUsername.toLowerCase();
+
+    // 1. Is it the current user?
+    if (currentUserHandle && normalizeHandle(currentUserHandle).toLowerCase() === normalizedWithAt.toLowerCase()) {
+      navigate(`/direct/t/${cleanHandle}`);
+      return;
+    }
+
+    // 2. Check local storage / mock data in ChatStorageService
+    const localUser = ChatStorageService.getUserByHandle(normalizedWithAt);
+    if (localUser) {
+      navigate(`/direct/t/${cleanHandle}`);
+      return;
+    }
+
+    const allLocal = ChatStorageService.getAllUsers();
+    const foundLocal = allLocal.find((u) => normalizeHandle(u.handle).toLowerCase() === normalizedWithAt.toLowerCase());
+    if (foundLocal) {
+      navigate(`/direct/t/${cleanHandle}`);
+      return;
+    }
+
+    // 3. Check remote API via ApiService
+    try {
+      const apiUser = await ApiService.getUserByHandle(cleanHandle);
+      if (apiUser) {
+        ChatStorageService.upsertUser(apiUser);
+        navigate(`/direct/t/${cleanHandle}`);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 4. User not found -> Show Telegram-style toast
+    setNotFoundUsername(mention);
+    if (notFoundTimerRef.current) clearTimeout(notFoundTimerRef.current);
+    notFoundTimerRef.current = setTimeout(() => {
+      setNotFoundUsername(null);
+    }, 3000);
+  };
 
   const handleExternalLinkClick = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
@@ -751,7 +818,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <>
       <div
         id={`message-${message.id}`}
-        className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : 'mb-1.5'
+        className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : (showTail !== false ? 'mb-2' : 'mb-1')
           } max-w-full ${isMe ? 'items-end' : 'items-start'
           } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
@@ -799,14 +866,56 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           } ${
             emojiInfo.isEmojiOnly
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
-              : `px-3.5 pt-2 pb-1.5 rounded-[16px] text-[14px] leading-relaxed shadow-sm ${
+              : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${
                   isMe
-                    ? 'bg-ez-sent text-white border border-neon-green/20 rounded-br-sm telegram-bubble-out'
-                    : 'bg-ez-received text-slate-100 border border-ez-border/50 rounded-bl-sm telegram-bubble-in'
+                    ? `bg-ez-sent text-white border border-neon-green/20 rounded-tl-[16px] rounded-bl-[16px] ${
+                        isFirstInGroup ? 'rounded-tr-[16px]' : 'rounded-tr-[6px]'
+                      } ${showTail !== false ? 'rounded-br-[2px]' : 'rounded-br-[6px]'} telegram-bubble-out`
+                    : `bg-ez-received text-slate-100 border border-ez-border/50 rounded-tr-[16px] rounded-br-[16px] ${
+                        isFirstInGroup ? 'rounded-tl-[16px]' : 'rounded-tl-[6px]'
+                      } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
                 }`
           }`}
           style={{ transform: `translateX(${swipeOffset}px)` }}
         >
+          {/* Authentic Telegram Message Tail Corner */}
+          {showTail !== false && !emojiInfo.isEmojiOnly && (
+            isMe ? (
+              <svg
+                className="absolute -right-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
+                viewBox="0 0 8 16"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  fill="var(--ez-sent)"
+                />
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16"
+                  fill="none"
+                  stroke="color-mix(in srgb, var(--ez-accent, #10b981) 20%, transparent)"
+                  strokeWidth="1"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="absolute -left-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible -scale-x-100"
+                viewBox="0 0 8 16"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  fill="var(--ez-received)"
+                />
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16"
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.12)"
+                  strokeWidth="1"
+                />
+              </svg>
+            )
+          )}
           {/* Double-tap Floating Heart Burst Animation */}
           {showHeartBurst && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 select-none">
@@ -1017,12 +1126,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {message.text.trim()}
               </div>
             ) : (
-              <p className="whitespace-pre-wrap break-words word-break-all selection:bg-[var(--ez-accent)] selection:text-black">
+              <p className="whitespace-pre-wrap break-words word-break-all selection:bg-[var(--ez-accent)]/35 selection:text-white">
                 {(() => {
-                  const urlRegex = /(https?:\/\/[^\s]+)/g;
-                  const parts = message.text.split(urlRegex);
+                  const combinedRegex = /(https?:\/\/[^\s]+|(?<![\w])@[a-zA-Z0-9_]+)/g;
+                  const parts = message.text.split(combinedRegex);
+                  const mentionColor = isMe ? 'var(--ez-sent-meta, var(--ez-accent))' : 'var(--ez-accent)';
                   return parts.map((part, i) => {
-                    if (part.match(urlRegex)) {
+                    if (part.startsWith('http://') || part.startsWith('https://')) {
                       return (
                         <a
                           key={i}
@@ -1032,6 +1142,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         >
                           {part}
                         </a>
+                      );
+                    }
+                    if (part.startsWith('@')) {
+                      return (
+                        <span
+                          key={i}
+                          onClick={(e) => handleMentionClick(e, part)}
+                          className="font-semibold hover:underline cursor-pointer transition-opacity active:opacity-75 select-text"
+                          style={{ color: mentionColor }}
+                          title={language === 'ru' ? `Открыть чат с ${part}` : `Chat with ${part}`}
+                        >
+                          {part}
+                        </span>
                       );
                     }
                     return <React.Fragment key={i}>{part}</React.Fragment>;
@@ -1342,6 +1465,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }}
         onCancel={() => setExternalUrl(null)}
       />
+
+      {/* User Not Found Floating Toast in the Middle of Chat */}
+      {notFoundUsername &&
+        createPortal(
+          <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center p-4">
+            <div className="bg-ez-elevated/95 text-white text-xs sm:text-sm px-5 py-3 rounded-2xl border border-red-500/35 shadow-glass flex items-center space-x-2.5 backdrop-blur-md animate-scale-up pointer-events-auto select-none">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="font-medium tracking-tight">
+                {language === 'ru'
+                  ? `Пользователь ${notFoundUsername} не найден`
+                  : language === 'uz'
+                  ? `Foydalanuvchi ${notFoundUsername} topilmadi`
+                  : `Username ${notFoundUsername} not found`}
+              </span>
+            </div>
+          </div>,
+          document.getElementById('chat-window-root') || document.body
+        )}
     </>
   );
 };

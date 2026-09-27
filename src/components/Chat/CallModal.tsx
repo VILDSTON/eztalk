@@ -868,9 +868,9 @@ export const CallModal: React.FC<CallModalProps> = ({
           onClick={() => {
             if (remoteStreamRef.current) playRemoteAudio(remoteStreamRef.current);
           }}
-          className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-2xl animate-fade-in select-none font-sans"
+          className="fixed inset-0 z-[9999] flex sm:items-center sm:justify-center p-0 sm:p-4 bg-black/95 animate-fade-in select-none font-sans"
         >
-          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-base/95 border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden backdrop-blur-2xl">
+          <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-ez-base border-0 sm:border border-neon-green/30 rounded-none sm:rounded-3xl p-6 sm:p-7 flex flex-col items-center justify-center text-center overflow-hidden transform-gpu will-change-[transform,opacity]">
             {/* Ambient Glow */}
             <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-green/10 rounded-full blur-3xl pointer-events-none animate-glow-pulse" />
 

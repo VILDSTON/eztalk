@@ -32,6 +32,53 @@ interface MessageThreadProps {
 
 
 
+function isUserMe(msg: Message | null, currentUserId?: string, currentUserHandle?: string): boolean {
+  if (!msg) return false;
+  return Boolean(
+    (currentUserHandle && msg.senderHandle && normalizeHandle(msg.senderHandle) === normalizeHandle(currentUserHandle)) ||
+    (currentUserId && msg.senderId === currentUserId) ||
+    msg.senderId === 'me'
+  );
+}
+
+function areMessagesSameSender(
+  m1: Message | null,
+  m2: Message | null,
+  currentUserId?: string,
+  currentUserHandle?: string
+): boolean {
+  if (!m1 || !m2) return false;
+  const m1Me = isUserMe(m1, currentUserId, currentUserHandle);
+  const m2Me = isUserMe(m2, currentUserId, currentUserHandle);
+  if (m1Me && m2Me) return true;
+  if (m1Me !== m2Me) return false;
+  return Boolean(
+    (m1.senderId && m2.senderId && m1.senderId === m2.senderId) ||
+    (m1.senderHandle && m2.senderHandle && normalizeHandle(m1.senderHandle) === normalizeHandle(m2.senderHandle))
+  );
+}
+
+function isCallOrSystemMessage(msg: Message | null): boolean {
+  if (!msg) return false;
+  if (msg.callInfo) return true;
+  if (msg.text) {
+    const lower = msg.text.toLowerCase();
+    if (
+      lower.includes('canceled call') ||
+      lower.includes('cancelled call') ||
+      lower.includes('declined call') ||
+      lower.includes('missed call') ||
+      lower.includes('voice call') ||
+      lower.includes('отменённый') ||
+      lower.includes('отклонённый') ||
+      lower.includes('пропущенный')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function getDateKey(createdAt?: string, timestamp?: string): string {
   let date: Date | null = null;
   if (createdAt) {
@@ -280,9 +327,25 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
           ) : (
             messages.map((msg, index) => {
               const prevMsg = index > 0 ? messages[index - 1] : null;
+              const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
               const currentKey = getDateKey(msg.createdAt, msg.timestamp);
               const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
+              const nextKey = nextMsg ? getDateKey(nextMsg.createdAt, nextMsg.timestamp) : null;
               const showDateDivider = !hideDateDividers && currentKey !== prevKey;
+
+              const isSameSenderAsPrev =
+                !isCallOrSystemMessage(msg) &&
+                !isCallOrSystemMessage(prevMsg) &&
+                areMessagesSameSender(prevMsg, msg, currentUserId, currentUserHandle);
+              const isSameDayAsPrev = prevKey === currentKey;
+              const isFirstInGroup = !(isSameSenderAsPrev && isSameDayAsPrev);
+
+              const isSameSenderAsNext =
+                !isCallOrSystemMessage(msg) &&
+                !isCallOrSystemMessage(nextMsg) &&
+                areMessagesSameSender(msg, nextMsg, currentUserId, currentUserHandle);
+              const isSameDayAsNext = nextKey === currentKey;
+              const isLastInGroup = !(isSameSenderAsNext && isSameDayAsNext);
 
               return (
                 <React.Fragment key={msg.id}>
@@ -298,6 +361,8 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                     currentUserId={currentUserId}
                     currentUserHandle={currentUserHandle}
                     isGroupChat={isGroupChat}
+                    showTail={isLastInGroup}
+                    isFirstInGroup={isFirstInGroup}
                     onReply={onReply}
                     onForward={onForward}
                     onEdit={onEdit}

@@ -76,12 +76,12 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none font-sans">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-md animate-fade-in"
+        className="fixed inset-0 bg-black/85 animate-fade-in"
         onClick={handleClose}
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md bg-ez-surface border border-ez-border/80 rounded-3xl p-6 shadow-2xl z-10 animate-scale-up overflow-hidden">
+      <div className="relative w-full max-w-md bg-ez-surface border border-ez-border/80 rounded-3xl p-6 shadow-2xl z-10 animate-scale-up overflow-hidden transform-gpu will-change-[transform,opacity]">
         {/* Glow decoration */}
         <div className="absolute -top-16 -left-16 w-36 h-36 bg-neon-green/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />

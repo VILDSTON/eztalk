@@ -37,11 +37,11 @@ export const LegalModal: React.FC<LegalModalProps> = ({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm animate-fade-in transition-opacity"
+        className="fixed inset-0 bg-black/85 animate-fade-in transition-opacity"
       />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-2xl max-h-[85vh] bg-[var(--ez-surface)] border border-[var(--ez-border)] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-2xl max-h-[85vh] bg-[var(--ez-surface)] border border-[var(--ez-border)] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-fade-in transform-gpu will-change-[transform,opacity]">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[var(--ez-border)] flex items-center justify-between bg-[var(--ez-base)]/50">
           <div className="flex items-center gap-3">

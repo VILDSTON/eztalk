@@ -255,28 +255,34 @@ textarea {
   box-shadow: 0 0 8px var(--ez-glow);
 }
 
-/* ─── Glassmorphic Overlays ─── */
-.glass-overlay {
-  background: rgba(5, 5, 5, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* ─── Modal Backdrops & Overlays (Optimized for 60 FPS on Mobile) ─── */
+.glass-overlay,
+.modal-backdrop {
+  background: rgba(5, 5, 5, 0.85);
 }
 
 .glass-panel {
-  background: rgba(11, 11, 12, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(11, 11, 12, 0.96);
+  transform: translateZ(0);
+  will-change: opacity, transform;
+}
+
+.modal-hardware-accel,
+.modal-container,
+.animate-scale-up,
+.animate-slide-up,
+.animate-slide-up-sheet {
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* ─── Message Bubble Tails ─── */
 .telegram-bubble-in {
   position: relative;
-  border-bottom-left-radius: 4px;
 }
 
 .telegram-bubble-out {
   position: relative;
-  border-bottom-right-radius: 4px;
 }
 
 /* ─── Dynamic Accent Theme Overrides (Neon, Cyan, Purple, Amber, Rose) ─── */
@@ -522,6 +528,35 @@ textarea {
   accent-color: var(--ez-accent) !important;
 }
 
+/* ─── Global Dynamic Theme-Adaptive Selection ─── */
+::selection {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 35%, transparent) !important;
+  color: #ffffff !important;
+}
+
+::-moz-selection {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 35%, transparent) !important;
+  color: #ffffff !important;
+}
+
+input::selection,
+textarea::selection {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 40%, transparent) !important;
+  color: #ffffff !important;
+}
+
+input::-moz-selection,
+textarea::-moz-selection {
+  background-color: color-mix(in srgb, var(--ez-accent, #10b981) 40%, transparent) !important;
+  color: #ffffff !important;
+}
+
+/* ─── Monospace Tabular Numbers (Prevents width jitter on countdowns & timers) ─── */
+.font-mono {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ─── Theme-Adaptive QR Code & Modal Styling ─── */
 .qr-code-box {
   border: 2px solid color-mix(in srgb, var(--ez-accent) 45%, transparent);
@@ -666,4 +701,27 @@ button:not([class*="w-"]):not([class*="h-"]),
   background-color: color-mix(in srgb, var(--ez-accent, #10b981) 15%, transparent) !important;
   border-color: color-mix(in srgb, var(--ez-accent, #10b981) 28%, transparent) !important;
   color: var(--ez-accent, #10b981) !important;
+}
+
+/* ─── Typography & Cyrillic Optimization (Golos Text) ─── */
+body {
+  font-family: "Golos Text", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[lang="ru"],
+html[lang="ru"] body,
+html[lang="ru"] input,
+html[lang="ru"] textarea,
+html[lang="ru"] button,
+:lang(ru) {
+  font-family: "Golos Text", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.012em;
+}
+
+.font-mono {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
 }

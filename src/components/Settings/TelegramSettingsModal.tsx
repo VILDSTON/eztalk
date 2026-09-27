@@ -39,6 +39,14 @@ const BANNER_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
   green: { en: 'Neon Cyber', ru: 'Неон Кибер', uz: 'Neon Kiber' },
   purple: { en: 'Deep Cosmos', ru: 'Глубокий космос', uz: 'Chuqur fazo' },
   blue: { en: 'Ocean Matrix', ru: 'Океаническая матрица', uz: 'Okean matritsasi' },
+  sunset: { en: 'Sunset Ember', ru: 'Закатный уголь', uz: 'Quyosh botishi' },
+  rose: { en: 'Cyber Rose', ru: 'Кибер роза', uz: 'Kiber atirgul' },
+  amber: { en: 'Solar Gold', ru: 'Солнечное золото', uz: 'Quyosh oltini' },
+  aurora: { en: 'Northern Aurora', ru: 'Северное сияние', uz: 'Shimol yog‘dusi' },
+  violet: { en: 'Electric Violet', ru: 'Электро фиолет', uz: 'Elektr binafsha' },
+  midnight: { en: 'Midnight Slate', ru: 'Полночный сланец', uz: 'Yarim tun' },
+  crimson: { en: 'Blood Matrix', ru: 'Алая матрица', uz: 'Qonli matritsa' },
+  emerald: { en: 'Emerald Glow', ru: 'Изумрудное сияние', uz: 'Zumrad nuri' },
 };
 
 const PRESET_BANNERS = [
@@ -46,6 +54,14 @@ const PRESET_BANNERS = [
   { id: 'green', label: 'Neon Cyber', gradient: 'linear-gradient(135deg, #05140b 0%, #004d25 50%, #00ff73 100%)' },
   { id: 'purple', label: 'Deep Cosmos', gradient: 'linear-gradient(135deg, #1f102e 0%, #4a154b 50%, #a855f7 100%)' },
   { id: 'blue', label: 'Ocean Matrix', gradient: 'linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #38bdf8 100%)' },
+  { id: 'sunset', label: 'Sunset Ember', gradient: 'linear-gradient(135deg, #2b0b0b 0%, #6b1414 50%, #f97316 100%)' },
+  { id: 'rose', label: 'Cyber Rose', gradient: 'linear-gradient(135deg, #2a081e 0%, #701a53 50%, #f43f5e 100%)' },
+  { id: 'amber', label: 'Solar Gold', gradient: 'linear-gradient(135deg, #261905 0%, #5c3c0a 50%, #f59e0b 100%)' },
+  { id: 'aurora', label: 'Northern Aurora', gradient: 'linear-gradient(135deg, #032624 0%, #075e54 50%, #14b8a6 100%)' },
+  { id: 'violet', label: 'Electric Violet', gradient: 'linear-gradient(135deg, #1b0c36 0%, #431c77 50%, #8b5cf6 100%)' },
+  { id: 'midnight', label: 'Midnight Slate', gradient: 'linear-gradient(135deg, #020617 0%, #0f172a 50%, #334155 100%)' },
+  { id: 'crimson', label: 'Blood Matrix', gradient: 'linear-gradient(135deg, #1c050a 0%, #500714 50%, #e11d48 100%)' },
+  { id: 'emerald', label: 'Emerald Glow', gradient: 'linear-gradient(135deg, #021a11 0%, #064e3b 50%, #10b981 100%)' },
 ];
 
 const STATUS_EMOJIS = ['🚀', '⚡', '💻', '🎧', '☕', '🔥', '🌙', '🎮', '💡', '✨'];
@@ -274,13 +290,13 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-md animate-fade-in transition-opacity duration-200"
+        className="fixed inset-0 bg-black/80 animate-fade-in transition-opacity duration-200"
       />
 
       {/* Settings Window Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-3xl bg-ez-surface/95 border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col animate-scale-up backdrop-blur-2xl"
+        className="relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
       >
         {/* ─── Window Header (Titlebar) ─── */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
@@ -430,20 +446,25 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
                   {t.settings.bannerGradient}
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-1">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 py-1">
                   {PRESET_BANNERS.map((b) => (
                     <button
                       key={b.id}
                       type="button"
                       onClick={() => setBanner(b.gradient)}
-                      className={`p-2 rounded-2xl border flex flex-col items-start space-y-1.5 transition-all duration-150 cursor-pointer ${
+                      title={BANNER_NAMES[b.id]?.[language as 'en' | 'ru' | 'uz'] || b.label}
+                      className={`group relative h-9 rounded-xl border-2 transition-all duration-150 cursor-pointer overflow-hidden flex items-center justify-center ${
                         banner === b.gradient
-                          ? 'border-neon-green bg-neon-green/10 shadow-neon-sm'
-                          : 'border-ez-border bg-white/[0.02] hover:bg-white/[0.05]'
+                          ? 'border-neon-green scale-[1.03] shadow-neon-sm ring-1 ring-neon-green/50'
+                          : 'border-white/10 hover:border-white/30 hover:scale-[1.02] opacity-80 hover:opacity-100'
                       }`}
+                      style={{ background: b.gradient }}
                     >
-                      <div className="w-full h-6 rounded-lg" style={{ background: b.gradient }} />
-                      <span className="text-[11px] font-bold text-gray-200 truncate">{BANNER_NAMES[b.id]?.[language as 'en' | 'ru' | 'uz'] || b.label}</span>
+                      {banner === b.gradient && (
+                        <div className="w-4 h-4 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-neon-green border border-neon-green/40 shadow-sm">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -469,13 +490,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                    {t.settings.statusTagline}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
+                      {t.settings.statusTagline}
+                    </label>
+                    <span className="text-[10px] text-ez-muted font-mono">{customStatusText.length}/60</span>
+                  </div>
                   <input
                     type="text"
+                    maxLength={60}
                     value={customStatusText}
-                    onChange={(e) => setCustomStatusText(e.target.value)}
+                    onChange={(e) => setCustomStatusText(e.target.value.slice(0, 60))}
                     placeholder={t.settings.taglinePlaceholder}
                     className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition-colors duration-150"
                   />
@@ -507,13 +532,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               {/* Bio */}
               <div>
-                <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block mb-1.5">
-                  {t.profile.bioAboutMe}
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
+                    {t.profile.bioAboutMe}
+                  </label>
+                  <span className="text-[10px] text-ez-muted font-mono">{bio.length}/140</span>
+                </div>
                 <textarea
                   rows={2}
+                  maxLength={140}
                   value={bio}
-                  onChange={(e) => setBio(e.target.value)}
+                  onChange={(e) => setBio(e.target.value.slice(0, 140))}
                   placeholder={t.settings.bioPlaceholder}
                   className="w-full bg-ez-elevated border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none resize-none transition-colors duration-150"
                 />
@@ -523,22 +552,23 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
           {/* TAB 2: Notifications */}
           {activeTab === 'notifications' && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green">
-                    <Volume2 className="w-5 h-5" />
+            <div className="space-y-3.5 sm:space-y-4 animate-fade-in">
+              {/* 1. Audible Chimes */}
+              <div className="p-3.5 sm:p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-3 sm:space-x-3.5 min-w-0 flex-1">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-neon-green/10 text-neon-green shrink-0">
+                    <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{t.settings.audibleChimes}</h4>
-                    <p className="text-xs text-ez-muted">{t.settings.audibleChimesDesc}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">{t.settings.audibleChimes}</h4>
+                    <p className="text-[11px] sm:text-xs text-ez-muted leading-relaxed line-clamp-2 sm:line-clamp-none mt-0.5">{t.settings.audibleChimesDesc}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2.5">
+                <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
                   <button
                     type="button"
                     onClick={playTestChime}
-                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-neon-green/20 text-neon-green transition-colors duration-150 cursor-pointer flex items-center justify-center border border-neon-green/20"
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-neon-green/20 text-neon-green transition-colors duration-150 cursor-pointer flex items-center justify-center border border-neon-green/20 shrink-0"
                     title={t.settings.previewChime}
                   >
                     <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
@@ -546,7 +576,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setSoundEnabled(!soundEnabled)}
-                    className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
+                    className={`w-11 sm:w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer shrink-0 ${
                       soundEnabled ? 'bg-neon-green' : 'bg-ez-muted'
                     }`}
                   >
@@ -559,20 +589,47 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green">
-                    <Bell className="w-5 h-5" />
+              {/* 2. In-App Floating Toasts */}
+              <div className="p-3.5 sm:p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-3 sm:space-x-3.5 min-w-0 flex-1">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-neon-green/10 text-neon-green shrink-0">
+                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{t.settings.desktopNotifications}</h4>
-                    <p className="text-xs text-ez-muted">{t.settings.desktopNotificationsDesc}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">{t.settings.floatingToasts}</h4>
+                    <p className="text-[11px] sm:text-xs text-ez-muted leading-relaxed line-clamp-2 sm:line-clamp-none mt-0.5">{t.settings.floatingToastsDesc}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFloatingToastsEnabled(!floatingToastsEnabled)}
+                  className={`w-11 sm:w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer shrink-0 ${
+                    floatingToastsEnabled ? 'bg-neon-green' : 'bg-ez-muted'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full bg-black absolute top-1 transition-transform duration-150 ${
+                      floatingToastsEnabled ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* 3. Desktop Notifications */}
+              <div className="p-3.5 sm:p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-3 sm:space-x-3.5 min-w-0 flex-1">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-neon-green/10 text-neon-green shrink-0">
+                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">{t.settings.desktopNotifications}</h4>
+                    <p className="text-[11px] sm:text-xs text-ez-muted leading-relaxed line-clamp-2 sm:line-clamp-none mt-0.5">{t.settings.desktopNotificationsDesc}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={requestNotificationPermission}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer ${
+                  className={`px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors duration-150 cursor-pointer shrink-0 ${
                     desktopNotificationsEnabled
                       ? 'bg-neon-green/15 text-neon-green border border-neon-green/30'
                       : 'bg-neon-green text-black shadow-neon-sm hover:scale-105'
@@ -582,20 +639,21 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 </button>
               </div>
 
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green">
-                    <Radio className="w-5 h-5" />
+              {/* 4. Call Ringtones */}
+              <div className="p-3.5 sm:p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-3 sm:space-x-3.5 min-w-0 flex-1">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-neon-green/10 text-neon-green shrink-0">
+                    <Radio className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{t.settings.callRingtones}</h4>
-                    <p className="text-xs text-ez-muted">{t.settings.callRingtonesDesc}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">{t.settings.callRingtones}</h4>
+                    <p className="text-[11px] sm:text-xs text-ez-muted leading-relaxed line-clamp-2 sm:line-clamp-none mt-0.5">{t.settings.callRingtonesDesc}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCallRingtoneEnabled(!callRingtoneEnabled)}
-                  className={`w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer ${
+                  className={`w-11 sm:w-12 h-6 rounded-full transition-colors duration-150 relative cursor-pointer shrink-0 ${
                     callRingtoneEnabled ? 'bg-neon-green' : 'bg-ez-muted'
                   }`}
                 >

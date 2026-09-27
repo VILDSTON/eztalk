@@ -425,8 +425,8 @@ export const LandingPage: React.FC = () => {
 
       {/* Legal Modals */}
       {legalModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#11161f] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4">
+          <div className="bg-[#11161f] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl transform-gpu will-change-[transform,opacity]">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0a0d12]">
               <h2 className="text-lg font-bold text-white">
                 {legalModal === 'privacy' ? t.legal.privacyTitle : t.legal.termsTitle}

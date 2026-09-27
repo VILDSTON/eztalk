@@ -74,11 +74,11 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/80 backdrop-blur-md animate-fade-in select-none p-0 sm:p-4 font-sans"
+      className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/85 animate-fade-in select-none p-0 sm:p-4 font-sans"
       onClick={onClose}
     >
       <div
-        className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm shadow-none sm:shadow-glass-lg relative overflow-hidden flex flex-col justify-between"
+        className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-sm shadow-none sm:shadow-glass-lg relative overflow-hidden flex flex-col justify-between transform-gpu will-change-[transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Floating Close Button */}

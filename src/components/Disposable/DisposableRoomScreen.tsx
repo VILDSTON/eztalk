@@ -1006,10 +1006,10 @@ export const DisposableRoomScreen: React.FC = () => {
       {showBurnConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none font-sans">
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in"
+            className="fixed inset-0 bg-black/85 animate-fade-in"
             onClick={() => setShowBurnConfirm(false)}
           />
-          <div className="relative w-full max-w-sm bg-ez-surface border border-rose-500/40 rounded-3xl p-6 shadow-2xl z-10 animate-scale-up text-center">
+          <div className="relative w-full max-w-sm bg-ez-surface border border-rose-500/40 rounded-3xl p-6 shadow-2xl z-10 animate-scale-up text-center transform-gpu will-change-[transform,opacity]">
             <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 mb-3">
               <Flame className="w-6 h-6" />
             </div>

@@ -47,9 +47,9 @@ export const EditContactNameModal: React.FC<EditContactNameModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 animate-fade-in select-none">
       <div
-        className="w-full max-w-sm bg-ez-elevated border border-ez-border/80 rounded-3xl p-5 shadow-2xl relative animate-scale-up"
+        className="w-full max-w-sm bg-ez-elevated border border-ez-border/80 rounded-3xl p-5 shadow-2xl relative animate-scale-up transform-gpu will-change-[transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

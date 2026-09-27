@@ -657,7 +657,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 placeholder={cooldownSeconds > 0 
                   ? t.chat.spamCooldown?.replace('{seconds}', String(cooldownSeconds)) || `Too many messages. Wait ${cooldownSeconds}s`
                   : editingMessage ? t.chat.editPlaceholder : t.chat.placeholder}
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-base text-white placeholder-ez-muted font-sans leading-normal disabled:opacity-50 touch-manipulation"
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-base text-white placeholder-ez-muted font-sans leading-normal disabled:opacity-50 touch-manipulation selection:bg-[var(--ez-accent)]/40 selection:text-white"
               />
               <button
                 type="button"

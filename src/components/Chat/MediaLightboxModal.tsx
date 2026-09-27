@@ -79,12 +79,12 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({ isOpen, 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-2xl animate-fade-in select-none font-sans"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 animate-fade-in select-none font-sans"
     >
       {/* Top Floating Control Bar */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-4 inset-x-4 max-w-2xl mx-auto flex items-center justify-between px-4 py-2.5 rounded-2xl bg-ez-elevated/80 border border-ez-border/60 backdrop-blur-xl shadow-glass-lg z-50 animate-scale-up"
+        className="absolute top-4 inset-x-4 max-w-2xl mx-auto flex items-center justify-between px-4 py-2.5 rounded-2xl bg-ez-elevated border border-ez-border/60 shadow-glass-lg z-50 animate-scale-up transform-gpu will-change-[transform,opacity]"
       >
         <div className="flex items-center space-x-2 min-w-0 pr-3">
           <span className="text-xs font-bold text-white truncate">{media.name || 'Media Preview'}</span>

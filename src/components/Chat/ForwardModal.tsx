@@ -73,7 +73,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay animate-fade-in select-none font-sans">
-      <div className="relative w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg overflow-hidden flex flex-col max-h-[85vh] animate-scale-up backdrop-blur-xl">
+      <div className="relative w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg overflow-hidden flex flex-col max-h-[85vh] animate-scale-up transform-gpu will-change-[transform,opacity]">
         {/* Header */}
         <div className="p-4 border-b border-ez-border/50 flex items-center justify-between bg-ez-surface">
           <div className="flex items-center space-x-2.5">

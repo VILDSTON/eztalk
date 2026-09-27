@@ -30,11 +30,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 animate-fade-in"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm bg-ez-elevated border border-ez-border rounded-2xl p-5 shadow-2xl flex flex-col animate-scale-up"
+        className="w-full max-w-sm bg-ez-elevated border border-ez-border rounded-2xl p-5 shadow-2xl flex flex-col animate-scale-up transform-gpu will-change-[transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center space-x-3 mb-3 text-rose-400">

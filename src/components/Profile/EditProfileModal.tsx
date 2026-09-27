@@ -19,8 +19,15 @@ const PRESET_BANNERS = [
   'linear-gradient(135deg, #050505 0%, #121214 50%, #0B0B0C 100%)',
   'linear-gradient(135deg, #05140b 0%, #004d25 50%, #10B981 100%)',
   'linear-gradient(135deg, #1f102e 0%, #4a154b 50%, #a855f7 100%)',
-  'linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #3b82f6 100%)',
-  'linear-gradient(135deg, #2b0b14 0%, #631226 50%, #f43f5e 100%)',
+  'linear-gradient(135deg, #0b192c 0%, #1e3e62 50%, #38bdf8 100%)',
+  'linear-gradient(135deg, #2b0b0b 0%, #6b1414 50%, #f97316 100%)',
+  'linear-gradient(135deg, #2a081e 0%, #701a53 50%, #f43f5e 100%)',
+  'linear-gradient(135deg, #261905 0%, #5c3c0a 50%, #f59e0b 100%)',
+  'linear-gradient(135deg, #032624 0%, #075e54 50%, #14b8a6 100%)',
+  'linear-gradient(135deg, #1b0c36 0%, #431c77 50%, #8b5cf6 100%)',
+  'linear-gradient(135deg, #020617 0%, #0f172a 50%, #334155 100%)',
+  'linear-gradient(135deg, #1c050a 0%, #500714 50%, #e11d48 100%)',
+  'linear-gradient(135deg, #021a11 0%, #064e3b 50%, #10b981 100%)',
 ];
 
 const STATUS_EMOJIS = ['🚀', '💻', '🎧', '☕', '⚡', '🌙', '🔥', '🎮', '💡'];
@@ -124,7 +131,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center glass-overlay animate-fade-in select-none p-0 sm:p-4">
-      <div className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-lg shadow-none sm:shadow-glass-lg relative overflow-hidden flex flex-col sm:max-h-[90vh]">
+      <div className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-lg shadow-none sm:shadow-glass-lg relative overflow-hidden flex flex-col sm:max-h-[90vh] transform-gpu will-change-[transform,opacity]">
         {/* Hidden File Input for Avatar */}
         <input
           type="file"
@@ -280,13 +287,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           {/* Custom Status Text */}
           <div>
-            <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-              {t.profile.customStatusMessage}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                {t.profile.customStatusMessage}
+              </label>
+              <span className="text-[10px] text-ez-muted font-mono">{customStatusText.length}/60</span>
+            </div>
             <input
               type="text"
+              maxLength={60}
               value={customStatusText}
-              onChange={(e) => setCustomStatusText(e.target.value)}
+              onChange={(e) => setCustomStatusText(e.target.value.slice(0, 60))}
               placeholder="e.g. 🚀 Building the future of messaging"
               className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none transition-colors duration-150"
             />
@@ -317,13 +328,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           {/* Bio */}
           <div>
-            <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-              {t.profile.bioAboutMe}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                {t.profile.bioAboutMe}
+              </label>
+              <span className="text-[10px] text-ez-muted font-mono">{bio.length}/140</span>
+            </div>
             <textarea
               rows={2}
+              maxLength={140}
               value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              onChange={(e) => setBio(e.target.value.slice(0, 140))}
               placeholder={t.profile.bioAboutMe}
               className="w-full bg-ez-input border border-ez-border focus:border-[var(--ez-accent)] rounded-xl px-3.5 py-2 text-sm text-white placeholder-ez-muted outline-none resize-none transition-colors duration-150"
             />
