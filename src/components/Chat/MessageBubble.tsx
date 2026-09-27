@@ -861,21 +861,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div
           data-bubble="true"
           onDoubleClick={triggerHeartReaction}
-          className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation select-text ${
-            isSwiping ? '' : 'transition-transform duration-200 ease-out'
-          } ${
-            emojiInfo.isEmojiOnly
+          className={`relative max-w-[85%] sm:max-w-[70%] touch-manipulation select-text ${isSwiping ? '' : 'transition-transform duration-200 ease-out'
+            } ${emojiInfo.isEmojiOnly
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
-              : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${
-                  isMe
-                    ? `bg-ez-sent text-white border border-neon-green/20 rounded-tl-[16px] rounded-bl-[16px] ${
-                        isFirstInGroup ? 'rounded-tr-[16px]' : 'rounded-tr-[6px]'
-                      } ${showTail !== false ? 'rounded-br-[2px]' : 'rounded-br-[6px]'} telegram-bubble-out`
-                    : `bg-ez-received text-slate-100 border border-ez-border/50 rounded-tr-[16px] rounded-br-[16px] ${
-                        isFirstInGroup ? 'rounded-tl-[16px]' : 'rounded-tl-[6px]'
-                      } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
-                }`
-          }`}
+              : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${isMe
+                ? `bg-ez-sent text-white border border-neon-green/20 rounded-tl-[16px] rounded-bl-[16px] ${isFirstInGroup ? 'rounded-tr-[16px]' : 'rounded-tr-[6px]'
+                } ${showTail !== false ? 'rounded-br-[2px]' : 'rounded-br-[6px]'} telegram-bubble-out`
+                : `bg-ez-received text-slate-100 border border-ez-border/50 rounded-tr-[16px] rounded-br-[16px] ${isFirstInGroup ? 'rounded-tl-[16px]' : 'rounded-tl-[6px]'
+                } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
+              }`
+            }`}
           style={{ transform: `translateX(${swipeOffset}px)` }}
         >
           {/* Authentic Telegram Message Tail Corner */}
@@ -988,8 +983,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       <div
                         key={idx}
                         className={`flex-1 rounded-full transition-all duration-75 ${isPassed
-                            ? 'bg-neon-green shadow-neon-dot'
-                            : 'bg-white/20 group-hover/wave:bg-white/35'
+                          ? 'bg-neon-green shadow-neon-dot'
+                          : 'bg-white/20 group-hover/wave:bg-white/35'
                           }`}
                         style={{ height: `${Math.max(15, height)}%` }}
                       />
@@ -1045,14 +1040,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 downloadOrOpenFile(message.attachment!.url, message.attachment!.name);
               }}
               title={t.chat?.download || 'Click to download / open'}
-              className="flex items-center justify-between space-x-2.5 p-2.5 rounded-xl cursor-pointer bg-black/25 hover:bg-black/40 mb-1 border border-white/10 hover:border-neon-green/30 transition-all duration-150 select-none group/file"
+              className="flex items-center justify-between space-x-2.5 p-2.5 rounded-xl cursor-pointer bg-black/25 hover:bg-black/40 mb-1 border border-white/10 hover:border-white/20 transition-all duration-150 select-none group/file"
             >
               <div className="flex items-center space-x-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-neon-green/15 text-neon-green group-hover/file:bg-neon-green/25 transition-colors">
+                <div className="p-2 rounded-xl bg-white/10 text-white/90 group-hover/file:bg-white/15 transition-colors">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div className="text-xs truncate min-w-0">
-                  <span className="font-semibold block truncate text-white group-hover/file:text-neon-green transition-colors">
+                  <span className="font-semibold block truncate text-white group-hover/file:text-white/90 transition-colors">
                     {message.attachment.name}
                   </span>
                   <span className="text-[10px] text-ez-muted font-mono">{message.attachment.size || 'Document'}</span>
@@ -1064,7 +1059,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   e.stopPropagation();
                   downloadOrOpenFile(message.attachment!.url, message.attachment!.name);
                 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-neon-green/20 text-ez-muted hover:text-neon-green border border-white/10 hover:border-neon-green/30 transition-all cursor-pointer shrink-0 ml-1"
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/15 text-ez-muted hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer shrink-0 ml-1"
                 title={t.chat?.download || 'Download'}
               >
                 <Download className="w-4 h-4" />
@@ -1111,17 +1106,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {!callPresentation && message.text && (
             emojiInfo.isEmojiOnly ? (
               <div
-                className={`flex items-center tracking-normal select-none leading-none my-1 transition-transform ${
-                  emojiInfo.count === 1
-                    ? 'text-[56px] sm:text-[66px]'
-                    : emojiInfo.count === 2
+                className={`flex items-center tracking-normal select-none leading-none my-1 transition-transform ${emojiInfo.count === 1
+                  ? 'text-[56px] sm:text-[66px]'
+                  : emojiInfo.count === 2
                     ? 'text-[42px] sm:text-[50px]'
                     : emojiInfo.count === 3
-                    ? 'text-[34px] sm:text-[40px]'
-                    : emojiInfo.count === 4
-                    ? 'text-[28px] sm:text-[32px]'
-                    : 'text-[24px] sm:text-[28px]'
-                }`}
+                      ? 'text-[34px] sm:text-[40px]'
+                      : emojiInfo.count === 4
+                        ? 'text-[28px] sm:text-[32px]'
+                        : 'text-[24px] sm:text-[28px]'
+                  }`}
               >
                 {message.text.trim()}
               </div>
@@ -1285,11 +1279,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Floating Reaction Badges (attached cleanly to the bottom edge of the bubble) */}
           {formattedReactions.length > 0 && (
             <div
-              className={`${
-                emojiInfo.isEmojiOnly
-                  ? `mt-1.5 flex items-center gap-1 z-20 select-none ${isMe ? 'justify-end' : 'justify-start'}`
-                  : `absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 z-20 select-none`
-              }`}
+              className={`${emojiInfo.isEmojiOnly
+                ? `mt-1.5 flex items-center gap-1 z-20 select-none ${isMe ? 'justify-end' : 'justify-start'}`
+                : `absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 z-20 select-none`
+                }`}
             >
               {formattedReactions.map((reaction, idx) => (
                 <button
@@ -1300,8 +1293,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     if (onToggleReaction) onToggleReaction(message.id, reaction.emoji);
                   }}
                   className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${reaction.hasReacted
-                      ? 'bg-ez-surface border-neon-green/40 text-neon-green font-semibold shadow-xs'
-                      : 'bg-ez-elevated border-white/10 text-gray-200 hover:bg-ez-hover hover:border-white/20'
+                    ? 'bg-ez-surface border-neon-green/40 text-neon-green font-semibold shadow-xs'
+                    : 'bg-ez-elevated border-white/10 text-gray-200 hover:bg-ez-hover hover:border-white/20'
                     }`}
                 >
                   <span className="text-[13px] leading-none">{reaction.emoji}</span>
@@ -1476,8 +1469,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {language === 'ru'
                   ? `Пользователь ${notFoundUsername} не найден`
                   : language === 'uz'
-                  ? `Foydalanuvchi ${notFoundUsername} topilmadi`
-                  : `Username ${notFoundUsername} not found`}
+                    ? `Foydalanuvchi ${notFoundUsername} topilmadi`
+                    : `Username ${notFoundUsername} not found`}
               </span>
             </div>
           </div>,

@@ -124,11 +124,18 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     y: number;
     targetId: string;
     isGroup: boolean;
+    name?: string;
+    avatar?: string;
   }>({ isOpen: false, x: 0, y: 0, targetId: '', isGroup: false });
 
-  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [chatToClear, setChatToClear] = useState<{ id: string; isGroup: boolean; name: string } | null>(null);
+  const [chatToDelete, setChatToDelete] = useState<{ id: string; isGroup: boolean; name: string } | null>(null);
 
-  const handleContextMenu = (e: React.MouseEvent, id: string, isGroup: boolean) => {
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isLongPressActiveRef = React.useRef(false);
+
+  const handleContextMenu = (e: React.MouseEvent, id: string, isGroup: boolean, name?: string, avatar?: string) => {
     e.preventDefault();
     setContextMenu({
       isOpen: true,
@@ -136,29 +143,53 @@ export const FriendsList: React.FC<FriendsListProps> = ({
       y: e.clientY,
       targetId: id,
       isGroup,
+      name,
+      avatar,
     });
   };
 
-  const handleTouchStart = (e: React.TouchEvent, id: string, isGroup: boolean) => {
+  const handleTouchStart = (e: React.TouchEvent, id: string, isGroup: boolean, name?: string, avatar?: string) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    isLongPressActiveRef.current = false;
     const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+
     longPressTimerRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true;
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(25);
+        } catch {}
+      }
       setContextMenu({
         isOpen: true,
         x: touch.clientX,
         y: touch.clientY,
         targetId: id,
         isGroup,
+        name,
+        avatar,
       });
-    }, 500);
+    }, 450);
   };
 
-  const handleTouchMove = () => {
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || !e.touches[0]) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    }
   };
 
   const handleTouchEnd = () => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    if (isLongPressActiveRef.current) {
+      // Keep active briefly to suppress following synthetic click
+      setTimeout(() => {
+        isLongPressActiveRef.current = false;
+      }, 350);
+    }
   };
 
   const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
@@ -300,12 +331,19 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return (
       <div
         key={`group-${group.id}`}
-        onClick={() => onSelectGroup && onSelectGroup(group)}
-        onContextMenu={(e) => handleContextMenu(e, group.id, true)}
-        onTouchStart={(e) => handleTouchStart(e, group.id, true)}
+        onClick={(e) => {
+          if (isLongPressActiveRef.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onSelectGroup && onSelectGroup(group);
+        }}
+        onContextMenu={(e) => handleContextMenu(e, group.id, true, group.name, group.avatar)}
+        onTouchStart={(e) => handleTouchStart(e, group.id, true, group.name, group.avatar)}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
+        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer select-none touch-manipulation transition-colors duration-150 ${
           isSelected
             ? 'chat-row-selected border'
             : 'hover:bg-white/[0.03] border border-transparent'
@@ -377,12 +415,23 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     return (
       <div
         key={`user-${user.id || user.handle}`}
-        onClick={() => onSelectUser(user)}
-        onContextMenu={(e) => handleContextMenu(e, normalizeHandle(user.handle), false)}
-        onTouchStart={(e) => handleTouchStart(e, normalizeHandle(user.handle), false)}
+        onClick={(e) => {
+          if (isLongPressActiveRef.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onSelectUser(user);
+        }}
+        onContextMenu={(e) =>
+          handleContextMenu(e, normalizeHandle(user.handle), false, user.name || user.handle, getDisplayAvatar(user, currentUser?.handle))
+        }
+        onTouchStart={(e) =>
+          handleTouchStart(e, normalizeHandle(user.handle), false, user.name || user.handle, getDisplayAvatar(user, currentUser?.handle))
+        }
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-colors duration-150 ${
+        className={`contain-content group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer select-none touch-manipulation transition-colors duration-150 ${
           isSelected
             ? 'chat-row-selected border'
             : 'hover:bg-white/[0.03] border border-transparent'
@@ -740,10 +789,58 @@ export const FriendsList: React.FC<FriendsListProps> = ({
         onClose={() => setContextMenu((prev) => ({ ...prev, isOpen: false }))}
         isPinned={pinnedChats.includes(contextMenu.targetId)}
         isMuted={Boolean(mutedUsers[contextMenu.targetId])}
+        targetName={contextMenu.name}
+        targetAvatar={contextMenu.avatar}
+        isGroup={contextMenu.isGroup}
         onTogglePin={() => onTogglePin && onTogglePin(contextMenu.targetId)}
         onToggleMute={() => onToggleMute && onToggleMute(contextMenu.targetId)}
-        onClearHistory={() => onClearHistory && onClearHistory(contextMenu.targetId, contextMenu.isGroup)}
-        onDeleteChat={() => onDeleteChat && onDeleteChat(contextMenu.targetId, contextMenu.isGroup)}
+        onClearHistory={() => {
+          setChatToClear({
+            id: contextMenu.targetId,
+            isGroup: contextMenu.isGroup,
+            name: contextMenu.name || (contextMenu.isGroup ? t.friends?.groups || 'Group' : 'Chat'),
+          });
+        }}
+        onDeleteChat={() => {
+          setChatToDelete({
+            id: contextMenu.targetId,
+            isGroup: contextMenu.isGroup,
+            name: contextMenu.name || (contextMenu.isGroup ? t.friends?.groups || 'Group' : 'Chat'),
+          });
+        }}
+      />
+
+      {/* Confirm Clear History Modal */}
+      <ConfirmModal
+        isOpen={!!chatToClear}
+        title={t.contextMenu?.clearHistory || 'Clear history'}
+        message={t.contextMenu?.clearHistoryConfirm || 'Are you sure you want to clear history?'}
+        confirmText={t.contextMenu?.clearHistory || 'Clear history'}
+        cancelText={t.common.cancel}
+        onConfirm={() => {
+          if (chatToClear && onClearHistory) {
+            onClearHistory(chatToClear.id, chatToClear.isGroup);
+          }
+          setChatToClear(null);
+        }}
+        onCancel={() => setChatToClear(null)}
+      />
+
+      {/* Confirm Delete Chat Modal */}
+      <ConfirmModal
+        isOpen={!!chatToDelete}
+        title={t.contextMenu?.deleteChat || 'Delete chat'}
+        message={t.contextMenu?.deleteChatConfirm || 'Are you sure you want to delete this chat?'}
+        confirmText={t.contextMenu?.deleteChat || 'Delete chat'}
+        cancelText={t.common.cancel}
+        isDanger={true}
+        onConfirm={() => {
+          if (chatToDelete && onDeleteChat) {
+            onDeleteChat(chatToDelete.id, chatToDelete.isGroup);
+          }
+          setChatToDelete(null);
+        }}
+        onCancel={() => setChatToDelete(null)}
       />
     </>
   );
