@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Copy, Check, QrCode, Smartphone } from 'lucide-react';
+import { X, Copy, Check, QrCode } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
 
 interface QRCodeModalProps {
@@ -9,7 +9,6 @@ interface QRCodeModalProps {
   url: string;
   title?: string;
   subtitle?: string;
-  tip?: string;
 }
 
 export const QRCodeModal: React.FC<QRCodeModalProps> = ({
@@ -18,7 +17,6 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   url,
   title,
   subtitle,
-  tip,
 }) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -40,8 +38,6 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     subtitle ||
     (t as any)?.disposable?.qrCodeSubtitle ||
     'Scan with your smartphone camera to connect instantly';
-  const resolvedTip =
-    tip || (t as any)?.disposable?.qrCodeTip || 'Fast camera scan • No login required';
 
   const handleCopy = async () => {
     try {
@@ -59,11 +55,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm bg-ez-elevated/95 border border-neon-green/30 rounded-3xl p-6 shadow-[0_0_35px_rgba(16,185,129,0.2)] backdrop-blur-xl flex flex-col items-center text-center animate-scale-up overflow-hidden"
+        className="relative w-full max-w-sm bg-ez-elevated border border-ez-border rounded-3xl p-6 shadow-2xl backdrop-blur-xl flex flex-col items-center text-center animate-scale-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-44 h-24 bg-neon-green/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-44 h-24 bg-neon-green/10 rounded-full blur-2xl pointer-events-none" />
 
         {/* Close Button */}
         <button
@@ -85,22 +81,15 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           {resolvedSubtitle}
         </p>
 
-        {/* QR Code Container with High-Contrast White Background & Neon Glow */}
-        <div className="my-5 p-4 bg-white rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.25)] border-2 border-neon-green/40 flex items-center justify-center transition-transform hover:scale-[1.02] duration-200">
+        {/* Clean QR Code Container */}
+        <div className="my-5 p-4 bg-white rounded-2xl flex items-center justify-center shadow-lg">
           <QRCodeSVG
             value={url}
-            size={196}
+            size={200}
             level="M"
             marginSize={1}
             title={resolvedTitle}
           />
-        </div>
-
-        {/* Fast Scan Tip Badge */}
-        <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-neon-green/10 border border-neon-green/25 text-neon-green text-[11px] font-medium mb-4">
-          <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
-          <Smartphone className="w-3 h-3 shrink-0" />
-          <span>{resolvedTip}</span>
         </div>
 
         {/* URL Box & Copy Button */}
