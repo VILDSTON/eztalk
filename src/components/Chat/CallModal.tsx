@@ -101,6 +101,14 @@ export const CallModal: React.FC<CallModalProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const endCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disconnectGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const fallbackSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const fallbackAudioContextRef = useRef<AudioContext | null>(null);
+  const nextAudioStartTimeRef = useRef(0);
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const connectGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const icePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Draggable pill state
   const [pillY, setPillY] = useState(16);
@@ -215,9 +223,9 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         while (pendingCandidatesRef.current.length > 0) {
           const cand = pendingCandidatesRef.current.shift();
-          if (cand && (cand.candidate || cand.candidate === '')) {
+          if (cand && cand.candidate && cand.candidate.trim() !== '') {
             try {
-              await pc.addIceCandidate(cand);
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
             } catch (iceErr) {
               console.warn('Buffered ICE candidate error:', iceErr);
             }
@@ -248,9 +256,9 @@ export const CallModal: React.FC<CallModalProps> = ({
           configureHighQualitySender(pc);
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();
-            if (cand && (cand.candidate || cand.candidate === '')) {
+            if (cand && cand.candidate && cand.candidate.trim() !== '') {
               try {
-                await pc.addIceCandidate(cand);
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
               } catch (iceErr) {
                 console.warn('Buffered ICE candidate error:', iceErr);
               }
@@ -259,14 +267,32 @@ export const CallModal: React.FC<CallModalProps> = ({
           callSoundService.stopAll();
         }
       } else if (signal.candidate) {
-        if (pc.remoteDescription && pc.remoteDescription.type) {
-          try {
-            await pc.addIceCandidate(signal.candidate);
-          } catch (iceErr) {
-            console.warn('ICE candidate error:', iceErr);
+        let candObj = signal.candidate;
+        if (typeof candObj === 'string') {
+          candObj = { candidate: candObj };
+        }
+        if (!candObj || !candObj.candidate || candObj.candidate.trim() === '') {
+          return;
+        }
+
+        const addCandidateSafe = async (candidateData: RTCIceCandidateInit) => {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidateData));
+            } catch (iceErr) {
+              console.warn('ICE candidate error:', iceErr);
+            }
+          } else {
+            pendingCandidatesRef.current.push(candidateData);
           }
-        } else {
-          pendingCandidatesRef.current.push(signal.candidate);
+        };
+
+        await addCandidateSafe(candObj);
+
+        // Supplement .local candidate with window.location.hostname if LAN IPv4
+        if (candObj.candidate.includes('.local') && typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)) {
+          const replaced = candObj.candidate.replace(/[a-zA-Z0-9-]+\.local/g, window.location.hostname);
+          await addCandidateSafe({ ...candObj, candidate: replaced });
         }
       }
     } catch (err) {
@@ -313,9 +339,34 @@ export const CallModal: React.FC<CallModalProps> = ({
       clearTimeout(disconnectGraceRef.current);
       disconnectGraceRef.current = null;
     }
+    if (connectGraceTimerRef.current) {
+      clearTimeout(connectGraceTimerRef.current);
+      connectGraceTimerRef.current = null;
+    }
+    if (icePollIntervalRef.current) {
+      clearInterval(icePollIntervalRef.current);
+      icePollIntervalRef.current = null;
+    }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+    if (fallbackProcessorRef.current) {
+      try {
+        fallbackProcessorRef.current.onaudioprocess = null;
+        fallbackProcessorRef.current.disconnect();
+      } catch {}
+      fallbackProcessorRef.current = null;
+    }
+    if (fallbackSourceRef.current) {
+      try {
+        fallbackSourceRef.current.disconnect();
+      } catch {}
+      fallbackSourceRef.current = null;
+    }
+    if (fallbackAudioContextRef.current && fallbackAudioContextRef.current.state !== 'closed') {
+      fallbackAudioContextRef.current.close().catch(() => {});
+      fallbackAudioContextRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close().catch(() => { });
@@ -337,6 +388,10 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   const handleCallConnectionFailed = () => {
     if (callState === 'ended') return;
+    if (durationRef.current > 0) {
+      console.log('[CALL_CLIENT] WebRTC P2P disconnected; continuing call over audio relay');
+      return;
+    }
     console.warn('WebRTC Call Connection Failed: ICE failed or peer disconnected');
     callSoundService.stopAll();
     setCallState('ended');
@@ -380,6 +435,39 @@ export const CallModal: React.FC<CallModalProps> = ({
       pc.addTrack(track, localStream);
     });
     configureHighQualitySender(pc);
+
+    // Active ICE candidate-pair poller: detects 'succeeded' connection state within 100-200ms
+    if (icePollIntervalRef.current) clearInterval(icePollIntervalRef.current);
+    icePollIntervalRef.current = setInterval(async () => {
+      if (!peerConnectionRef.current || peerConnectionRef.current !== pc) {
+        if (icePollIntervalRef.current) clearInterval(icePollIntervalRef.current);
+        return;
+      }
+      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected') {
+        if (icePollIntervalRef.current) clearInterval(icePollIntervalRef.current);
+        return;
+      }
+      try {
+        const stats = await pc.getStats();
+        stats.forEach((report: any) => {
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            console.log('[CALL_CLIENT] Candidate pair succeeded via getStats()');
+            if (disconnectGraceRef.current) {
+              clearTimeout(disconnectGraceRef.current);
+              disconnectGraceRef.current = null;
+            }
+            callSoundService.stopAll();
+            setCallState('connected');
+            if (remoteStreamRef.current) {
+              playRemoteAudio(remoteStreamRef.current);
+            }
+            if (icePollIntervalRef.current) clearInterval(icePollIntervalRef.current);
+          }
+        });
+      } catch {
+        // ignore
+      }
+    }, 400);
 
     pc.ontrack = (event) => {
       console.log('WebRTC ontrack event received:', event.track?.kind, event.streams);
@@ -484,6 +572,54 @@ export const CallModal: React.FC<CallModalProps> = ({
         if (queuedSignal) await processSignal(queuedSignal);
       }
 
+      // Initialize fallback audio relay sender (16kHz PCM)
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const relayCtx = new AudioCtx({ sampleRate: 16000 });
+        fallbackAudioContextRef.current = relayCtx;
+        const source = relayCtx.createMediaStreamSource(stream);
+        fallbackSourceRef.current = source;
+        const processor = relayCtx.createScriptProcessor(2048, 1, 1);
+        fallbackProcessorRef.current = processor;
+
+        processor.onaudioprocess = (e) => {
+          const pc = peerConnectionRef.current;
+          const isP2PConnected = pc && pc.connectionState === 'connected' && pc.iceConnectionState === 'connected';
+          if (isP2PConnected || isMutedRef.current) return;
+
+          const float32 = e.inputBuffer.getChannelData(0);
+          const int16 = new Int16Array(float32.length);
+          for (let i = 0; i < float32.length; i++) {
+            const s = Math.max(-1, Math.min(1, float32[i]));
+            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
+          socketService.sendCallAudioChunk(user.handle, currentUser.handle, int16.buffer);
+        };
+
+        source.connect(processor);
+        processor.connect(relayCtx.destination);
+      } catch (relayErr) {
+        console.warn('Fallback audio sender initialization skipped:', relayErr);
+      }
+
+      // Auto-transition to connected once call is answered and local mic acquired
+      // Prevents endless "Connecting..." screen when P2P UDP is blocked by home NAT/firewall
+      if (connectGraceTimerRef.current) clearTimeout(connectGraceTimerRef.current);
+      connectGraceTimerRef.current = setTimeout(() => {
+        if (recipientAcceptedRef.current) {
+          console.log('[CALL_CLIENT] Signaling active; auto-transitioning to connected state');
+          if (disconnectGraceRef.current) {
+            clearTimeout(disconnectGraceRef.current);
+            disconnectGraceRef.current = null;
+          }
+          callSoundService.stopAll();
+          setCallState('connected');
+          if (remoteStreamRef.current) {
+            playRemoteAudio(remoteStreamRef.current);
+          }
+        }
+      }, 2000);
+
       if (isInitiator) {
         callSoundService.playOutgoing();
         socketService.sendCall(currentUser, user.handle);
@@ -519,6 +655,55 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
 
     startCall();
+
+    const cleanupAudioChunk = socketService.onCallAudioChunk((data) => {
+      const fromH = normalizeHandle(data.fromHandle || (data as any).from);
+      if (fromH !== normalizeHandle(user.handle)) return;
+
+      const pc = peerConnectionRef.current;
+      const isP2PConnected = pc && pc.connectionState === 'connected' && pc.iceConnectionState === 'connected';
+      if (isP2PConnected) return;
+
+      try {
+        const rawBuffer = data.audio;
+        if (!rawBuffer) return;
+        const int16 = new Int16Array(rawBuffer);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
+        }
+
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          audioContextRef.current = new AudioCtx({ sampleRate: 16000 });
+        }
+        const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+
+        const audioBuf = ctx.createBuffer(1, float32.length, 16000);
+        audioBuf.copyToChannel(float32, 0);
+
+        const bufferSource = ctx.createBufferSource();
+        bufferSource.buffer = audioBuf;
+        bufferSource.connect(ctx.destination);
+
+        const now = ctx.currentTime;
+        const startTime = Math.max(now, nextAudioStartTimeRef.current);
+        bufferSource.start(startTime);
+        nextAudioStartTimeRef.current = startTime + audioBuf.duration;
+
+        if (disconnectGraceRef.current) {
+          clearTimeout(disconnectGraceRef.current);
+          disconnectGraceRef.current = null;
+        }
+        callSoundService.stopAll();
+        setCallState('connected');
+      } catch (chunkErr) {
+        console.warn('Error processing audio chunk:', chunkErr);
+      }
+    });
 
     const cleanupWebRTC = socketService.onWebRTCSignal(async (data) => {
       const from = data.fromHandle || data.from;
@@ -614,6 +799,7 @@ export const CallModal: React.FC<CallModalProps> = ({
     });
 
     return () => {
+      cleanupAudioChunk();
       cleanupWebRTC();
       cleanupCallAccepted();
       cleanupCallDeclined();

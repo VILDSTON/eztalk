@@ -1165,6 +1165,11 @@ function MainApp() {
         : callerRaw?.handle || data.callerHandle || data.from;
       const recipientHandle = data.recipientHandle || data.to;
       const cUser = currentUserRef.current;
+      console.log('[CALL_CLIENT] onIncomingCall received:', {
+        callerHandle,
+        recipientHandle,
+        currentUser: cUser?.handle,
+      });
       if (!cUser || !callerHandle) return;
       if (!recipientHandle || normalizeHandle(recipientHandle) === normalizeHandle(cUser.handle)) {
         if (!blockedUsersRef.current.includes(normalizeHandle(callerHandle))) {

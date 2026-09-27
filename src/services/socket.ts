@@ -4,7 +4,9 @@ import { normalizeHandle } from '../utils/chatStorage';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL
   ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '')
-  : window.location.origin;
+  : (typeof window !== 'undefined' && (window.location.port === '3000' || window.location.port === '5173')
+      ? `${window.location.protocol}//${window.location.hostname}:5050`
+      : window.location.origin);
 
 class SocketService {
   private socket: Socket | null = null;
@@ -278,6 +280,25 @@ class SocketService {
     this.socket?.on('webrtc_signal', callback);
     return () => {
       this.socket?.off('webrtc_signal', callback);
+    };
+  }
+
+  public sendCallAudioChunk(toHandle: string, fromHandle: string, audio: any) {
+    const target = normalizeHandle(toHandle);
+    const source = normalizeHandle(fromHandle);
+    this.socket?.emit('call_audio_chunk', {
+      to: target,
+      from: source,
+      toHandle: target,
+      fromHandle: source,
+      audio,
+    });
+  }
+
+  public onCallAudioChunk(callback: (data: { fromHandle: string; toHandle: string; audio: any }) => void) {
+    this.socket?.on('call_audio_chunk', callback);
+    return () => {
+      this.socket?.off('call_audio_chunk', callback);
     };
   }
 

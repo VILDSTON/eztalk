@@ -49,6 +49,20 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
+// Detect local network IPv4 address for mDNS candidate un-anonymization
+import os from 'os';
+export function getLocalNetworkIp() {
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Разрешаем запросы без origin (мобильные клиенты, curl, PWA standalone)
@@ -57,7 +71,15 @@ const corsOptions = {
     // Очищаем origin от хвостового слэша для точного сравнения
     const cleanOrigin = origin.replace(/\/$/, '');
 
+    // Allow localhost, 127.0.0.1, and private LAN IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isLocalOrLan =
+      cleanOrigin.includes('localhost') ||
+      cleanOrigin.includes('127.0.0.1') ||
+      /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(cleanOrigin);
+
     const isAllowed =
+      isLocalOrLan ||
+      process.env.NODE_ENV !== 'production' ||
       allowedOrigins.includes(cleanOrigin) ||
       cleanOrigin.endsWith('.vercel.app') ||
       cleanOrigin.includes('vercel.app') ||
@@ -2439,21 +2461,20 @@ io.on('connection', (socket) => {
       socket.verifiedHandle = handle;
     }
 
-    if (!handle) {
-      return;
-    }
-
-    socket.join(handle);
-    socketHandleMap.set(socket.id, handle);
+    const cleanHandle = normalizeHandle(handle);
+    const bareHandle = cleanHandle.replace(/^@/, '');
+    socket.join(cleanHandle);
+    socket.join(bareHandle);
+    socketHandleMap.set(socket.id, cleanHandle);
 
     // Auto-join all group socket rooms for this user
     if (isMongoConnected) {
-      GroupModel.find({ memberHandles: handle }).lean().then((userGroups) => {
+      GroupModel.find({ memberHandles: cleanHandle }).lean().then((userGroups) => {
         (userGroups || []).forEach((g) => socket.join(`group_${g.id}`));
       }).catch(() => {});
     } else {
       const db = readLocalDB();
-      (db.groups || []).filter((g) => (g.memberHandles || []).map(normalizeHandle).includes(handle)).forEach((g) => {
+      (db.groups || []).filter((g) => (g.memberHandles || []).map(normalizeHandle).includes(cleanHandle)).forEach((g) => {
         socket.join(`group_${g.id}`);
       });
     }
@@ -2557,10 +2578,21 @@ io.on('connection', (socket) => {
       callerObj.handle = callerHandle;
     }
     const recipientHandle = normalizeHandle(data.recipientHandle || data.to);
+    console.log(`[CALL_SERVER] call_user: from ${callerHandle} to ${recipientHandle}`);
     if (recipientHandle) {
       const blocked = await isBlockedBy(callerHandle, recipientHandle);
-      if (blocked) return;
-      io.to(recipientHandle).emit('incoming_call', {
+      if (blocked) {
+        console.warn(`[CALL_SERVER] Call blocked by recipient blocklist: ${recipientHandle}`);
+        return;
+      }
+      const recipientSockets = io.sockets.adapter.rooms.get(recipientHandle);
+      const socketCount = recipientSockets ? recipientSockets.size : 0;
+      console.log(`[CALL_SERVER] Target room ${recipientHandle} has ${socketCount} connected socket(s)`);
+
+      const targetWithAt = normalizeHandle(recipientHandle);
+      const targetNoAt = targetWithAt.replace(/^@/, '');
+
+      io.to(targetWithAt).to(targetNoAt).emit('incoming_call', {
         caller: callerObj,
         from: callerObj,
         callerHandle,
@@ -2574,8 +2606,11 @@ io.on('connection', (socket) => {
     const callerHandle = normalizeHandle(data.callerHandle || data.to || (typeof data.caller === 'string' ? data.caller : data.caller?.handle));
     const recipientHandle = socket.verifiedHandle || normalizeHandle(data.recipientHandle || data.from);
     const recipient = data.recipient || (callerHandle ? { handle: recipientHandle } : null);
+    console.log(`[CALL_SERVER] accept_call: from ${recipientHandle} to ${callerHandle}`);
     if (callerHandle) {
-      io.to(callerHandle).emit('call_accepted', {
+      const callerWithAt = normalizeHandle(callerHandle);
+      const callerNoAt = callerWithAt.replace(/^@/, '');
+      io.to(callerWithAt).to(callerNoAt).emit('call_accepted', {
         callerHandle,
         recipientHandle,
         recipient,
@@ -2601,13 +2636,19 @@ io.on('connection', (socket) => {
       reason: data.reason || 'declined',
     };
 
+    console.log(`[CALL_SERVER] decline_call: ${sender} declined call with ${peer} (${data.reason || 'declined'})`);
+
     if (peer) {
-      io.to(peer).emit('call_declined', payload);
-      io.to(peer).emit('call_ended', payload);
+      const pWithAt = normalizeHandle(peer);
+      const pNoAt = pWithAt.replace(/^@/, '');
+      io.to(pWithAt).to(pNoAt).emit('call_declined', payload);
+      io.to(pWithAt).to(pNoAt).emit('call_ended', payload);
     }
     if (sender) {
-      io.to(sender).emit('call_declined', payload);
-      io.to(sender).emit('call_ended', payload);
+      const sWithAt = normalizeHandle(sender);
+      const sNoAt = sWithAt.replace(/^@/, '');
+      io.to(sWithAt).to(sNoAt).emit('call_declined', payload);
+      io.to(sWithAt).to(sNoAt).emit('call_ended', payload);
     }
   });
 
@@ -2624,11 +2665,17 @@ io.on('connection', (socket) => {
       reason: data.reason || 'ended',
     };
 
+    console.log(`[CALL_SERVER] end_call: ${sender} ended call with ${peer} (${data.reason || 'ended'})`);
+
     if (peer) {
-      io.to(peer).emit('call_ended', payload);
+      const pWithAt = normalizeHandle(peer);
+      const pNoAt = pWithAt.replace(/^@/, '');
+      io.to(pWithAt).to(pNoAt).emit('call_ended', payload);
     }
     if (sender) {
-      io.to(sender).emit('call_ended', payload);
+      const sWithAt = normalizeHandle(sender);
+      const sNoAt = sWithAt.replace(/^@/, '');
+      io.to(sWithAt).to(sNoAt).emit('call_ended', payload);
     }
   });
 
@@ -2685,14 +2732,68 @@ io.on('connection', (socket) => {
   socket.on('webrtc_signal', (data) => {
     const target = normalizeHandle(data.toHandle || data.to);
     const source = socket.verifiedHandle || normalizeHandle(data.fromHandle || data.from);
-    if (target) {
-      io.to(target).emit('webrtc_signal', {
-        ...data,
-        toHandle: target,
+    if (!target) return;
+
+    let signal = data.signal;
+    const targetWithAt = normalizeHandle(target);
+    const targetNoAt = targetWithAt.replace(/^@/, '');
+
+    // Determine sender real IP (handling reverse proxy, IPv6 prefix)
+    let senderIp = (socket.handshake.headers['x-forwarded-for']
+      ? socket.handshake.headers['x-forwarded-for'].split(',')[0].trim()
+      : socket.handshake.address || '').replace(/^::ffff:/, '');
+
+    if (senderIp === '127.0.0.1' || senderIp === '::1' || !senderIp) {
+      senderIp = getLocalNetworkIp();
+    }
+
+    // Un-anonymize mDNS .local host candidates for LAN/Wi-Fi devices (Android/iOS mDNS resolution fix)
+    if (signal && signal.candidate) {
+      const candObj = typeof signal.candidate === 'object' ? signal.candidate : { candidate: signal.candidate };
+      const candStr = candObj.candidate || '';
+      if (candStr && candStr.includes('.local') && senderIp && !senderIp.includes(':')) {
+        const unanonymizedCandStr = candStr.replace(/[a-zA-Z0-9-]+\.local/g, senderIp);
+        const unanonymizedCandidate = {
+          ...candObj,
+          candidate: unanonymizedCandStr,
+        };
+
+        // Forward un-anonymized IP candidate alongside original to both room variations
+        io.to(targetWithAt).to(targetNoAt).emit('webrtc_signal', {
+          ...data,
+          toHandle: targetWithAt,
+          fromHandle: source,
+          to: targetWithAt,
+          from: source,
+          signal: {
+            ...signal,
+            candidate: unanonymizedCandidate,
+          },
+        });
+      }
+    }
+
+    // Forward original signal to both room variations
+    io.to(targetWithAt).to(targetNoAt).emit('webrtc_signal', {
+      ...data,
+      toHandle: targetWithAt,
+      fromHandle: source,
+      to: targetWithAt,
+      from: source,
+      signal,
+    });
+  });
+
+  socket.on('call_audio_chunk', (data) => {
+    const target = normalizeHandle(data.toHandle || data.to);
+    const source = socket.verifiedHandle || normalizeHandle(data.fromHandle || data.from);
+    if (target && data.audio) {
+      const targetWithAt = normalizeHandle(target);
+      const targetNoAt = targetWithAt.replace(/^@/, '');
+      io.to(targetWithAt).to(targetNoAt).emit('call_audio_chunk', {
         fromHandle: source,
-        to: target,
-        from: source,
-        signal: data.signal,
+        toHandle: targetWithAt,
+        audio: data.audio,
       });
     }
   });
