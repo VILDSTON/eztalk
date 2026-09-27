@@ -302,19 +302,58 @@ body,
   border-color: color-mix(in srgb, var(--ez-accent) 60%, transparent) !important;
 }
 
+/* Hover & Focus Borders */
+[data-theme] .hover\:border-neon-green:hover,
+[data-theme] .hover\:border-ez-accent:hover {
+  border-color: var(--ez-accent) !important;
+}
+
+[data-theme] .hover\:border-neon-green\/10:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 10%, transparent) !important;
+}
+
+[data-theme] .hover\:border-neon-green\/20:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 20%, transparent) !important;
+}
+
 [data-theme] .hover\:border-neon-green\/30:hover {
   border-color: color-mix(in srgb, var(--ez-accent) 30%, transparent) !important;
+}
+
+[data-theme] .hover\:border-neon-green\/40:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 40%, transparent) !important;
 }
 
 [data-theme] .hover\:border-neon-green\/50:hover {
   border-color: color-mix(in srgb, var(--ez-accent) 50%, transparent) !important;
 }
 
-[data-theme] .focus\:border-neon-green:focus {
+[data-theme] .hover\:border-neon-green\/60:hover {
+  border-color: color-mix(in srgb, var(--ez-accent) 60%, transparent) !important;
+}
+
+[data-theme] .focus\:border-neon-green:focus,
+[data-theme] .focus\:border-ez-accent:focus {
   border-color: var(--ez-accent) !important;
 }
 
+[data-theme] .group:hover .group-hover\:border-neon-green,
+[data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green"] {
+  border-color: var(--ez-accent) !important;
+}
+
+[data-theme] .group:hover .group-hover\:border-neon-green\/30,
+[data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green/30"] {
+  border-color: color-mix(in srgb, var(--ez-accent) 30%, transparent) !important;
+}
+
+[data-theme] .group:hover .group-hover\:border-neon-green\/40,
+[data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green/40"] {
+  border-color: color-mix(in srgb, var(--ez-accent) 40%, transparent) !important;
+}
+
 [data-theme] .group:hover .group-hover\:border-neon-green\/50,
+[data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green/50"],
 [data-theme] [class*="group"]:hover [class*="group-hover:border-neon-green/60"] {
   border-color: color-mix(in srgb, var(--ez-accent) 60%, transparent) !important;
 }
@@ -339,23 +378,49 @@ body,
   color: var(--ez-sent-meta) !important;
 }
 
+.shadow-neon-dot,
 [data-theme] .shadow-neon-dot {
   box-shadow: 0 0 8px var(--ez-glow) !important;
 }
 
+.shadow-neon-sm,
 [data-theme] .shadow-neon-sm {
   box-shadow: 0 0 10px var(--ez-accent-glow) !important;
 }
 
+.shadow-neon-md,
 [data-theme] .shadow-neon-md {
   box-shadow: 0 0 20px var(--ez-accent-glow) !important;
 }
 
+.shadow-neon-lg,
 [data-theme] .shadow-neon-lg {
   box-shadow: 0 0 30px var(--ez-accent-glow) !important;
 }
 
+.shadow-neon-glow,
 [data-theme] .shadow-neon-glow {
+  box-shadow: 0 0 15px var(--ez-glow) !important;
+}
+
+/* Hover variants for shadows */
+.hover\:shadow-neon-sm:hover,
+[data-theme] .hover\:shadow-neon-sm:hover {
+  box-shadow: 0 0 10px var(--ez-accent-glow) !important;
+}
+
+.hover\:shadow-neon-md:hover,
+[data-theme] .hover\:shadow-neon-md:hover {
+  box-shadow: 0 0 20px var(--ez-accent-glow) !important;
+}
+
+.hover\:shadow-neon-lg:hover,
+[data-theme] .hover\:shadow-neon-lg:hover {
+  box-shadow: 0 0 30px var(--ez-accent-glow) !important;
+}
+
+.hover\:shadow-neon-glow:hover,
+[data-theme] .hover\:shadow-neon-glow:hover {
   box-shadow: 0 0 15px var(--ez-glow) !important;
 }
 
