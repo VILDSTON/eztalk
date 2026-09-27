@@ -485,8 +485,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   ];
 
   return (
-    <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[max(env(safe-area-inset-bottom,16px),12px)] sticky bottom-0 z-20">
-      <div className="w-full px-4 sm:px-6 py-2.5 sm:py-3 relative min-w-0">
+    <div className="w-full bg-ez-surface border-t border-ez-border/50 select-none font-sans shrink-0 flex-shrink-0 pb-[env(safe-area-inset-bottom,0px)] sticky bottom-0 z-20">
+      <div className="w-full px-3 sm:px-4 py-2 sm:py-2.5 relative min-w-0">
         {/* Hidden File Input */}
         <input
           type="file"
