@@ -800,11 +800,11 @@ export const DisposableRoomScreen: React.FC = () => {
             <span className="hidden md:inline">{copiedLink ? ((t as any)?.common?.copied || 'Copied') : ((t as any)?.disposable?.copyLink || 'Share')}</span>
           </button>
 
-          {/* QR Code Button */}
+          {/* QR Code Button (Desktop/Tablet only, hidden on mobile screens) */}
           <button
             type="button"
             onClick={() => setShowQRModal(true)}
-            className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl bg-ez-elevated hover:bg-ez-hover border border-ez-border items-center space-x-1 sm:space-x-1.5 text-xs transition-all cursor-pointer shrink-0 flex text-gray-300"
+            className="hidden sm:flex h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl bg-ez-elevated hover:bg-ez-hover border border-ez-border items-center space-x-1 sm:space-x-1.5 text-xs transition-all cursor-pointer shrink-0 text-gray-300"
             style={{
               borderColor: 'color-mix(in srgb, var(--ez-accent) 30%, transparent)',
             }}
