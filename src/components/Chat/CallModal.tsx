@@ -812,7 +812,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         /* Floating Minimized Call Pill */
         <div
           onClick={() => setIsMinimized(false)}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto min-w-[300px] max-w-md bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 backdrop-blur-2xl animate-fade-in select-none font-sans cursor-pointer hover:border-neon-green transition-all"
+          className="fixed top-4 left-0 right-0 mx-auto z-[9999] w-[92%] max-w-sm bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 animate-fade-in select-none font-sans cursor-pointer hover:border-neon-green transition-all"
         >
           {/* Avatar & Peer Info */}
           <div className="flex items-center space-x-2.5 min-w-0">
