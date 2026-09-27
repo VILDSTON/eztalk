@@ -102,6 +102,10 @@ export const CallModal: React.FC<CallModalProps> = ({
   const endCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disconnectGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Draggable pill state
+  const [pillY, setPillY] = useState(16);
+  const pillDragRef = useRef({ isDragging: false, startClientY: 0, startPillY: 16, hasDragged: false });
+
   durationRef.current = callDuration;
 
   // FIX (Medium): Track component mount state to prevent RAF calling setState after unmount
@@ -791,6 +795,37 @@ export const CallModal: React.FC<CallModalProps> = ({
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  // ── Pill drag handlers (Pointer Events: mouse + touch unified) ──
+  const handlePillPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Don't start drag when a button is tapped
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pillDragRef.current = {
+      isDragging: true,
+      startClientY: e.clientY,
+      startPillY: pillY,
+      hasDragged: false,
+    };
+  };
+
+  const handlePillPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pillDragRef.current.isDragging) return;
+    const deltaY = e.clientY - pillDragRef.current.startClientY;
+    if (Math.abs(deltaY) > 4) pillDragRef.current.hasDragged = true;
+    const maxY = window.innerHeight - 64; // keep pill on screen
+    const newY = Math.max(0, Math.min(maxY, pillDragRef.current.startPillY + deltaY));
+    setPillY(newY);
+  };
+
+  const handlePillPointerUp = () => {
+    if (!pillDragRef.current.isDragging) return;
+    pillDragRef.current.isDragging = false;
+    // Only expand if it was a tap, not a drag
+    if (!pillDragRef.current.hasDragged) {
+      setIsMinimized(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -809,10 +844,13 @@ export const CallModal: React.FC<CallModalProps> = ({
       />
 
       {isMinimized ? (
-        /* Floating Minimized Call Pill */
+        /* Floating Minimized Call Pill — draggable */
         <div
-          onClick={() => setIsMinimized(false)}
-          className="fixed top-4 left-0 right-0 mx-auto z-[9999] w-[92%] max-w-sm bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 animate-fade-in select-none font-sans cursor-pointer hover:border-neon-green transition-all"
+          onPointerDown={handlePillPointerDown}
+          onPointerMove={handlePillPointerMove}
+          onPointerUp={handlePillPointerUp}
+          style={{ top: pillY }}
+          className="fixed left-0 right-0 mx-auto z-[9999] w-[92%] max-w-sm bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 animate-fade-in select-none font-sans touch-none cursor-grab active:cursor-grabbing hover:border-neon-green transition-[border-color] will-change-[top]"
         >
           {/* Avatar & Peer Info */}
           <div className="flex items-center space-x-2.5 min-w-0">
