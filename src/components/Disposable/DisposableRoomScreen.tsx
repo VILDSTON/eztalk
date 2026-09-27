@@ -804,10 +804,13 @@ export const DisposableRoomScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowQRModal(true)}
-            className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl bg-ez-elevated hover:bg-ez-hover border border-ez-border hover:border-neon-green/40 text-gray-300 hover:text-neon-green items-center space-x-1 sm:space-x-1.5 text-xs transition-all cursor-pointer shrink-0 flex"
+            className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl bg-ez-elevated hover:bg-ez-hover border border-ez-border items-center space-x-1 sm:space-x-1.5 text-xs transition-all cursor-pointer shrink-0 flex text-gray-300"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--ez-accent) 30%, transparent)',
+            }}
             title={(t as any)?.disposable?.showQr || 'QR Code'}
           >
-            <QrCode className="w-3.5 h-3.5 text-neon-green" />
+            <QrCode className="w-3.5 h-3.5" style={{ color: 'var(--ez-accent)' }} />
             <span className="hidden md:inline font-medium">QR</span>
           </button>
 
@@ -928,7 +931,11 @@ export const DisposableRoomScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowQRModal(true)}
-              className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-ez-elevated hover:bg-ez-hover border border-neon-green/40 text-neon-green font-bold text-xs rounded-xl shadow-neon-sm flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-ez-elevated hover:bg-ez-hover border text-xs font-bold rounded-xl shadow-neon-sm flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+              style={{
+                borderColor: 'color-mix(in srgb, var(--ez-accent) 40%, transparent)',
+                color: 'var(--ez-accent)',
+              }}
               title={(t as any)?.disposable?.showQr || 'QR Code'}
             >
               <QrCode className="w-3.5 h-3.5" />

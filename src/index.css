@@ -363,6 +363,24 @@ body,
   accent-color: var(--ez-accent) !important;
 }
 
+/* ─── Theme-Adaptive QR Code & Modal Styling ─── */
+.qr-code-box {
+  border: 2px solid color-mix(in srgb, var(--ez-accent) 45%, transparent);
+  box-shadow: 0 0 20px var(--ez-accent-glow);
+  transition: all 0.2s ease-in-out;
+}
+
+.qr-code-box:hover {
+  border-color: var(--ez-accent);
+  box-shadow: 0 0 30px var(--ez-accent-glow);
+  transform: scale(1.02);
+}
+
+.qr-modal-card {
+  border: 1px solid color-mix(in srgb, var(--ez-accent) 25%, transparent);
+  box-shadow: 0 0 35px var(--ez-accent-glow);
+}
+
 /* ─── Mobile Bottom Sheet Animation & Safe Inset ─── */
 @keyframes slideUpBottomSheet {
   0% {

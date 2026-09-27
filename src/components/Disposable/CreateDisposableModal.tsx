@@ -234,7 +234,12 @@ export const CreateDisposableModal: React.FC<CreateDisposableModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowQRModal(true)}
-                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-neon-green/15 hover:bg-neon-green/25 border border-neon-green/30 text-neon-green text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer shrink-0"
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer shrink-0"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--ez-accent) 15%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--ez-accent) 30%, transparent)',
+                  color: 'var(--ez-accent)',
+                }}
                 title={(t as any)?.disposable?.showQr || 'QR Code'}
               >
                 <QrCode className="w-3.5 h-3.5" />
