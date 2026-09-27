@@ -812,7 +812,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         /* Floating Minimized Call Pill */
         <div
           onClick={() => setIsMinimized(false)}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto min-w-[300px] max-w-md bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 flex items-center justify-between gap-3 backdrop-blur-2xl animate-fade-in select-none font-sans cursor-pointer hover:border-neon-green transition-all"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto min-w-[300px] max-w-md bg-ez-elevated/95 border border-neon-green/40 shadow-[0_10px_35px_rgba(0,0,0,0.6),0_0_20px_rgba(0,230,118,0.25)] rounded-full px-4 py-2 grid grid-cols-[1fr_auto_auto] items-center gap-3 backdrop-blur-2xl animate-fade-in select-none font-sans cursor-pointer hover:border-neon-green transition-all"
         >
           {/* Avatar & Peer Info */}
           <div className="flex items-center space-x-2.5 min-w-0">
@@ -870,8 +870,30 @@ export const CallModal: React.FC<CallModalProps> = ({
             </div>
           )}
 
-          {/* Quick Controls */}
+          {/* CENTER: End Call — always in the middle of the pill */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleEndCall(); }}
+            onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleEndCall(); }}
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center shrink-0 bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_18px_rgba(244,63,94,0.5)] transition-all hover:scale-110 active:scale-95 cursor-pointer border border-rose-400/30 relative z-50"
+            title={t.calls.endCall}
+          >
+            <PhoneOff className="w-4 h-4 pointer-events-none" />
+          </button>
+
+          {/* RIGHT: Mini waveform (sm+) + Mute + Expand */}
           <div className="flex items-center space-x-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {callState === 'connected' && (
+              <div className="hidden sm:flex items-center space-x-1 h-3.5 px-1">
+                {audioLevels.slice(0, 4).map((lvl, idx) => (
+                  <div
+                    key={idx}
+                    className="w-1 bg-neon-green rounded-full transition-all duration-75"
+                    style={{ height: `${Math.max(4, lvl / 3)}px` }}
+                  />
+                ))}
+              </div>
+            )}
             <button
               type="button"
               onClick={toggleMute}
@@ -882,15 +904,6 @@ export const CallModal: React.FC<CallModalProps> = ({
               title={isMuted ? t.calls.unmuteMic : t.calls.muteMic}
             >
               {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleEndCall}
-              className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center shrink-0 bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)] transition-all hover:scale-105 active:scale-95 cursor-pointer border border-rose-400/30"
-              title={t.calls.endCall}
-            >
-              <PhoneOff className="w-4 h-4" />
             </button>
 
             <button
