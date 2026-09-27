@@ -1204,24 +1204,24 @@ function MainApp() {
     const unsubCallDeclined = socketService.onCallDeclined(() => {
       callSoundService.stopAll();
       setIncomingCall(null);
-      // Give CallModal time to show status and record chat history, with fallback timeout
+      // CallModal handles its own close via onClose prop; this is a safety-net fallback
       setTimeout(() => {
         if (activeLiveCallRef.current) {
           setActiveLiveCall(null);
         }
-      }, 3500);
+      }, 1500);
     });
 
     // Call ended event
     const unsubCallEnded = socketService.onCallEnded(() => {
       callSoundService.stopAll();
       setIncomingCall(null);
-      // Give CallModal time to show status and record chat history, with fallback timeout
+      // CallModal handles its own close via onClose prop; this is a safety-net fallback
       setTimeout(() => {
         if (activeLiveCallRef.current) {
           setActiveLiveCall(null);
         }
-      }, 3500);
+      }, 1500);
     });
 
     // Chat cleared event
@@ -2488,46 +2488,44 @@ function MainApp() {
           isInitiator={activeLiveCall.isInitiator}
           onClose={(callInfo) => {
             callSoundService.stopAll();
-            if (currentUser) {
-              socketService.endCall(currentUser.handle, activeLiveCall.user.handle);
-              // If caller, send the call event message so it appears in the chat on both sides
-              if (activeLiveCall.isInitiator && callInfo) {
-                const resolvedType: 'outgoing' | 'canceled' | 'declined' | 'missed' =
-                  callInfo.duration && callInfo.duration > 0
-                    ? 'outgoing'
-                    : callInfo.type === 'declined'
-                      ? 'declined'
-                      : callInfo.type === 'missed'
-                        ? 'missed'
-                        : 'canceled';
+            // NOTE: Don't call socketService.endCall here - CallModal already handles it internally
+            // to avoid sending duplicate call_ended events to the remote peer.
+            if (currentUser && activeLiveCall.isInitiator && callInfo) {
+              const resolvedType: 'outgoing' | 'canceled' | 'declined' | 'missed' =
+                callInfo.duration && callInfo.duration > 0
+                  ? 'outgoing'
+                  : callInfo.type === 'declined'
+                    ? 'declined'
+                    : callInfo.type === 'missed'
+                      ? 'missed'
+                      : 'canceled';
 
-                const finalCallInfo = {
-                  type: resolvedType,
-                  duration: callInfo.duration || 0,
-                };
+              const finalCallInfo = {
+                type: resolvedType,
+                duration: callInfo.duration || 0,
+              };
 
-                const text = callInfo.duration
-                  ? `📞 Voice Call (${Math.floor(callInfo.duration / 60)}:${(callInfo.duration % 60)
-                    .toString()
-                    .padStart(2, '0')})`
-                  : resolvedType === 'missed'
-                    ? '📵 Missed Voice Call'
-                    : resolvedType === 'declined'
-                      ? '📞 Declined Call'
-                      : '📞 Canceled Call';
+              const text = callInfo.duration
+                ? `📞 Voice Call (${Math.floor(callInfo.duration / 60)}:${(callInfo.duration % 60)
+                  .toString()
+                  .padStart(2, '0')})`
+                : resolvedType === 'missed'
+                  ? '📵 Missed Voice Call'
+                  : resolvedType === 'declined'
+                    ? '📞 Declined Call'
+                    : '📞 Canceled Call';
 
-                ApiService.sendMessage(
-                  currentUser.handle,
-                  activeLiveCall.user.handle,
-                  text,
-                  undefined,
-                  undefined,
-                  undefined,
-                  finalCallInfo
-                ).catch((err) => {
-                  console.error('Failed to log call end message:', err);
-                });
-              }
+              ApiService.sendMessage(
+                currentUser.handle,
+                activeLiveCall.user.handle,
+                text,
+                undefined,
+                undefined,
+                undefined,
+                finalCallInfo
+              ).catch((err) => {
+                console.error('Failed to log call end message:', err);
+              });
             }
             setActiveLiveCall(null);
           }}

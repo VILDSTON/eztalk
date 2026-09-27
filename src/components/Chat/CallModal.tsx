@@ -100,6 +100,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const endCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disconnectGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   durationRef.current = callDuration;
 
@@ -284,6 +285,10 @@ export const CallModal: React.FC<CallModalProps> = ({
   };
 
   const cleanupCallResources = () => {
+    if (disconnectGraceRef.current) {
+      clearTimeout(disconnectGraceRef.current);
+      disconnectGraceRef.current = null;
+    }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -377,11 +382,24 @@ export const CallModal: React.FC<CallModalProps> = ({
     pc.onconnectionstatechange = () => {
       console.log('WebRTC Connection State:', pc.connectionState);
       if (pc.connectionState === 'connected') {
+        // Clear any disconnect grace timer
+        if (disconnectGraceRef.current) {
+          clearTimeout(disconnectGraceRef.current);
+          disconnectGraceRef.current = null;
+        }
         callSoundService.stopAll();
         setCallState('connected');
         if (remoteStreamRef.current) {
           playRemoteAudio(remoteStreamRef.current);
         }
+      } else if (pc.connectionState === 'disconnected') {
+        // Give 5 seconds for self-healing before treating as failed
+        if (disconnectGraceRef.current) clearTimeout(disconnectGraceRef.current);
+        disconnectGraceRef.current = setTimeout(() => {
+          if (peerConnectionRef.current?.connectionState === 'disconnected') {
+            handleCallConnectionFailed();
+          }
+        }, 5000);
       } else if (pc.connectionState === 'failed') {
         handleCallConnectionFailed();
       }
@@ -391,6 +409,10 @@ export const CallModal: React.FC<CallModalProps> = ({
       console.log('ICE Connection State changed:', pc.iceConnectionState);
       // Use ICE state as a reliable fallback to transition to connected
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        if (disconnectGraceRef.current) {
+          clearTimeout(disconnectGraceRef.current);
+          disconnectGraceRef.current = null;
+        }
         callSoundService.stopAll();
         setCallState('connected');
         if (remoteStreamRef.current) {
@@ -433,7 +455,22 @@ export const CallModal: React.FC<CallModalProps> = ({
         callSoundService.playOutgoing();
         socketService.sendCall(currentUser, user.handle);
       } else {
+        // Receiver side: stop ringing and unlock AudioContext immediately on user gesture
         callSoundService.stopAll();
+        // Attempt to resume/create AudioContext to avoid autoplay block
+        try {
+          const AudioCtx =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioCtx();
+          }
+          if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume().catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
       }
     } catch {
       alert(t.calls.micAccessError);
@@ -553,6 +590,10 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (endCallTimerRef.current) {
         clearTimeout(endCallTimerRef.current);
         endCallTimerRef.current = null;
+      }
+      if (disconnectGraceRef.current) {
+        clearTimeout(disconnectGraceRef.current);
+        disconnectGraceRef.current = null;
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);

@@ -42,6 +42,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [inputText, setInputText] = useState(initialDraft || '');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentAttachment, setCurrentAttachment] = useState<Attachment | null>(null);
+  const [captionText, setCaptionText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +101,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       setInputText(initialDraft || '');
       // 3. Clear attachments and close picker
       setCurrentAttachment(null);
+      setCaptionText('');
       setShowEmojiPicker(false);
       // 4. Stop recording if active
       if (isRecording) {
@@ -196,8 +198,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     haptic.light();
 
+    // If there's an image attachment, the caption (if any) becomes the message text
+    const messageText = currentAttachment ? captionText.trim() || inputText.trim() : inputText.trim();
+
     onSendMessage(
-      inputText.trim(),
+      messageText,
       currentAttachment || undefined,
       replyingTo || undefined
     );
@@ -205,6 +210,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     setInputText('');
     if (onDraftChange) onDraftChange('');
     setCurrentAttachment(null);
+    setCaptionText('');
     setShowEmojiPicker(false);
     if (onCancelReply) onCancelReply();
   };
@@ -566,30 +572,46 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
         {/* Attachment Preview */}
         {currentAttachment && (
-          <div className="mb-2 flex items-center space-x-2.5 bg-ez-elevated border border-ez-border p-2 rounded-xl max-w-sm animate-fade-in">
-            {currentAttachment.type === 'image' ? (
-              <img
-                src={currentAttachment.url}
-                alt={currentAttachment.name || 'Attachment preview'}
-                className="w-10 h-10 rounded-lg object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                <Paperclip className="w-4 h-4 text-neon-green" />
+          <div className="mb-2 bg-ez-elevated border border-ez-border rounded-xl max-w-sm animate-fade-in overflow-hidden">
+            <div className="flex items-center space-x-2.5 p-2">
+              {currentAttachment.type === 'image' ? (
+                <img
+                  src={currentAttachment.url}
+                  alt={currentAttachment.name || 'Attachment preview'}
+                  className="w-12 h-12 rounded-lg object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  <Paperclip className="w-4 h-4 text-neon-green" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0 pr-2">
+                <p className="text-xs font-semibold text-white truncate">{currentAttachment.name}</p>
+                <p className="text-[10px] text-ez-muted">{currentAttachment.size}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setCurrentAttachment(null); setCaptionText(''); }}
+                aria-label={t.common.remove}
+                className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* Caption input — only shown for images */}
+            {currentAttachment.type === 'image' && (
+              <div className="border-t border-ez-border/50 px-3 py-1.5">
+                <input
+                  type="text"
+                  value={captionText}
+                  onChange={(e) => setCaptionText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder={(t as any)?.chat?.addCaption || 'Add a caption...'}
+                  maxLength={200}
+                  className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-ez-muted font-sans leading-normal py-0.5"
+                />
               </div>
             )}
-            <div className="flex-1 min-w-0 pr-2">
-              <p className="text-xs font-semibold text-white truncate">{currentAttachment.name}</p>
-              <p className="text-[10px] text-ez-muted">{currentAttachment.size}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCurrentAttachment(null)}
-              aria-label={t.common.remove}
-              className="w-6 h-6 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 cursor-pointer transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
           </div>
         )}
 
