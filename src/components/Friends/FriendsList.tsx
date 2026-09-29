@@ -182,13 +182,14 @@ export const FriendsList: React.FC<FriendsListProps> = ({
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     if (isLongPressActiveRef.current) {
+      if (e.cancelable) e.preventDefault();
       // Keep active briefly to suppress following synthetic click
       setTimeout(() => {
         isLongPressActiveRef.current = false;
-      }, 350);
+      }, 400);
     }
   };
 

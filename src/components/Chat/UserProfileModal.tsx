@@ -14,6 +14,8 @@ import {
   Pencil,
   Play,
   Music,
+  Shield,
+  ShieldCheck,
 } from 'lucide-react';
 import { User, Message, Attachment } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
@@ -304,8 +306,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 )}
               </div>
 
-              {/* Handle */}
-              <p className="text-xs font-mono font-bold text-[var(--ez-accent)] mt-0.5 tracking-wide">{user.handle}</p>
+              {/* Handle & Verification Badge */}
+              <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                <p className="text-xs font-mono font-bold text-[var(--ez-accent)] tracking-wide">{user.handle}</p>
+                {user.isVerified ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold tracking-wide shadow-sm"
+                    title={t.profile?.verifiedBadge || 'Verified'}
+                  >
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    <span>{t.profile?.verifiedBadge || 'Verified'}</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium tracking-wide"
+                    title={t.profile?.unverifiedBadge || 'Unverified'}
+                  >
+                    <Shield className="w-3 h-3 text-zinc-400" />
+                    <span>{t.profile?.unverifiedBadge || 'Unverified'}</span>
+                  </span>
+                )}
+              </div>
 
               {/* Custom status */}
               {!isBlockedByPeer && user.customStatusText && (

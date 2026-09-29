@@ -184,8 +184,10 @@ textarea {
 /* ─── Chat Background Pattern (Чистый фон без размытого пятна) ─── */
 .telegram-chat-bg {
   background-color: var(--ez-base);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: var(--ez-chat-wallpaper, radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px));
+  background-size: var(--ez-chat-wallpaper-size, 20px 20px);
+  background-position: var(--ez-chat-wallpaper-pos, center);
+  background-repeat: var(--ez-chat-wallpaper-repeat, repeat);
   background-attachment: fixed;
 }
 

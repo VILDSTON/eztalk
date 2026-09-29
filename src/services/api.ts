@@ -1,4 +1,4 @@
-import { User, Message, Attachment, QuotedMessage, Group } from '../types/chat';
+import { User, Message, Attachment, QuotedMessage, Group, LoginResponse, UserSession, QRLoginData, QRScanResult } from '../types/chat';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/+$/, '') : '';
 const API_BASE_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
@@ -46,16 +46,52 @@ function getAuthHeaders(): HeadersInit {
 }
 
 export class ApiService {
-  // Login with identifier and password
-  static async login(identifier: string, password?: string): Promise<User> {
+  // Login with identifier and password (can return User or LoginResponse requiring 2FA)
+  static async login(identifier: string, password?: string): Promise<LoginResponse & { user?: User }> {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password }),
     });
     const data = await handleResponse(res, 'Login failed');
+    if (data.requires2FA) {
+      return {
+        requires2FA: true,
+        twoFactorToken: data.twoFactorToken,
+        hint: data.hint,
+      };
+    }
     if (data.token) {
       localStorage.setItem('eztalk_token', data.token);
+    }
+    if (data.sessionId) {
+      localStorage.setItem('eztalk_session_id', data.sessionId);
+    }
+    const user = normalizeUser(data.user);
+    if (data.token && user) {
+      (user as any).token = data.token;
+      try {
+        const clean = (user.handle || '').trim().toLowerCase();
+        const normalized = clean.startsWith('@') ? clean : `@${clean}`;
+        localStorage.setItem(`eztalk_token_${normalized}`, data.token);
+      } catch {}
+    }
+    return { user, token: data.token, sessionId: data.sessionId };
+  }
+
+  // Complete Two-Step Verification (2FA / Cloud Password)
+  static async login2FA(twoFactorToken: string, twoFactorPassword: string): Promise<User> {
+    const res = await fetch(`${API_BASE_URL}/auth/login-2fa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ twoFactorToken, twoFactorPassword }),
+    });
+    const data = await handleResponse(res, '2FA authentication failed');
+    if (data.token) {
+      localStorage.setItem('eztalk_token', data.token);
+    }
+    if (data.sessionId) {
+      localStorage.setItem('eztalk_session_id', data.sessionId);
     }
     const user = normalizeUser(data.user);
     if (data.token && user) {
@@ -69,8 +105,18 @@ export class ApiService {
     return user;
   }
 
-  // Register new user with password
-  static async register(user: Partial<User> & { password?: string }): Promise<User> {
+  // Send 6-digit OTP code to email
+  static async sendVerificationCode(email: string): Promise<{ success: boolean; message?: string; devCode?: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/send-verification-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return await handleResponse(res, 'Failed to send verification code');
+  }
+
+  // Register new user with password and email verification code
+  static async register(user: Partial<User> & { password?: string; verificationCode?: string }): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,6 +125,9 @@ export class ApiService {
     const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
       localStorage.setItem('eztalk_token', data.token);
+    }
+    if (data.sessionId) {
+      localStorage.setItem('eztalk_session_id', data.sessionId);
     }
     const newUser = normalizeUser(data.user);
     if (data.token && newUser) {
@@ -90,6 +139,113 @@ export class ApiService {
       } catch {}
     }
     return newUser;
+  }
+
+  // Link and verify email to upgrade unverified account to Verified
+  static async linkEmail(email: string, verificationCode: string): Promise<{ success: boolean; user: User }> {
+    const res = await fetch(`${API_BASE_URL}/auth/link-email`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ email, verificationCode }),
+    });
+    const data = await handleResponse(res, 'Failed to link and verify email');
+    const updatedUser = normalizeUser(data.user);
+    return { success: true, user: updatedUser };
+  }
+
+  // 2FA Management APIs
+  static async enable2FA(twoFactorPassword: string, hint?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/2fa/enable`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ twoFactorPassword, hint }),
+    });
+    return await handleResponse(res, 'Failed to enable Two-Step Verification');
+  }
+
+  static async disable2FA(currentTwoFactorPassword: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/2fa/disable`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ currentTwoFactorPassword }),
+    });
+    return await handleResponse(res, 'Failed to disable Two-Step Verification');
+  }
+
+  static async change2FAPassword(currentTwoFactorPassword: string, newTwoFactorPassword: string, hint?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/2fa/change`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ currentTwoFactorPassword, newTwoFactorPassword, hint }),
+    });
+    return await handleResponse(res, 'Failed to update Two-Step Verification password');
+  }
+
+  // ─── Active Sessions & Devices Management ───
+  static async getSessions(): Promise<UserSession[]> {
+    const res = await fetch(`${API_BASE_URL}/auth/sessions`, {
+      headers: getAuthHeaders(),
+    });
+    const data = await handleResponse(res, 'Failed to fetch active sessions');
+    return data.sessions || [];
+  }
+
+  static async terminateSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return await handleResponse(res, 'Failed to terminate session');
+  }
+
+  static async terminateOtherSessions(): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/sessions/terminate-others`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await handleResponse(res, 'Failed to terminate other sessions');
+  }
+
+  // ─── QR Code Quick Login ───
+  static async generateQRLogin(): Promise<QRLoginData> {
+    const res = await fetch(`${API_BASE_URL}/auth/qr/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await handleResponse(res, 'Failed to generate QR login session');
+  }
+
+  static async checkQRLoginStatus(qrToken: string): Promise<{ status: 'pending' | 'scanned' | 'confirmed' | 'expired'; token?: string; user?: User; sessionId?: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/qr/status?qrToken=${encodeURIComponent(qrToken)}`);
+    const data = await handleResponse(res, 'Failed to check QR login status');
+    if (data.user) {
+      data.user = normalizeUser(data.user);
+    }
+    if (data.token) {
+      localStorage.setItem('eztalk_token', data.token);
+    }
+    if (data.sessionId) {
+      localStorage.setItem('eztalk_session_id', data.sessionId);
+    }
+    return data;
+  }
+
+  static async scanQRLogin(qrTokenOrCode: string): Promise<QRScanResult> {
+    const res = await fetch(`${API_BASE_URL}/auth/qr/scan`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ qrTokenOrCode }),
+    });
+    return await handleResponse(res, 'Invalid or expired QR code');
+  }
+
+  static async confirmQRLogin(qrToken: string, twoFactorPassword?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/qr/confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ qrToken, twoFactorPassword }),
+    });
+    return await handleResponse(res, 'Failed to confirm QR login');
   }
 
   // Fetch all registered users

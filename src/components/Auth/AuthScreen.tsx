@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck, Palette, Rocket, Image as ImageIcon } from 'lucide-react';
-import { User } from '../../types/chat';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Lock, Mail, User as UserIcon, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Upload, Check, X, ShieldCheck, Palette, Rocket, Image as ImageIcon, RefreshCw, KeyRound, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { User, QRLoginData } from '../../types/chat';
 import { ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
+import { socketService } from '../../services/socket';
 import { compressAvatar } from '../../utils/imageCompressor';
 import { useTranslation } from '../../context/LanguageContext';
 import { LanguageSwitch } from '../Common/LanguageSwitch';
@@ -29,9 +31,11 @@ function getPasswordStrength(password: string): { score: number; color: string }
   return { score: 3, color: 'bg-[var(--ez-accent)]' };
 }
 
+export type AuthMode = 'login' | 'register' | 'verify_email' | 'two_factor' | 'onboarding';
+
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, onCancel }) => {
   const { t, language } = useTranslation();
-  const [mode, setMode] = useState<'login' | 'register' | 'onboarding'>('register');
+  const [mode, setMode] = useState<AuthMode>('register');
   const [onboardingStep, setOnboardingStep] = useState<1 | 2 | 3>(1);
   const [registeredUser, setRegisteredUser] = useState<User | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<string>(() => {
@@ -49,6 +53,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
+  // QR Login State
+  const [loginMethod, setLoginMethod] = useState<'password' | 'qr'>('password');
+  const [qrData, setQrData] = useState<QRLoginData | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrSecondsLeft, setQrSecondsLeft] = useState(120);
+  const qrPollTimerRef = useRef<any>(null);
+  const qrCountdownTimerRef = useRef<any>(null);
+
   // Register form state
   const [regName, setRegName] = useState('');
   const [regHandle, setRegHandle] = useState('');
@@ -60,6 +72,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
   const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATAR);
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState(''); // Anti-bot trap field
+
+  // Email verification state
+  const [otpCode, setOtpCode] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
+
+  // Two-factor state
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+  const [twoFactorHint, setTwoFactorHint] = useState('');
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [showTwoFactorPassword, setShowTwoFactorPassword] = useState(false);
 
   // Live handle validation state
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
@@ -74,6 +97,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
       : passwordStrength.score === 3
       ? t.auth.strong
       : '';
+
+  useEffect(() => {
+    if (mode !== 'verify_email' || resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [mode, resendCountdown]);
 
   useEffect(() => {
     if (handleCheckTimerRef.current) {
@@ -132,13 +163,141 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
     setErrorMessage('');
     setLoading(true);
     try {
-      const user = await ApiService.login(cleanInput, loginPassword);
+      const res = await ApiService.login(cleanInput, loginPassword);
+      if (res.requires2FA) {
+        setTwoFactorToken(res.twoFactorToken || '');
+        setTwoFactorHint(res.hint || '');
+        setTwoFactorPassword('');
+        setMode('two_factor');
+        return;
+      }
+      if (res.user) {
+        if (rememberMe) {
+          ChatStorageService.saveAuthUser(res.user);
+        }
+        onLogin(res.user);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeQRLogin = useCallback(
+    (token: string, user: User, sessionId?: string) => {
+      localStorage.setItem('eztalk_token', token);
+      if (sessionId) {
+        localStorage.setItem('eztalk_session_id', sessionId);
+      }
+      if (rememberMe) {
+        ChatStorageService.saveAuthUser(user);
+      }
+      onLogin(user);
+    },
+    [rememberMe, onLogin]
+  );
+
+  const generateNewQR = useCallback(async () => {
+    setQrLoading(true);
+    try {
+      const data = await ApiService.generateQRLogin();
+      if (data && data.qrToken) {
+        setQrData(data);
+        setQrSecondsLeft(data.expiresIn || 120);
+        const socket = socketService.connect();
+        socket.emit('subscribe_qr', { qrToken: data.qrToken });
+      }
+    } catch (err: any) {
+      console.warn('Failed to generate QR login:', err);
+    } finally {
+      setQrLoading(false);
+    }
+  }, []);
+
+  // When switching to QR login, generate QR
+  useEffect(() => {
+    if (mode === 'login' && loginMethod === 'qr') {
+      generateNewQR();
+    } else {
+      setQrData(null);
+    }
+  }, [mode, loginMethod, generateNewQR]);
+
+  // Countdown timer for QR expiration
+  useEffect(() => {
+    if (mode === 'login' && loginMethod === 'qr' && qrData) {
+      qrCountdownTimerRef.current = setInterval(() => {
+        setQrSecondsLeft((prev) => {
+          if (prev <= 1) {
+            generateNewQR();
+            return 120;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => {
+        if (qrCountdownTimerRef.current) clearInterval(qrCountdownTimerRef.current);
+      };
+    }
+  }, [mode, loginMethod, qrData, generateNewQR]);
+
+  // Socket listener & Polling for QR status
+  useEffect(() => {
+    if (mode !== 'login' || loginMethod !== 'qr' || !qrData?.qrToken) return;
+
+    let isDone = false;
+    const socket = socketService.connect();
+
+    const handleSuccess = (data: { token: string; user: User; sessionId?: string }) => {
+      if (isDone) return;
+      isDone = true;
+      if (qrPollTimerRef.current) clearInterval(qrPollTimerRef.current);
+      completeQRLogin(data.token, data.user, data.sessionId);
+    };
+
+    socket.on('qr_login_success', handleSuccess);
+
+    // Fallback polling every 1.5s
+    qrPollTimerRef.current = setInterval(async () => {
+      if (isDone) return;
+      try {
+        const res = await ApiService.checkQRLoginStatus(qrData.qrToken);
+        if (res.status === 'confirmed' && res.token && res.user) {
+          isDone = true;
+          if (qrPollTimerRef.current) clearInterval(qrPollTimerRef.current);
+          completeQRLogin(res.token, res.user, res.sessionId);
+        } else if (res.status === 'expired') {
+          generateNewQR();
+        }
+      } catch (err) {
+        // ignore polling network glitch
+      }
+    }, 1500);
+
+    return () => {
+      isDone = true;
+      socket.off('qr_login_success', handleSuccess);
+      if (qrPollTimerRef.current) clearInterval(qrPollTimerRef.current);
+    };
+  }, [mode, loginMethod, qrData?.qrToken, generateNewQR, completeQRLogin]);
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorPassword) {
+      setErrorMessage(t.settings.enterTwoFactorPass || 'Please enter your Two-Step Verification password.');
+      return;
+    }
+    setErrorMessage('');
+    setLoading(true);
+    try {
+      const user = await ApiService.login2FA(twoFactorToken, twoFactorPassword);
       if (rememberMe) {
         ChatStorageService.saveAuthUser(user);
       }
       onLogin(user);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Login failed. Please check your credentials.');
+      setErrorMessage(err.message || 'Incorrect Two-Step Verification password.');
     } finally {
       setLoading(false);
     }
@@ -164,7 +323,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
       return;
     }
 
-    if (regEmail.trim()) {
+    const hasEmail = Boolean(regEmail.trim());
+    if (hasEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(regEmail.trim())) {
         setErrorMessage('Please enter a valid email address.');
@@ -187,6 +347,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
       return;
     }
 
+    setLoading(true);
+    if (!hasEmail) {
+      // Register directly as unverified account without requiring email or OTP
+      try {
+        const cleanHandle = `@${rawHandle}`;
+        const user = await ApiService.register({
+          name: regName.trim() || rawHandle,
+          handle: cleanHandle,
+          password: regPassword,
+          avatar: selectedAvatar,
+          bio: 'Hey there! I am using EzTalk.',
+          ...(honeypot ? { b_username: honeypot } as any : {}),
+        });
+        setRegisteredUser(user);
+        setMode('onboarding');
+        setOnboardingStep(1);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Registration failed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    try {
+      const res = await ApiService.sendVerificationCode(regEmail.trim().toLowerCase());
+      setOtpCode('');
+      setDevOtpCode(res.devCode || null);
+      setResendCountdown(60);
+      setMode('verify_email');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to send verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipAndRegisterAsUnverified = async () => {
+    setErrorMessage('');
+    const rawHandle = regHandle.trim().replace(/^@/, '');
     const cleanHandle = `@${rawHandle}`;
     setLoading(true);
     try {
@@ -195,7 +395,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
         handle: cleanHandle,
         password: regPassword,
         avatar: selectedAvatar,
-        email: regEmail.trim() || `${rawHandle}@eztalk.app`,
         bio: 'Hey there! I am using EzTalk.',
         ...(honeypot ? { b_username: honeypot } as any : {}),
       });
@@ -203,7 +402,58 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
       setMode('onboarding');
       setOnboardingStep(1);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed. Username may already be in use.');
+      setErrorMessage(err.message || 'Registration failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerificationCode = async () => {
+    if (resendCountdown > 0 || loading) return;
+    setErrorMessage('');
+    setLoading(true);
+    try {
+      const res = await ApiService.sendVerificationCode(regEmail.trim().toLowerCase());
+      if (res.devCode) {
+        setDevOtpCode(res.devCode);
+      }
+      setResendCountdown(60);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to resend verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtpAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    const cleanCode = otpCode.trim();
+    if (cleanCode.length !== 6) {
+      setErrorMessage(t.auth.invalidCode || 'Please enter all 6 digits of the confirmation code.');
+      return;
+    }
+
+    const rawHandle = regHandle.trim().replace(/^@/, '');
+    const cleanHandle = `@${rawHandle}`;
+
+    setLoading(true);
+    try {
+      const user = await ApiService.register({
+        name: regName.trim() || rawHandle,
+        handle: cleanHandle,
+        password: regPassword,
+        avatar: selectedAvatar,
+        email: regEmail.trim().toLowerCase(),
+        bio: 'Hey there! I am using EzTalk.',
+        verificationCode: cleanCode,
+        ...(honeypot ? { b_username: honeypot } as any : {}),
+      });
+      setRegisteredUser(user);
+      setMode('onboarding');
+      setOnboardingStep(1);
+    } catch (err: any) {
+      setErrorMessage(err.message || t.auth.invalidCode || 'Invalid or expired verification code.');
     } finally {
       setLoading(false);
     }
@@ -413,6 +663,191 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
               </div>
             )}
           </div>
+        ) : mode === 'verify_email' ? (
+          /* Email Verification Step */
+          <div className="flex flex-col animate-fade-in">
+            <div className="text-center mb-5">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[var(--ez-accent)] mb-3 shadow-sm">
+                <Mail className="w-6 h-6 sm:w-7 sm:h-7" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-1.5">{t.auth.verifyEmailTitle}</h2>
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed px-1">
+                {t.auth.verifyEmailSubtitle}{' '}
+                <span className="text-zinc-100 font-semibold break-all">{regEmail}</span>
+              </p>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-4 flex items-center space-x-2 bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-3 rounded-xl text-rose-400 text-xs animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyOtpAndRegister} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setOtpCode(val);
+                    setErrorMessage('');
+                  }}
+                  placeholder="••••••"
+                  className="w-full bg-[var(--ez-base)] border border-white/15 focus:border-[var(--ez-accent)] rounded-2xl py-3 text-center text-2xl sm:text-3xl font-mono font-bold tracking-[0.4em] sm:tracking-[0.5em] text-[var(--ez-accent)] placeholder:text-zinc-700 outline-none transition-all shadow-inner"
+                />
+              </div>
+
+              {devOtpCode && (
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpCode(devOtpCode);
+                      setErrorMessage('');
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[var(--ez-accent)]/15 border border-[var(--ez-accent)]/30 text-[var(--ez-accent)] text-xs font-mono font-semibold hover:bg-[var(--ez-accent)]/25 transition-colors cursor-pointer"
+                    title="Click to auto-fill dev code"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Dev OTP: <strong className="underline">{devOtpCode}</strong></span>
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.trim().length !== 6}
+                className="w-full py-2.5 sm:py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 shadow-sm"
+              >
+                <span>{loading ? t.common.loading : t.auth.verifyAndProceed}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleSkipAndRegisterAsUnverified}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-semibold rounded-xl transition-all cursor-pointer border border-white/5"
+              >
+                {t.auth.skipAndRegister || 'Skip & Register as Unverified'}
+              </button>
+            </form>
+
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--ez-border)] text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('register');
+                  setErrorMessage('');
+                }}
+                className="text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{t.auth.changeEmail}</span>
+              </button>
+
+              {resendCountdown > 0 ? (
+                <span className="text-zinc-500 font-medium">
+                  {t.auth.resendIn.replace('{seconds}', String(resendCountdown))}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleResendVerificationCode}
+                  className="text-[var(--ez-accent)] hover:underline font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span>{t.auth.resendCode}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : mode === 'two_factor' ? (
+          /* Two-Step Verification Login Step */
+          <div className="flex flex-col animate-fade-in">
+            <div className="text-center mb-5">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[var(--ez-accent)]/10 border border-[var(--ez-accent)] text-[var(--ez-accent)] mb-3 shadow-sm">
+                <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-1.5">{t.auth.twoStepTitle}</h2>
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed px-1">
+                {t.auth.twoStepSubtitle}
+              </p>
+            </div>
+
+            {twoFactorHint && (
+              <div className="mb-4 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center space-x-2 text-xs text-zinc-300">
+                <Sparkles className="w-4 h-4 text-[var(--ez-accent)] shrink-0" />
+                <span><strong>{t.auth.hintLabel}:</strong> {twoFactorHint}</span>
+              </div>
+            )}
+
+            {errorMessage && (
+              <div className="mb-4 flex items-center space-x-2 bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-3 rounded-xl text-rose-400 text-xs animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleTwoFactorSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
+                  {t.auth.twoStepPlaceholder}
+                </label>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5" />
+                  <input
+                    type={showTwoFactorPassword ? 'text' : 'password'}
+                    autoFocus
+                    required
+                    value={twoFactorPassword}
+                    onChange={(e) => {
+                      setTwoFactorPassword(e.target.value);
+                      setErrorMessage('');
+                    }}
+                    placeholder="••••••••"
+                    className="w-full bg-[var(--ez-base)] border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-10 py-2 sm:py-2.5 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTwoFactorPassword(!showTwoFactorPassword)}
+                    className="absolute right-2.5 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    {showTwoFactorPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !twoFactorPassword}
+                className="w-full py-2.5 sm:py-3 bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 font-bold text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 shadow-sm"
+              >
+                <span>{loading ? t.common.loading : t.auth.confirmAndSignIn}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setTwoFactorPassword('');
+                setErrorMessage('');
+              }}
+              className="mt-4 pt-3 border-t border-[var(--ez-border)] text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer text-center flex items-center justify-center space-x-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{t.auth.backToLogin}</span>
+            </button>
+          </div>
         ) : (
           <>
         {/* Brand Header */}
@@ -467,8 +902,103 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
           </div>
         )}
 
+        {/* Login Method Sub-Toggle */}
+        {mode === 'login' && (
+          <div className="flex p-1 bg-white/[0.04] border border-white/5 rounded-xl mb-4 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('password');
+                setErrorMessage('');
+              }}
+              className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                loginMethod === 'password'
+                  ? 'bg-white/10 text-white font-bold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>{t.auth.passwordLoginTab || 'Password'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('qr');
+                setErrorMessage('');
+              }}
+              className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                loginMethod === 'qr'
+                  ? 'bg-white/10 text-neon-green font-bold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>{t.auth.qrLoginTab || 'QR Code'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Login Form */}
         {mode === 'login' ? (
+          loginMethod === 'qr' ? (
+            <div className="space-y-4 py-1 text-center animate-fade-in">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-white">
+                  {t.auth.qrLoginTitle}
+                </h3>
+                <p className="text-[11px] text-ez-muted leading-relaxed max-w-[280px] mx-auto">
+                  {t.auth.qrLoginInstructions}
+                </p>
+              </div>
+
+              {/* QR Container */}
+              <div className="relative mx-auto w-48 h-48 bg-white p-3 rounded-2xl shadow-xl flex items-center justify-center border-2 border-neon-green/30">
+                {qrLoading || !qrData ? (
+                  <div className="flex flex-col items-center justify-center space-y-2 text-zinc-800">
+                    <RefreshCw className="w-6 h-6 animate-spin text-zinc-600" />
+                    <span className="text-[10px] font-bold text-zinc-500">Generating QR...</span>
+                  </div>
+                ) : (
+                  <QRCodeSVG
+                    value={`eztalk://qr/${qrData.qrToken}`}
+                    size={168}
+                    level="M"
+                    marginSize={1}
+                  />
+                )}
+              </div>
+
+              {/* Quick backup code */}
+              {qrData?.quickCode && (
+                <div className="space-y-1">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">
+                    {t.auth.qrBackupCode}
+                  </span>
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-xl bg-white/5 border border-white/10">
+                    <span className="font-mono text-sm font-black tracking-widest text-neon-green">
+                      {qrData.quickCode}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Countdown timer & Refresh */}
+              <div className="flex items-center justify-center space-x-3 text-xs text-zinc-400 pt-1">
+                <span>
+                  {t.auth.qrCodeExpiring} <strong className="text-white">{qrSecondsLeft}s</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={generateNewQR}
+                  disabled={qrLoading}
+                  className="text-neon-green hover:underline cursor-pointer flex items-center space-x-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${qrLoading ? 'animate-spin' : ''}`} />
+                  <span>{t.auth.refreshCode}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
           <form onSubmit={handleLoginSubmit} className="space-y-3.5 sm:space-y-4">
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
@@ -538,6 +1068,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+          )
         ) : (
           /* Register Form */
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
@@ -622,13 +1153,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
 
             <div>
               <label className="block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">
-                {t.auth.email}
+                {t.auth.emailOptional || 'Email (Optional)'}
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5" />
                 <input
                   type="email"
-                  required
                   value={regEmail}
                   onChange={(e) => {
                     setRegEmail(e.target.value);
@@ -638,6 +1168,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onOpenLegal, on
                   className="w-full bg-[var(--ez-base)] border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors"
                 />
               </div>
+              <p className="text-[10px] text-zinc-500 mt-1">
+                {t.auth.skipEmailTip || 'You can register without an email and verify later in Settings'}
+              </p>
             </div>
 
             <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, MoreVertical, Search, Bell, BellOff, Users, Trash2, LogOut, ArrowLeft, Bookmark, X, Download } from 'lucide-react';
+import { Phone, MoreVertical, Search, Bell, BellOff, Users, Trash2, LogOut, ArrowLeft, Bookmark, X, Download, Shield, ShieldCheck } from 'lucide-react';
 import { User, Group, Message } from '../../types/chat';
 import { ChatMenuDropdown } from './ChatMenuDropdown';
 import { UserProfileModal } from './UserProfileModal';
@@ -469,6 +469,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
                   {user.name || user.handle || 'User'}
                 </span>
+                {user.isVerified ? (
+                  <span title={t.profile?.verifiedBadge || 'Verified'}>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  </span>
+                ) : (
+                  <span title={t.profile?.unverifiedBadge || 'Unverified'}>
+                    <Shield className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                  </span>
+                )}
                 {!isBlockedByPeer && user.statusEmoji && (
                   <span className="text-sm shrink-0 select-none leading-none" title={t.profile?.status || 'Status'}>{user.statusEmoji}</span>
                 )}

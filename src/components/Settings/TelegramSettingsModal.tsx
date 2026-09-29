@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   X,
   Camera,
@@ -6,10 +6,10 @@ import {
   Bell,
   Volume2,
   Shield,
+  ShieldCheck,
   Palette,
   User as UserIcon,
   LogOut,
-  HardDrive,
   Sparkles,
   Sliders,
   CheckCircle2,
@@ -17,11 +17,27 @@ import {
   Play,
   Radio,
   Lock,
+  Upload,
+  RotateCcw,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  KeyRound,
+  QrCode,
+  Laptop,
+  Monitor,
+  Smartphone,
+  Globe,
+  RefreshCw,
 } from 'lucide-react';
-import { User } from '../../types/chat';
-import { THEME_OPTIONS, THEME_NAMES, applyTheme, applyCompactMode } from '../../utils/theme';
+import { User, UserSession } from '../../types/chat';
+import { THEME_OPTIONS, THEME_NAMES, WALLPAPER_PRESETS, applyTheme, applyCompactMode, applyChatWallpaper } from '../../utils/theme';
+import { compressImage } from '../../utils/imageCompressor';
 import { playMessageChime } from '../../utils/callSounds';
 import { sanitizeDisplayName } from '../../utils/chatStorage';
+import { ApiService } from '../../services/api';
+import { QRScannerModal } from './QRScannerModal';
 
 interface TelegramSettingsModalProps {
   isOpen: boolean;
@@ -66,7 +82,7 @@ const PRESET_BANNERS = [
 
 const STATUS_EMOJIS = ['🚀', '⚡', '💻', '🎧', '☕', '🔥', '🌙', '🎮', '💡', '✨'];
 
-type SettingsTab = 'profile' | 'notifications' | 'appearance' | 'privacy' | 'storage';
+type SettingsTab = 'profile' | 'notifications' | 'appearance' | 'safety';
 
 export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   isOpen,
@@ -99,36 +115,173 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   const [selectedAccent, setSelectedAccent] = useState(currentUser.theme || currentUser.settings?.theme || 'neon');
   const [compactMode, setCompactMode] = useState(Boolean(currentUser.settings?.compactMode));
   const [enterToSend, setEnterToSend] = useState(currentUser.settings?.enterToSend !== false);
+  const [chatWallpaper, setChatWallpaper] = useState<string>(
+    currentUser.settings?.chatWallpaper || (typeof localStorage !== 'undefined' ? localStorage.getItem('eztalk_chat_wallpaper') || 'default' : 'default')
+  );
+  const [wallpaperUploading, setWallpaperUploading] = useState(false);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
 
-  // Storage & Cache State
-  const [usedStorageMB, setUsedStorageMB] = useState('0.00');
-  const [usedPercent, setUsedPercent] = useState(0);
-  const [cacheCleared, setCacheCleared] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  // Two-Step Verification (2FA / Cloud Password) State
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(Boolean(currentUser.twoFactorEnabled));
+  const [twoFactorHint, setTwoFactorHint] = useState(currentUser.twoFactorHint || '');
+  const [twoFactorAction, setTwoFactorAction] = useState<'none' | 'enable' | 'disable' | 'change'>('none');
+  const [twoFactorPasswordInput, setTwoFactorPasswordInput] = useState('');
+  const [twoFactorConfirmInput, setTwoFactorConfirmInput] = useState('');
+  const [twoFactorHintInput, setTwoFactorHintInput] = useState('');
+  const [twoFactorCurrentInput, setTwoFactorCurrentInput] = useState('');
+  const [show2FAPassword, setShow2FAPassword] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const [twoFactorSuccessMsg, setTwoFactorSuccessMsg] = useState('');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Email Linking & Verification State
+  const [isAccountVerified, setIsAccountVerified] = useState(Boolean(currentUser.isVerified));
+  const [accountEmail, setAccountEmail] = useState(currentUser.email || '');
+  const [linkEmailInput, setLinkEmailInput] = useState(currentUser.email || '');
+  const [linkOtpCode, setLinkOtpCode] = useState('');
+  const [linkEmailStep, setLinkEmailStep] = useState<'idle' | 'code_sent'>('idle');
+  const [linkEmailLoading, setLinkEmailLoading] = useState(false);
+  const [linkEmailError, setLinkEmailError] = useState('');
+  const [linkEmailSuccess, setLinkEmailSuccess] = useState('');
+  const [linkDevCode, setLinkDevCode] = useState<string | null>(null);
 
-  // Calculate actual storage usage from localStorage
-  const calculateStorage = () => {
-    let totalBytes = 0;
-    try {
-      if (typeof localStorage !== 'undefined') {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key) {
-            const val = localStorage.getItem(key) || '';
-            totalBytes += (key.length + val.length) * 2;
-          }
-        }
-      }
-    } catch {
-      // ignore
+  const handleSendLinkEmailCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkEmailError('');
+    const cleanEmail = linkEmailInput.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      setLinkEmailError('Please enter a valid email address.');
+      return;
     }
-    const mb = (totalBytes / (1024 * 1024)).toFixed(2);
-    setUsedStorageMB(mb);
-    const pct = Math.min(100, Math.max(4, Math.round((totalBytes / (5 * 1024 * 1024)) * 100)));
-    setUsedPercent(pct);
+    setLinkEmailLoading(true);
+    try {
+      const res = await ApiService.sendVerificationCode(cleanEmail);
+      if (res.devCode) {
+        setLinkDevCode(res.devCode);
+      }
+      setLinkOtpCode('');
+      setLinkEmailStep('code_sent');
+    } catch (err: any) {
+      setLinkEmailError(err.message || 'Failed to send verification code.');
+    } finally {
+      setLinkEmailLoading(false);
+    }
   };
+
+  const handleConfirmLinkEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkEmailError('');
+    const cleanCode = linkOtpCode.trim();
+    if (cleanCode.length !== 6) {
+      setLinkEmailError('Please enter the 6-digit confirmation code.');
+      return;
+    }
+    setLinkEmailLoading(true);
+    try {
+      const cleanEmail = linkEmailInput.trim().toLowerCase();
+      const res = await ApiService.linkEmail(cleanEmail, cleanCode);
+      setIsAccountVerified(true);
+      setAccountEmail(cleanEmail);
+      setLinkEmailStep('idle');
+      setLinkEmailSuccess(t.settings.emailLinkedSuccess || 'Email linked successfully! Your account is now Verified.');
+      if (res && res.user) {
+        onSaveProfile(res.user);
+      } else {
+        onSaveProfile({
+          ...currentUser,
+          isVerified: true,
+          email: cleanEmail,
+          emailVerified: true,
+        });
+      }
+      setTimeout(() => setLinkEmailSuccess(''), 5000);
+    } catch (err: any) {
+      setLinkEmailError(err.message || 'Failed to verify email.');
+    } finally {
+      setLinkEmailLoading(false);
+    }
+  };
+
+  // Devices & Active Sessions State
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
+  const [isTerminatingAll, setIsTerminatingAll] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+
+  const fetchSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    setSessionError(null);
+    try {
+      const res = await ApiService.getSessions();
+      if (res && res.sessions) {
+        setSessions(res.sessions);
+      }
+    } catch (err: any) {
+      console.warn('Failed to fetch sessions:', err);
+      setSessionError(err.message || 'Failed to load sessions');
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  const handleTerminateSession = async (sessionId: string) => {
+    if (!window.confirm(t.settings.terminateConfirm)) return;
+    setTerminatingSessionId(sessionId);
+    try {
+      await ApiService.terminateSession(sessionId);
+      await fetchSessions();
+    } catch (err: any) {
+      alert(err.message || 'Failed to terminate session');
+    } finally {
+      setTerminatingSessionId(null);
+    }
+  };
+
+  const handleTerminateOtherSessions = async () => {
+    if (!window.confirm(t.settings.terminateAllConfirm)) return;
+    setIsTerminatingAll(true);
+    try {
+      await ApiService.terminateOtherSessions();
+      await fetchSessions();
+    } catch (err: any) {
+      alert(err.message || 'Failed to terminate sessions');
+    } finally {
+      setIsTerminatingAll(false);
+    }
+  };
+
+  const getDeviceIcon = (type?: string, os?: string) => {
+    const o = (os || '').toLowerCase();
+    const tp = (type || '').toLowerCase();
+    if (tp === 'mobile' || o.includes('android') || o.includes('ios')) {
+      return <Smartphone className="w-5 h-5 text-neon-green" />;
+    }
+    if (o.includes('mac') || o.includes('win') || o.includes('linux')) {
+      return <Laptop className="w-5 h-5 text-neon-green" />;
+    }
+    return <Monitor className="w-5 h-5 text-neon-green" />;
+  };
+
+  const formatLastActive = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      const d = new Date(dateString);
+      const now = new Date();
+      const diffSecs = Math.floor((now.getTime() - d.getTime()) / 1000);
+      if (diffSecs < 60) return t.common.online || 'Active';
+      if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m ago`;
+      if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)}h ago`;
+      return d.toLocaleDateString();
+    } catch {
+      return '';
+    }
+  };
+
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -150,12 +303,28 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       setSelectedAccent(themeId);
       setCompactMode(Boolean(currentUser.settings?.compactMode));
       setEnterToSend(currentUser.settings?.enterToSend !== false);
+      const wp = currentUser.settings?.chatWallpaper || (typeof localStorage !== 'undefined' ? localStorage.getItem('eztalk_chat_wallpaper') || 'default' : 'default');
+      setChatWallpaper(wp);
+
+      setTwoFactorEnabled(Boolean(currentUser.twoFactorEnabled));
+      setTwoFactorHint(currentUser.twoFactorHint || '');
+      setTwoFactorAction('none');
+      setTwoFactorPasswordInput('');
+      setTwoFactorConfirmInput('');
+      setTwoFactorHintInput('');
+      setTwoFactorCurrentInput('');
+      setTwoFactorError('');
+      setTwoFactorSuccessMsg('');
 
       setSavedSuccess(false);
-      // Defer localStorage scan so modal opens instantly, then calculates in background
-      setTimeout(calculateStorage, 300);
     }
   }, [isOpen, currentUser]);
+
+  useEffect(() => {
+    if (isOpen && (activeTab === 'safety' || (activeTab as any) === 'privacy')) {
+      fetchSessions();
+    }
+  }, [isOpen, activeTab, fetchSessions]);
 
   if (!isOpen) return null;
 
@@ -189,12 +358,146 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     localStorage.setItem('eztalk_enter_to_send', JSON.stringify(val));
   };
 
+  const handleSelectWallpaper = (wpId: string) => {
+    setChatWallpaper(wpId);
+    applyChatWallpaper(wpId);
+  };
+
+  const handleCustomWallpaperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setWallpaperUploading(true);
+      const res = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85, format: 'image/webp' });
+      setChatWallpaper(res.dataUrl);
+      applyChatWallpaper(res.dataUrl);
+    } catch (err) {
+      console.error('Failed to compress custom wallpaper:', err);
+    } finally {
+      setWallpaperUploading(false);
+      if (wallpaperInputRef.current) {
+        wallpaperInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleResetWallpaper = () => {
+    setChatWallpaper('default');
+    applyChatWallpaper('default');
+  };
+
+  const handleEnable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFactorError('');
+    if (!twoFactorPasswordInput || twoFactorPasswordInput.length < 6) {
+      setTwoFactorError(t.settings.minSixChars);
+      return;
+    }
+    if (twoFactorPasswordInput !== twoFactorConfirmInput) {
+      setTwoFactorError(t.settings.passwordsDontMatch);
+      return;
+    }
+    setTwoFactorLoading(true);
+    try {
+      await ApiService.enable2FA(twoFactorPasswordInput, twoFactorHintInput.trim() || undefined);
+      setTwoFactorEnabled(true);
+      setTwoFactorHint(twoFactorHintInput.trim());
+      setTwoFactorAction('none');
+      setTwoFactorPasswordInput('');
+      setTwoFactorConfirmInput('');
+      setTwoFactorHintInput('');
+      setTwoFactorSuccessMsg(t.settings.twoFactorEnabledSuccess);
+      onSaveProfile({
+        ...currentUser,
+        twoFactorEnabled: true,
+        twoFactorHint: twoFactorHintInput.trim() || undefined,
+      });
+      setTimeout(() => setTwoFactorSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Failed to enable Two-Step Verification');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleDisable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFactorError('');
+    if (!twoFactorCurrentInput) {
+      setTwoFactorError(t.settings.enterTwoFactorPass);
+      return;
+    }
+    setTwoFactorLoading(true);
+    try {
+      await ApiService.disable2FA(twoFactorCurrentInput);
+      setTwoFactorEnabled(false);
+      setTwoFactorHint('');
+      setTwoFactorAction('none');
+      setTwoFactorCurrentInput('');
+      setTwoFactorSuccessMsg(t.settings.twoFactorDisabledSuccess);
+      onSaveProfile({
+        ...currentUser,
+        twoFactorEnabled: false,
+        twoFactorHint: undefined,
+      });
+      setTimeout(() => setTwoFactorSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Failed to disable Two-Step Verification');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleChange2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFactorError('');
+    if (!twoFactorCurrentInput) {
+      setTwoFactorError(t.settings.enterTwoFactorPass);
+      return;
+    }
+    if (!twoFactorPasswordInput || twoFactorPasswordInput.length < 6) {
+      setTwoFactorError(t.settings.minSixChars);
+      return;
+    }
+    if (twoFactorPasswordInput !== twoFactorConfirmInput) {
+      setTwoFactorError(t.settings.passwordsDontMatch);
+      return;
+    }
+    setTwoFactorLoading(true);
+    try {
+      await ApiService.change2FAPassword(
+        twoFactorCurrentInput,
+        twoFactorPasswordInput,
+        twoFactorHintInput.trim() || undefined
+      );
+      setTwoFactorHint(twoFactorHintInput.trim());
+      setTwoFactorAction('none');
+      setTwoFactorCurrentInput('');
+      setTwoFactorPasswordInput('');
+      setTwoFactorConfirmInput('');
+      setTwoFactorHintInput('');
+      setTwoFactorSuccessMsg(t.settings.twoFactorChangedSuccess);
+      onSaveProfile({
+        ...currentUser,
+        twoFactorHint: twoFactorHintInput.trim() || undefined,
+      });
+      setTimeout(() => setTwoFactorSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Failed to update Two-Step Verification password');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
   const handleSave = () => {
     const selectedColor = THEME_OPTIONS.find((a) => a.id === selectedAccent)?.color || '#10B981';
     const cleanName = sanitizeDisplayName(name).trim();
 
     const updated: User = {
       ...currentUser,
+      twoFactorEnabled,
+      twoFactorHint: twoFactorHint || undefined,
       name: cleanName || currentUser.handle,
       bio: bio.trim(),
       avatar,
@@ -213,11 +516,13 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         accentColor: selectedColor,
         enterToSend,
         compactMode,
+        chatWallpaper,
       },
     };
 
     applyTheme(selectedAccent);
     applyCompactMode(compactMode);
+    applyChatWallpaper(chatWallpaper);
     onSaveProfile(updated);
     setSavedSuccess(true);
     setTimeout(() => {
@@ -244,45 +549,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     }
   };
 
-  const handleClearCache = async () => {
-    try {
-      const keepKeys = new Set([
-        'eztalk_auth_user',
-        'eztalk_accounts',
-        'eztalk_token',
-        'eztalk_theme',
-        'eztalk_compact_mode',
-        'eztalk_blocked_users',
-      ]);
-      const toRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && !keepKeys.has(key)) {
-          toRemove.push(key);
-        }
-      }
-      toRemove.forEach((k) => localStorage.removeItem(k));
-      sessionStorage.clear();
-
-      if (typeof window !== 'undefined' && 'caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((name) => caches.delete(name)));
-      }
-    } catch {
-      // ignore
-    }
-
-    calculateStorage();
-    setCacheCleared(true);
-    setTimeout(() => setCacheCleared(false), 3000);
-  };
-
   const TABS = [
     { id: 'profile' as const, label: t.settings.tabs.profile, icon: UserIcon },
     { id: 'notifications' as const, label: t.settings.tabs.notifications, icon: Bell },
     { id: 'appearance' as const, label: t.settings.tabs.appearance, icon: Palette },
-    { id: 'privacy' as const, label: t.settings.tabs.privacy, icon: Shield },
-    { id: 'storage' as const, label: t.settings.tabs.storage, icon: HardDrive },
+    { id: 'safety' as const, label: (t.settings.tabs as any).safety || t.settings.tabs.privacy, icon: ShieldCheck },
   ];
 
   return (
@@ -732,12 +1003,778 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   />
                 </button>
               </div>
+
+              {/* Chat Wallpaper Customizer */}
+              <div className="pt-2 border-t border-ez-border/60">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold text-ez-muted uppercase tracking-wider block">
+                      {t.settings.chatWallpaper || 'Chat Wallpaper'}
+                    </label>
+                    <p className="text-xs text-ez-muted mt-0.5">
+                      {t.settings.chatWallpaperDesc || 'Customize your chat background with presets or upload your own image'}
+                    </p>
+                  </div>
+                  {chatWallpaper !== 'default' && (
+                    <button
+                      type="button"
+                      onClick={handleResetWallpaper}
+                      className="inline-flex items-center space-x-1.5 text-xs text-ez-muted hover:text-white transition-colors cursor-pointer px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{t.settings.removeCustomWallpaper || 'Reset'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Hidden File Input for Custom Wallpaper */}
+                <input
+                  ref={wallpaperInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={handleCustomWallpaperUpload}
+                />
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {WALLPAPER_PRESETS.map((wp) => {
+                    const isSelected = chatWallpaper === wp.id;
+                    const localizedName = wp.name[language as 'en' | 'ru' | 'uz'] || wp.name.en;
+                    return (
+                      <button
+                        key={wp.id}
+                        type="button"
+                        onClick={() => handleSelectWallpaper(wp.id)}
+                        className={`group relative p-2.5 rounded-2xl border text-left flex flex-col justify-between h-24 overflow-hidden transition-all duration-150 cursor-pointer ${
+                          isSelected
+                            ? 'border-neon-green ring-2 ring-neon-green/30 shadow-glass'
+                            : 'border-ez-border bg-ez-elevated hover:border-white/20'
+                        }`}
+                      >
+                        {/* Background pattern preview */}
+                        <div
+                          className="absolute inset-0 bg-[#121316] opacity-90 transition-transform group-hover:scale-105 duration-300"
+                          style={{
+                            backgroundImage: wp.preview,
+                            backgroundSize: wp.bgSize || '20px 20px',
+                            backgroundPosition: 'center',
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors" />
+
+                        <div className="relative z-10 flex justify-end">
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-neon-green text-black flex items-center justify-center shadow-md">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="relative z-10">
+                          <span className="text-xs font-bold text-white drop-shadow-md block truncate">
+                            {localizedName}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Upload Custom Wallpaper Button */}
+                  <button
+                    type="button"
+                    disabled={wallpaperUploading}
+                    onClick={() => wallpaperInputRef.current?.click()}
+                    className={`group relative p-2.5 rounded-2xl border text-left flex flex-col justify-between h-24 overflow-hidden transition-all duration-150 cursor-pointer ${
+                      chatWallpaper.startsWith('data:image/') || chatWallpaper.startsWith('http')
+                        ? 'border-neon-green ring-2 ring-neon-green/30 shadow-glass'
+                        : 'border-dashed border-white/20 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/40'
+                    }`}
+                  >
+                    {chatWallpaper.startsWith('data:image/') || chatWallpaper.startsWith('http') ? (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center opacity-90 transition-transform group-hover:scale-105 duration-300"
+                        style={{ backgroundImage: `url("${chatWallpaper}")` }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
+
+                    <div className="relative z-10 flex justify-between items-start">
+                      <div className="w-6 h-6 rounded-lg bg-white/10 backdrop-blur-md flex items-center justify-center text-white">
+                        <Upload className="w-3.5 h-3.5" />
+                      </div>
+                      {(chatWallpaper.startsWith('data:image/') || chatWallpaper.startsWith('http')) && (
+                        <div className="w-5 h-5 rounded-full bg-neon-green text-black flex items-center justify-center shadow-md">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative z-10">
+                      <span className="text-xs font-bold text-white drop-shadow-md block truncate">
+                        {wallpaperUploading
+                          ? 'Uploading...'
+                          : chatWallpaper.startsWith('data:image/') || chatWallpaper.startsWith('http')
+                          ? (t.settings.chatWallpaper || 'Custom Photo')
+                          : (t.settings.uploadWallpaper || 'Upload Image')}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* TAB 4: Privacy & Security */}
-          {activeTab === 'privacy' && (
+          {/* TAB 4: Safety & Security */}
+          {(activeTab === 'safety' || (activeTab as any) === 'privacy') && (
             <div className="space-y-4 animate-fade-in">
+              {/* Email & Verification Status Card */}
+              <div className="p-4 sm:p-5 bg-ez-elevated rounded-2xl border border-ez-border relative overflow-hidden">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-start space-x-3">
+                    <div className={`p-2 rounded-xl shrink-0 mt-0.5 border ${isAccountVerified ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                      {isAccountVerified ? <ShieldCheck className="w-5 h-5 text-emerald-400" /> : <Shield className="w-5 h-5 text-zinc-400" />}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>{t.settings.emailVerificationTitle || 'Email & Verification Status'}</span>
+                      </h4>
+                      <p className="text-xs text-ez-muted mt-0.5 leading-relaxed">
+                        {isAccountVerified
+                          ? (t.settings.verifiedAccountNotice || 'Your account is verified and fully protected.')
+                          : (t.settings.unverifiedNotice || 'Your account is unverified with soft limits active. Link an email to get the Verified shield and lift all limits.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    {isAccountVerified ? (
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{t.profile?.verifiedBadge || 'Verified'}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/5 text-zinc-400 border border-white/10">
+                        <Shield className="w-3 h-3" />
+                        <span>{t.profile?.unverifiedBadge || 'Unverified'}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {linkEmailSuccess && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{linkEmailSuccess}</span>
+                  </div>
+                )}
+
+                {linkEmailError && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{linkEmailError}</span>
+                  </div>
+                )}
+
+                {/* Verified Account Email Display */}
+                {isAccountVerified && accountEmail && (
+                  <div className="pt-2 border-t border-ez-border/60 text-xs text-zinc-300 flex items-center space-x-2">
+                    <span className="text-ez-muted font-mono">{t.auth.email}:</span>
+                    <span className="font-semibold text-white">{accountEmail}</span>
+                  </div>
+                )}
+
+                {/* Unverified Account Linking Flow */}
+                {!isAccountVerified && (
+                  <div className="pt-3 border-t border-ez-border/60">
+                    {linkEmailStep === 'idle' ? (
+                      <form onSubmit={handleSendLinkEmailCode} className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                            {t.auth.email}
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={linkEmailInput}
+                            onChange={(e) => {
+                              setLinkEmailInput(e.target.value);
+                              setLinkEmailError('');
+                            }}
+                            placeholder="you@example.com"
+                            className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={linkEmailLoading || !linkEmailInput.trim()}
+                          className="px-4 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${linkEmailLoading ? 'animate-spin' : ''}`} />
+                          <span>{linkEmailLoading ? t.common.loading : (t.settings.linkEmailBtn || 'Verify Email & Upgrade')}</span>
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleConfirmLinkEmail} className="space-y-3">
+                        <div className="text-xs text-zinc-300">
+                          {t.auth.verifyEmailSubtitle}{' '}
+                          <strong className="text-white">{linkEmailInput}</strong>
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            autoFocus
+                            value={linkOtpCode}
+                            onChange={(e) => {
+                              setLinkOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                              setLinkEmailError('');
+                            }}
+                            placeholder="••••••"
+                            className="w-full bg-ez-base border border-white/15 focus:border-neon-green rounded-xl py-2 px-3 text-center text-xl font-mono font-bold tracking-[0.3em] text-neon-green placeholder:text-zinc-700 outline-none transition-all"
+                          />
+                        </div>
+
+                        {linkDevCode && (
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLinkOtpCode(linkDevCode);
+                                setLinkEmailError('');
+                              }}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-neon-green/15 border border-neon-green/30 text-neon-green text-xs font-mono font-semibold hover:bg-neon-green/25 transition-colors cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Dev OTP: <strong className="underline">{linkDevCode}</strong></span>
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex items-center space-x-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLinkEmailStep('idle');
+                              setLinkEmailError('');
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ez-muted hover:text-white cursor-pointer transition-colors"
+                          >
+                            {t.common.back}
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={linkEmailLoading || linkOtpCode.length !== 6}
+                            className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                          >
+                            {linkEmailLoading ? t.common.loading : t.common.confirm}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Two-Step Verification Card */}
+              <div className="p-4 sm:p-5 bg-ez-elevated rounded-2xl border border-ez-border relative overflow-hidden">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="p-2 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/20 shrink-0 mt-0.5">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>{t.settings.twoFactorTitle}</span>
+                      </h4>
+                      <p className="text-xs text-ez-muted mt-0.5 leading-relaxed">
+                        {t.settings.twoFactorSubtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    {twoFactorEnabled ? (
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-neon-green/10 text-neon-green border border-neon-green/30">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{t.settings.twoFactorActive}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/5 text-ez-muted border border-white/10">
+                        <Lock className="w-3 h-3" />
+                        <span>{t.settings.twoFactorInactive}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {twoFactorSuccessMsg && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-neon-green/10 border border-neon-green/30 text-neon-green text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{twoFactorSuccessMsg}</span>
+                  </div>
+                )}
+
+                {twoFactorError && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{twoFactorError}</span>
+                  </div>
+                )}
+
+                {/* Mode: None */}
+                {twoFactorAction === 'none' && (
+                  <div className="pt-2 border-t border-ez-border/60">
+                    {twoFactorEnabled ? (
+                      <div className="space-y-3">
+                        {twoFactorHint && (
+                          <div className="text-xs text-ez-muted bg-white/[0.03] p-2.5 rounded-xl border border-white/5 flex items-center space-x-2">
+                            <Sparkles className="w-3.5 h-3.5 text-neon-green shrink-0" />
+                            <span>
+                              <strong className="text-zinc-300 font-semibold">{t.settings.twoFactorHint}:</strong> {twoFactorHint}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTwoFactorAction('change');
+                              setTwoFactorError('');
+                              setTwoFactorCurrentInput('');
+                              setTwoFactorPasswordInput('');
+                              setTwoFactorConfirmInput('');
+                              setTwoFactorHintInput('');
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all cursor-pointer hover:border-white/20 active:scale-95"
+                          >
+                            {t.settings.changeTwoFactor}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTwoFactorAction('disable');
+                              setTwoFactorError('');
+                              setTwoFactorCurrentInput('');
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
+                          >
+                            {t.settings.disableTwoFactor}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTwoFactorAction('enable');
+                          setTwoFactorError('');
+                          setTwoFactorPasswordInput('');
+                          setTwoFactorConfirmInput('');
+                          setTwoFactorHintInput('');
+                        }}
+                        className="px-4 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5"
+                      >
+                        <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>{t.settings.enableTwoFactor}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Mode: Enable */}
+                {twoFactorAction === 'enable' && (
+                  <form onSubmit={handleEnable2FA} className="pt-3 border-t border-ez-border/60 space-y-3">
+                    <div className="text-xs font-bold text-white mb-1">
+                      {t.settings.enableTwoFactor}
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.enterTwoFactorPass}
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          type={show2FAPassword ? 'text' : 'password'}
+                          required
+                          autoFocus
+                          value={twoFactorPasswordInput}
+                          onChange={(e) => {
+                            setTwoFactorPasswordInput(e.target.value);
+                            setTwoFactorError('');
+                          }}
+                          placeholder="••••••••"
+                          className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShow2FAPassword(!show2FAPassword)}
+                          className="absolute right-2 text-ez-muted hover:text-white cursor-pointer"
+                        >
+                          {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.confirmTwoFactorPass}
+                      </label>
+                      <input
+                        type={show2FAPassword ? 'text' : 'password'}
+                        required
+                        value={twoFactorConfirmInput}
+                        onChange={(e) => {
+                          setTwoFactorConfirmInput(e.target.value);
+                          setTwoFactorError('');
+                        }}
+                        placeholder="••••••••"
+                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.twoFactorHint}
+                      </label>
+                      <input
+                        type="text"
+                        value={twoFactorHintInput}
+                        onChange={(e) => setTwoFactorHintInput(e.target.value)}
+                        placeholder="e.g. My favorite pet's name"
+                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTwoFactorAction('none');
+                          setTwoFactorError('');
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ez-muted hover:text-white cursor-pointer transition-colors"
+                      >
+                        {t.common.cancel}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={twoFactorLoading}
+                        className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                      >
+                        {twoFactorLoading ? t.common.loading : t.common.save}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Mode: Change */}
+                {twoFactorAction === 'change' && (
+                  <form onSubmit={handleChange2FA} className="pt-3 border-t border-ez-border/60 space-y-3">
+                    <div className="text-xs font-bold text-white mb-1">
+                      {t.settings.changeTwoFactor}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.currentTwoFactorPass}
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        autoFocus
+                        value={twoFactorCurrentInput}
+                        onChange={(e) => {
+                          setTwoFactorCurrentInput(e.target.value);
+                          setTwoFactorError('');
+                        }}
+                        placeholder="••••••••"
+                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.newTwoFactorPass}
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          type={show2FAPassword ? 'text' : 'password'}
+                          required
+                          value={twoFactorPasswordInput}
+                          onChange={(e) => {
+                            setTwoFactorPasswordInput(e.target.value);
+                            setTwoFactorError('');
+                          }}
+                          placeholder="••••••••"
+                          className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShow2FAPassword(!show2FAPassword)}
+                          className="absolute right-2 text-ez-muted hover:text-white cursor-pointer"
+                        >
+                          {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.confirmTwoFactorPass}
+                      </label>
+                      <input
+                        type={show2FAPassword ? 'text' : 'password'}
+                        required
+                        value={twoFactorConfirmInput}
+                        onChange={(e) => {
+                          setTwoFactorConfirmInput(e.target.value);
+                          setTwoFactorError('');
+                        }}
+                        placeholder="••••••••"
+                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.twoFactorHint}
+                      </label>
+                      <input
+                        type="text"
+                        value={twoFactorHintInput}
+                        onChange={(e) => setTwoFactorHintInput(e.target.value)}
+                        placeholder="e.g. My favorite pet's name"
+                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTwoFactorAction('none');
+                          setTwoFactorError('');
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ez-muted hover:text-white cursor-pointer transition-colors"
+                      >
+                        {t.common.cancel}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={twoFactorLoading}
+                        className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                      >
+                        {twoFactorLoading ? t.common.loading : t.common.save}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Mode: Disable */}
+                {twoFactorAction === 'disable' && (
+                  <form onSubmit={handleDisable2FA} className="pt-3 border-t border-ez-border/60 space-y-3">
+                    <div className="text-xs font-bold text-rose-400 mb-1">
+                      {t.settings.disableTwoFactor}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
+                        {t.settings.currentTwoFactorPass}
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        autoFocus
+                        value={twoFactorCurrentInput}
+                        onChange={(e) => {
+                          setTwoFactorCurrentInput(e.target.value);
+                          setTwoFactorError('');
+                        }}
+                        placeholder="••••••••"
+                        className="w-full bg-ez-base border border-white/10 focus:border-rose-500 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTwoFactorAction('none');
+                          setTwoFactorError('');
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ez-muted hover:text-white cursor-pointer transition-colors"
+                      >
+                        {t.common.cancel}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={twoFactorLoading}
+                        className="px-4 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                      >
+                        {twoFactorLoading ? t.common.loading : t.settings.disableTwoFactor}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+
+              {/* Link Desktop Device Card */}
+              <div className="p-4 sm:p-5 bg-ez-elevated rounded-2xl border border-ez-border relative overflow-hidden">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="p-2 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/20 shrink-0 mt-0.5">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>{t.settings.linkDesktop}</span>
+                      </h4>
+                      <p className="text-xs text-ez-muted mt-0.5 leading-relaxed">
+                        {t.settings.linkDesktopDesc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsQRScannerOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 shrink-0"
+                  >
+                    <Camera className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>{t.settings.scanQrCode}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Devices & Active Sessions Card */}
+              <div className="p-4 sm:p-5 bg-ez-elevated rounded-2xl border border-ez-border space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="p-2 rounded-xl bg-white/5 text-zinc-300 border border-white/10 shrink-0 mt-0.5">
+                      <Laptop className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">
+                        {t.settings.devicesTitle}
+                      </h4>
+                      <p className="text-xs text-ez-muted mt-0.5 leading-relaxed">
+                        {t.settings.devicesSubtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={fetchSessions}
+                    disabled={sessionsLoading}
+                    title="Refresh"
+                    className="p-2 rounded-xl text-ez-muted hover:text-white hover:bg-white/5 border border-white/5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-neon-green' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Current Session ("This Device") */}
+                {sessions.find((s) => s.isCurrent) && (() => {
+                  const currentDevice = sessions.find((s) => s.isCurrent)!;
+                  return (
+                    <div className="p-3.5 rounded-xl bg-neon-green/[0.04] border border-neon-green/20 flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/30 shrink-0">
+                          {getDeviceIcon(currentDevice.device?.type, currentDevice.device?.os)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white flex items-center gap-2 truncate">
+                            <span>{currentDevice.device?.os || 'This Device'} • {currentDevice.device?.browser || 'Browser'}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-neon-green/20 text-neon-green border border-neon-green/30">
+                              {t.settings.thisDevice}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-ez-muted flex items-center space-x-2 mt-0.5">
+                            <span className="flex items-center space-x-1">
+                              <Globe className="w-3 h-3 text-zinc-500" />
+                              <span>{currentDevice.ip || 'Local Network'}</span>
+                            </span>
+                            <span>•</span>
+                            <span className="text-neon-green flex items-center space-x-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+                              <span>{t.settings.activeNow}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Terminate All Other Sessions button */}
+                {sessions.filter((s) => !s.isCurrent).length > 0 && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      disabled={isTerminatingAll}
+                      onClick={handleTerminateOtherSessions}
+                      className="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-bold transition-all cursor-pointer active:scale-95 flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isTerminatingAll ? t.common.loading : t.settings.terminateOtherSessions}</span>
+                    </button>
+                    <p className="text-[11px] text-ez-muted text-center mt-1.5">
+                      {t.settings.terminateOtherSessionsDesc}
+                    </p>
+                  </div>
+                )}
+
+                {/* List of Other Active Sessions */}
+                <div className="space-y-2 pt-2">
+                  <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                    {t.settings.otherDevices}
+                  </div>
+
+                  {sessions.filter((s) => !s.isCurrent).length === 0 ? (
+                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center text-xs text-ez-muted">
+                      {t.settings.noOtherDevices}
+                    </div>
+                  ) : (
+                    sessions.filter((s) => !s.isCurrent).map((session) => (
+                      <div
+                        key={session.sessionId}
+                        className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/5 flex items-center justify-between gap-3 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="p-2 rounded-lg bg-white/5 text-zinc-300 border border-white/10 shrink-0">
+                            {getDeviceIcon(session.device?.type, session.device?.os)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">
+                              {session.device?.os || 'Device'} • {session.device?.browser || 'Browser'}
+                            </div>
+                            <div className="text-[11px] text-ez-muted flex items-center space-x-2 mt-0.5">
+                              <span>{session.ip || 'IP'}</span>
+                              <span>•</span>
+                              <span>{formatLastActive(session.lastActive)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={terminatingSessionId === session.sessionId}
+                          onClick={() => handleTerminateSession(session.sessionId)}
+                          className="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                          title={t.settings.terminateSession}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Session Encryption Card */}
               <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border">
                 <div className="flex items-center space-x-3 mb-2">
                   <Shield className="w-5 h-5 text-neon-green" />
@@ -747,7 +1784,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   {t.settings.encryptionNotice.replace('{handle}', currentUser.handle)}
                 </p>
               </div>
-
 
               {onLogout && (
                 <div className="pt-2">
@@ -764,59 +1800,6 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* TAB 5: Storage & Cache */}
-          {activeTab === 'storage' && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2.5">
-                    <HardDrive className="w-5 h-5 text-neon-green" />
-                    <h4 className="text-sm font-bold text-white">{t.settings.localStorageMedia}</h4>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-neon-green">{t.settings.healthy}</span>
-                </div>
-                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-                  <div
-                    className="bg-gradient-to-r from-neon-green to-emerald-400 h-full rounded-full shadow-neon-dot transition-all duration-300"
-                    style={{ width: `${usedPercent}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-ez-muted mt-2">
-                  <span>{t.settings.used}: ~{usedStorageMB} MB</span>
-                  <span>{t.settings.availableStorage}</span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-ez-elevated rounded-2xl border border-ez-border flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-white">{t.settings.purgeCache}</h4>
-                  <p className="text-xs text-ez-muted">{t.settings.purgeCacheDesc}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClearCache}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center space-x-1.5 ${
-                    cacheCleared
-                      ? 'bg-neon-green text-black shadow-neon-sm'
-                      : 'bg-white/10 hover:bg-white/15 text-white'
-                  }`}
-                >
-                  {cacheCleared ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{t.settings.purged}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-3.5 h-3.5 text-neon-green" />
-                      <span>{t.settings.clearCache}</span>
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -851,6 +1834,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
           </div>
         </div>
       </div>
+
+      <QRScannerModal
+        isOpen={isQRScannerOpen}
+        onClose={() => setIsQRScannerOpen(false)}
+        onSuccess={() => {
+          fetchSessions();
+        }}
+      />
     </div>
   );
 };

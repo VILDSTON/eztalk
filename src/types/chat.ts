@@ -9,6 +9,7 @@ export interface UserSettings {
   accentColor?: string;
   enterToSend?: boolean;
   compactMode?: boolean;
+  chatWallpaper?: string;
 }
 
 export interface User {
@@ -30,6 +31,52 @@ export interface User {
   friends?: string[];
   blockedUsers?: string[];
   contactAliases?: Record<string, string>;
+  emailVerified?: boolean;
+  isVerified?: boolean;
+  twoFactorEnabled?: boolean;
+  twoFactorHint?: string;
+}
+
+export interface LoginResponse {
+  user?: User;
+  token?: string;
+  requires2FA?: boolean;
+  twoFactorToken?: string;
+  hint?: string;
+  sessionId?: string;
+}
+
+export interface UserSession {
+  sessionId: string;
+  device: {
+    os: string;
+    browser: string;
+    type: 'desktop' | 'mobile' | 'tablet';
+  };
+  ip: string;
+  clientName: string;
+  createdAt: string;
+  lastActive: string;
+  isCurrent: boolean;
+}
+
+export interface QRLoginData {
+  qrToken: string;
+  quickCode: string;
+  expiresIn: number;
+}
+
+export interface QRScanResult {
+  valid: boolean;
+  qrToken: string;
+  targetDevice: {
+    os: string;
+    browser: string;
+    type: 'desktop' | 'mobile' | 'tablet';
+  };
+  ip: string;
+  requires2FA: boolean;
+  twoFactorHint?: string;
 }
 
 export interface Attachment {
@@ -67,6 +114,7 @@ export interface Message {
   senderId: string;
   senderHandle?: string; // e.g. "@AlexR"
   recipientHandle?: string; // e.g. "@User_A"
+  senderIsVerified?: boolean;
   text: string;
   timestamp: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'pending';

@@ -11,6 +11,8 @@ class SecurityEngine {
     this.BAN_DURATION = 15 * 60 * 1000; // 15 minutes
     this.BUCKET_CAPACITY = 10; // Burst capacity (tokens)
     this.REFILL_RATE = 1000 / 5; // 5 tokens per second (200ms per token)
+    this.UNVERIFIED_BUCKET_CAPACITY = 3; // Max 3 burst messages for unverified accounts
+    this.UNVERIFIED_REFILL_RATE = 1000 / 2; // 2 tokens per second (500ms per token)
     this.MAX_SOCKETS_PER_IP = 10; // Max concurrent sockets per single IP
     this.MAX_PAYLOAD_BYTES = 64 * 1024; // 64 KB max payload size
     this.MAX_BUCKETS = 10000;
@@ -112,18 +114,21 @@ class SecurityEngine {
     console.log('[ESS] All bans and strikes cleared.');
   }
 
-  _consumeToken(socketId) {
+  _consumeToken(socketId, isUnverified = false) {
+    const capacity = isUnverified ? this.UNVERIFIED_BUCKET_CAPACITY : this.BUCKET_CAPACITY;
+    const refillRate = isUnverified ? this.UNVERIFIED_REFILL_RATE : this.REFILL_RATE;
+
     if (!this.socketBuckets.has(socketId)) {
-      this.socketBuckets.set(socketId, { tokens: this.BUCKET_CAPACITY, lastRefill: Date.now() });
+      this.socketBuckets.set(socketId, { tokens: capacity, lastRefill: Date.now() });
     }
 
     const bucket = this.socketBuckets.get(socketId);
     const now = Date.now();
     const timePassed = now - bucket.lastRefill;
-    const tokensToAdd = Math.floor(timePassed / this.REFILL_RATE);
+    const tokensToAdd = Math.floor(timePassed / refillRate);
 
     if (tokensToAdd > 0) {
-      bucket.tokens = Math.min(this.BUCKET_CAPACITY, bucket.tokens + tokensToAdd);
+      bucket.tokens = Math.min(capacity, bucket.tokens + tokensToAdd);
       bucket.lastRefill = now;
     }
 
@@ -177,8 +182,11 @@ class SecurityEngine {
     // 1-2 violations: Soft throttle / warning
     if (record.count <= 2) {
       socket.emit('rate_limited', {
-        message: 'Rate limit exceeded: max 5 messages/sec. Please slow down.',
-        retryAfter: 1
+        message: socket.isUnverified
+          ? 'Rate limit: max 2 messages/sec for unverified accounts. Verify email in Settings to remove limits.'
+          : 'Rate limit exceeded: max 5 messages/sec. Please slow down.',
+        retryAfter: 1,
+        isUnverified: Boolean(socket.isUnverified)
       });
       return 'warn';
     }
@@ -325,8 +333,8 @@ class SecurityEngine {
           return next();
         }
 
-        // 3. Token Bucket rate check (max 5 msg/sec)
-        if (!this._consumeToken(socketId)) {
+        // 3. Token Bucket rate check (max 5 msg/sec for verified, 2 msg/sec for unverified)
+        if (!this._consumeToken(socketId, socket.isUnverified)) {
           this._addStrike(ip, 1);
           
           if (this.ALPHA_DRY_RUN) {

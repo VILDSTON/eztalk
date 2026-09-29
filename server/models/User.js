@@ -22,9 +22,29 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       index: true,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     password: {
       type: String,
       select: false, // Защита от утечки в API
+    },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorPassword: {
+      type: String,
+      select: false, // Защита от утечки в API
+    },
+    twoFactorHint: {
+      type: String,
+      default: '',
     },
     avatar: {
       type: String,
@@ -111,6 +131,23 @@ const userSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    sessions: {
+      type: [
+        {
+          sessionId: { type: String, required: true },
+          device: {
+            os: { type: String, default: 'Unknown OS' },
+            browser: { type: String, default: 'Web Browser' },
+            type: { type: String, default: 'desktop' },
+          },
+          ip: { type: String, default: '127.0.0.1' },
+          clientName: { type: String, default: 'EzTalk Web' },
+          createdAt: { type: Date, default: Date.now },
+          lastActive: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -119,6 +156,7 @@ const userSchema = new mongoose.Schema(
       transform: (_doc, ret) => {
         ret.id = ret.id || ret._id?.toString();
         delete ret.password; // Гарантированное удаление хэша/пароля
+        delete ret.twoFactorPassword;
         delete ret.__v;
         return ret;
       },
@@ -128,6 +166,7 @@ const userSchema = new mongoose.Schema(
       transform: (_doc, ret) => {
         ret.id = ret.id || ret._id?.toString();
         delete ret.password;
+        delete ret.twoFactorPassword;
         delete ret.__v;
         return ret;
       },

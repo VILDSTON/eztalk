@@ -368,6 +368,13 @@ class SocketService {
     };
   }
 
+  public onSessionTerminated(callback: (data: { sessionId: string; keptSessionId?: string; terminatedBy?: string; message?: string }) => void) {
+    this.socket?.on('session_terminated', callback);
+    return () => {
+      this.socket?.off('session_terminated', callback);
+    };
+  }
+
   public disconnect() {
     if (this.socket) {
       this.socket.removeAllListeners();

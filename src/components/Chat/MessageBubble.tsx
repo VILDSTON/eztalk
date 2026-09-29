@@ -23,6 +23,7 @@ import {
   Lock,
   Clock,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import { normalizeHandle, ChatStorageService } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
@@ -1099,6 +1100,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <Phone className="w-3.5 h-3.5 transition-transform duration-150 group-hover/callbtn:scale-110" />
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Anti-Phishing Warning Banner for Unverified Senders with External Links */}
+          {!isMe && message.senderIsVerified === false && (message.text?.includes('http://') || message.text?.includes('https://')) && (
+            <div className="mb-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start space-x-2 text-amber-300 text-[11px] leading-snug select-none">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>{t.chat.unverifiedLinkWarning || 'Sender is unverified. Be cautious with external links.'}</span>
             </div>
           )}
 

@@ -22,6 +22,7 @@ import jwt from 'jsonwebtoken';
 import ess from './security/essEngine.js';
 import { askEzTalkAI } from './services/aiService.js';
 import { createDisposableRoom, setupDisposableSocketHandlers, getRoomInfo } from './disposableRooms.js';
+import { sendVerificationEmail } from './services/emailService.js';
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
@@ -134,6 +135,118 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// User Agent & Device Parser Helper
+export function parseUserAgent(uaString = '') {
+  const ua = (uaString || '').toLowerCase();
+  let os = 'Unknown OS';
+  let browser = 'Web Browser';
+  let type = 'desktop';
+
+  if (/mobile|android|iphone|ipod/i.test(ua)) {
+    type = 'mobile';
+  } else if (/ipad|tablet/i.test(ua)) {
+    type = 'tablet';
+  }
+
+  if (ua.includes('windows phone')) os = 'Windows Phone';
+  else if (ua.includes('windows nt 10.0')) os = 'Windows 10/11';
+  else if (ua.includes('windows nt 6.3')) os = 'Windows 8.1';
+  else if (ua.includes('windows nt 6.2')) os = 'Windows 8';
+  else if (ua.includes('windows nt 6.1')) os = 'Windows 7';
+  else if (ua.includes('windows')) os = 'Windows';
+  else if (ua.includes('android')) os = 'Android';
+  else if (ua.includes('iphone')) os = 'iOS (iPhone)';
+  else if (ua.includes('ipad')) os = 'iPadOS';
+  else if (ua.includes('macintosh') || ua.includes('mac os x')) os = 'macOS';
+  else if (ua.includes('linux')) os = 'Linux';
+  else if (ua.includes('cros')) os = 'ChromeOS';
+
+  if (ua.includes('edg/')) browser = 'Microsoft Edge';
+  else if (ua.includes('opr/') || ua.includes('opera/')) browser = 'Opera';
+  else if (ua.includes('chrome/') || ua.includes('crios/')) browser = 'Google Chrome';
+  else if (ua.includes('firefox/') || ua.includes('fxios/')) browser = 'Mozilla Firefox';
+  else if (ua.includes('safari/') && !ua.includes('chrome')) browser = 'Apple Safari';
+
+  return { os, browser, type };
+}
+
+export function getClientIp(req) {
+  const forwarded = req?.headers?.['x-forwarded-for'];
+  if (forwarded) {
+    const ips = typeof forwarded === 'string' ? forwarded.split(',') : forwarded;
+    return ips[0].trim();
+  }
+  return req?.ip || req?.connection?.remoteAddress || '127.0.0.1';
+}
+
+// Session Creation Helper
+async function createSessionForUser(user, req) {
+  const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const newSession = {
+    sessionId,
+    device: parseUserAgent(req?.headers?.['user-agent']),
+    ip: getClientIp(req),
+    clientName: 'EzTalk Web',
+    createdAt: new Date(),
+    lastActive: new Date(),
+  };
+
+  const userId = user.id || user._id;
+  const isUserVerified = Boolean(user.isVerified || user.emailVerified);
+  const maxSessions = isUserVerified ? 20 : 2; // Unverified accounts limited to 2 concurrent sessions
+
+  if (isMongoConnected) {
+    try {
+      const u = await UserModel.findById(userId);
+      if (u) {
+        if (!Array.isArray(u.sessions)) u.sessions = [];
+        u.sessions.unshift(newSession);
+        if (u.sessions.length > maxSessions) {
+          const dropped = u.sessions.slice(maxSessions);
+          u.sessions = u.sessions.slice(0, maxSessions);
+          dropped.forEach((ds) => {
+            const userRoom = normalizeHandle(user.handle);
+            io.to(userRoom).emit('session_terminated', {
+              sessionId: ds.sessionId,
+              terminatedBy: 'System',
+              message: 'Session limit reached (max 2 for unverified accounts).',
+            });
+          });
+        }
+        await u.save();
+      }
+    } catch (e) {
+      console.warn('Failed to update sessions in mongo:', e?.message);
+    }
+  } else {
+    try {
+      const db = readLocalDB();
+      const u = db.users.find((item) => String(item.id) === String(userId) || item.handle === user.handle);
+      if (u) {
+        if (!Array.isArray(u.sessions)) u.sessions = [];
+        u.sessions.unshift(newSession);
+        if (u.sessions.length > maxSessions) {
+          const dropped = u.sessions.slice(maxSessions);
+          u.sessions = u.sessions.slice(0, maxSessions);
+          dropped.forEach((ds) => {
+            const userRoom = normalizeHandle(user.handle);
+            io.to(userRoom).emit('session_terminated', {
+              sessionId: ds.sessionId,
+              terminatedBy: 'System',
+              message: 'Session limit reached (max 2 for unverified accounts).',
+            });
+          });
+        }
+        writeLocalDB(db);
+      }
+    } catch (e) {
+      console.warn('Failed to update sessions in local db:', e?.message);
+    }
+  }
+
+  return sessionId;
+}
+
 // Middleware проверки JWT для защищенных API роутов
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -143,11 +256,50 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
+    if (decoded && decoded.stage === '2fa_pending') {
+      return res.status(401).json({ error: 'Two-Step Verification required to access this resource' });
+    }
+
+    // Session validation: If token has a sessionId, check if it was revoked/terminated
+    if (decoded && decoded.sessionId) {
+      try {
+        let user = null;
+        if (isMongoConnected) {
+          user = await UserModel.findById(decoded.id).select('+sessions');
+        } else {
+          const db = readLocalDB();
+          user = db.users.find((u) => String(u.id) === String(decoded.id) || String(u._id) === String(decoded.id));
+        }
+
+        if (user && Array.isArray(user.sessions) && user.sessions.length > 0) {
+          const session = user.sessions.find((s) => s.sessionId === decoded.sessionId);
+          if (!session) {
+            return res.status(401).json({ error: 'Session has been terminated. Please log in again.' });
+          }
+          // Throttled update of lastActive (once every 2 mins)
+          if (!session.lastActive || Date.now() - new Date(session.lastActive).getTime() > 120000) {
+            session.lastActive = new Date();
+            if (isMongoConnected) {
+              await UserModel.updateOne(
+                { _id: user._id, 'sessions.sessionId': decoded.sessionId },
+                { $set: { 'sessions.$.lastActive': new Date() } }
+              );
+            } else {
+              writeLocalDB(readLocalDB());
+            }
+          }
+        }
+      } catch (sessErr) {
+        console.warn('Session check warning:', sessErr?.message);
+      }
+    }
+
+    req.user = decoded;
+    req.sessionId = decoded?.sessionId;
     next();
   });
 }
@@ -637,9 +789,14 @@ function formatUser(u) {
   const obj = typeof u.toObject === 'function' ? u.toObject() : { ...u };
   const uid = obj.id || (obj._id ? obj._id.toString() : '') || `user_${(obj.handle || '').replace('@', '')}`;
   delete obj.password;
+  delete obj.twoFactorPassword;
   return {
     ...obj,
     id: uid,
+    twoFactorEnabled: Boolean(obj.twoFactorEnabled),
+    twoFactorHint: obj.twoFactorHint || '',
+    emailVerified: Boolean(obj.emailVerified),
+    isVerified: Boolean(obj.isVerified || obj.emailVerified),
     blockedUsers: Array.isArray(obj.blockedUsers) ? obj.blockedUsers : [],
     friends: Array.isArray(obj.friends) ? obj.friends : [],
   };
@@ -680,6 +837,7 @@ function formatMessage(m) {
   const formatted = {
     ...obj,
     text: decryptMessage(obj.text || ''),
+    senderIsVerified: obj.senderIsVerified !== undefined ? Boolean(obj.senderIsVerified) : true,
   };
   if (formatted.replyTo && typeof formatted.replyTo === 'object' && formatted.replyTo.text) {
     formatted.replyTo = {
@@ -693,10 +851,12 @@ function formatMessage(m) {
 // Auth Login (Rate-limited against brute-force attacks)
 app.post('/api/auth/login', authRateLimiter, async (req, res) => {
   try {
-    const { identifier, password } = req.body;
-    if (!identifier || typeof identifier !== 'string' || !identifier.trim()) {
+    const rawIdentifier = req.body.identifier || req.body.emailOrHandle || req.body.email || req.body.handle;
+    const { password } = req.body;
+    if (!rawIdentifier || typeof rawIdentifier !== 'string' || !rawIdentifier.trim()) {
       return res.status(400).json({ error: 'Username or email is required' });
     }
+    const identifier = rawIdentifier;
     if (!password || typeof password !== 'string') {
       return res.status(400).json({ error: 'Password is required' });
     }
@@ -748,18 +908,161 @@ app.post('/api/auth/login', authRateLimiter, async (req, res) => {
       }
     }
 
+    // If Two-Step Verification (2FA / Cloud Password) is enabled
+    if (user.twoFactorEnabled) {
+      const twoFactorToken = jwt.sign(
+        { id: user.id || user._id, handle: user.handle, stage: '2fa_pending' },
+        JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+      return res.json({
+        requires2FA: true,
+        twoFactorToken,
+        hint: user.twoFactorHint || '',
+      });
+    }
+
+    const sessionId = await createSessionForUser(user, req);
     const token = jwt.sign(
-      { id: user.id || user._id, handle: user.handle },
+      { id: user.id || user._id, handle: user.handle, sessionId },
       JWT_SECRET,
       { expiresIn: '30d' }
     );
-    return res.json({ user: formatUser(user), token });
+    return res.json({ user: formatUser(user), token, sessionId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Auth Register (Protected by Honeypot & Rate Limiting)
+// Login Two-Step Verification verification route
+app.post('/api/auth/login-2fa', authRateLimiter, async (req, res) => {
+  try {
+    const { twoFactorToken, twoFactorPassword } = req.body;
+    if (!twoFactorToken || !twoFactorPassword) {
+      return res.status(400).json({ error: 'Two-Step Verification password is required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(twoFactorToken, JWT_SECRET);
+      if (decoded.stage !== '2fa_pending') {
+        return res.status(401).json({ error: 'Invalid 2FA session token' });
+      }
+    } catch {
+      return res.status(401).json({ error: '2FA session has expired. Please log in again.' });
+    }
+
+    let user = null;
+    let localDB = null;
+
+    if (isMongoConnected) {
+      user = await UserModel.findById(decoded.id).select('+twoFactorPassword');
+    } else {
+      localDB = readLocalDB();
+      user = localDB.users.find((u) => u.id === decoded.id || String(u._id) === decoded.id);
+    }
+
+    if (!user || !user.twoFactorEnabled) {
+      return res.status(404).json({ error: 'User account not found or 2FA is not active' });
+    }
+
+    const stored2FAPass = user.twoFactorPassword || '';
+    let isValid = false;
+    if (stored2FAPass.startsWith('$2a$') || stored2FAPass.startsWith('$2b$')) {
+      isValid = await bcrypt.compare(twoFactorPassword, stored2FAPass);
+    } else {
+      isValid = stored2FAPass === twoFactorPassword;
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect Two-Step Verification password' });
+    }
+
+    // Success! Issue full 30-day session token
+    const sessionId = await createSessionForUser(user, req);
+    const token = jwt.sign(
+      { id: user.id || user._id, handle: user.handle, sessionId },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.json({ user: formatUser(user), token, sessionId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Active email verification codes: Map<cleanEmail, { code, expiresAt, attempts, lastSentAt }>
+const emailVerificationCodes = new Map();
+
+// Periodic cleanup of expired verification codes every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, entry] of emailVerificationCodes.entries()) {
+    if (entry.expiresAt <= now) {
+      emailVerificationCodes.delete(email);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Send Email Verification Code (6-digit OTP)
+app.post('/api/auth/send-verification-code', authRateLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    // Check if email is already registered to an existing account
+    if (isMongoConnected) {
+      const existingUser = await UserModel.findOne({ email: cleanEmail });
+      if (existingUser) {
+        return res.status(409).json({ error: 'This email is already registered to another account.' });
+      }
+    } else {
+      const db = readLocalDB();
+      const existingUser = db.users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+      if (existingUser) {
+        return res.status(409).json({ error: 'This email is already registered to another account.' });
+      }
+    }
+
+    // Rate-limit resend: 60 seconds
+    const existing = emailVerificationCodes.get(cleanEmail);
+    const now = Date.now();
+    if (existing && now - existing.lastSentAt < 60000) {
+      const waitSeconds = Math.ceil((60000 - (now - existing.lastSentAt)) / 1000);
+      return res.status(429).json({ error: `Please wait ${waitSeconds}s before requesting a new code.` });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    emailVerificationCodes.set(cleanEmail, {
+      code,
+      expiresAt: now + 10 * 60 * 1000, // 10 minutes TTL
+      attempts: 0,
+      lastSentAt: now,
+    });
+
+    const sendResult = await sendVerificationEmail(cleanEmail, code);
+    return res.json({
+      success: true,
+      message: 'Verification code sent to your email.',
+      ...(sendResult.simulated && sendResult.code ? { devCode: sendResult.code } : {}),
+    });
+  } catch (err) {
+    console.error('send-verification-code error:', err);
+    res.status(500).json({ error: err.message || 'Failed to send verification code' });
+  }
+});
+
+// Auth Register (Protected by Real Email OTP Verification, Honeypot & Rate Limiting)
 app.post('/api/auth/register', authRateLimiter, async (req, res) => {
   try {
     // 1. Honeypot check: Bots auto-fill hidden trap fields (b_username, bot_field, website)
@@ -767,7 +1070,7 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
       return res.status(200).json({ success: true, message: 'Account registered' });
     }
 
-    const { name, handle, email, password, avatar, bio } = req.body;
+    const { name, handle, email, password, avatar, bio, verificationCode } = req.body;
     if (!handle || typeof handle !== 'string') {
       return res.status(400).json({ error: 'Username handle is required' });
     }
@@ -789,12 +1092,41 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
       });
     }
 
-    // Email validation: RFC compliant if provided
+    let cleanEmail = null;
+    let isEmailVerified = false;
+
+    // Optional Real Email validation: if provided, requires valid RFC format & OTP code
     if (email && typeof email === 'string' && email.trim()) {
+      cleanEmail = email.trim().toLowerCase();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
+      if (!emailRegex.test(cleanEmail)) {
         return res.status(400).json({ error: 'Please provide a valid email address.' });
       }
+
+      // Verify OTP code
+      const storedCodeEntry = emailVerificationCodes.get(cleanEmail);
+      if (!storedCodeEntry) {
+        return res.status(400).json({ error: 'Please request a verification code for this email first.' });
+      }
+
+      if (Date.now() > storedCodeEntry.expiresAt) {
+        emailVerificationCodes.delete(cleanEmail);
+        return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
+      }
+
+      if (storedCodeEntry.attempts >= 5) {
+        emailVerificationCodes.delete(cleanEmail);
+        return res.status(429).json({ error: 'Too many incorrect attempts. Please request a new code.' });
+      }
+
+      if (!verificationCode || storedCodeEntry.code !== String(verificationCode).trim()) {
+        storedCodeEntry.attempts += 1;
+        return res.status(400).json({ error: 'Incorrect verification code. Please check your email.' });
+      }
+
+      // Code is valid! Consume it immediately
+      emailVerificationCodes.delete(cleanEmail);
+      isEmailVerified = true;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -805,10 +1137,19 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
         return res.status(409).json({ error: `Username ${cleanHandle} is already registered.` });
       }
 
+      if (cleanEmail) {
+        const existingEmail = await UserModel.findOne({ email: cleanEmail });
+        if (existingEmail) {
+          return res.status(409).json({ error: 'This email is already registered to another account.' });
+        }
+      }
+
       const user = await UserModel.create({
         name: name || cleanHandle.replace('@', ''),
         handle: cleanHandle,
-        email: email || `${cleanHandle.replace('@', '')}@eztalk.app`,
+        email: cleanEmail || undefined,
+        emailVerified: isEmailVerified,
+        isVerified: isEmailVerified,
         password: hashedPassword,
         avatar: avatar || CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)],
         bio: bio || 'Hey there! I am using EzTalk.',
@@ -816,12 +1157,13 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
       });
       const formatted = formatUser(user);
       io.emit('user_registered', formatted);
+      const sessionId = await createSessionForUser(user, req);
       const token = jwt.sign(
-        { id: user.id || user._id, handle: user.handle },
+        { id: user.id || user._id, handle: user.handle, sessionId },
         JWT_SECRET,
         { expiresIn: '30d' }
       );
-      return res.json({ user: formatted, token });
+      return res.json({ user: formatted, token, sessionId });
     } else {
       const db = readLocalDB();
       const existing = db.users.find((u) => u.handle.toLowerCase() === cleanHandle);
@@ -829,11 +1171,20 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
         return res.status(409).json({ error: `Username ${cleanHandle} is already registered.` });
       }
 
+      if (cleanEmail) {
+        const existingEmail = db.users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+        if (existingEmail) {
+          return res.status(409).json({ error: 'This email is already registered to another account.' });
+        }
+      }
+
       const user = {
         id: `user_${Date.now()}`,
         name: name || cleanHandle.replace('@', ''),
         handle: cleanHandle,
-        email: email || `${cleanHandle.replace('@', '')}@eztalk.app`,
+        email: cleanEmail || '',
+        emailVerified: isEmailVerified,
+        isVerified: isEmailVerified,
         password: hashedPassword,
         avatar: avatar || CURATED_AVATARS[Math.floor(Math.random() * CURATED_AVATARS.length)],
         status: 'Online',
@@ -843,15 +1194,597 @@ app.post('/api/auth/register', authRateLimiter, async (req, res) => {
       writeLocalDB(db);
       const formatted = formatUser(user);
       io.emit('user_registered', formatted);
+      const sessionId = await createSessionForUser(user, req);
       const token = jwt.sign(
-        { id: user.id || user._id, handle: user.handle },
+        { id: user.id || user._id, handle: user.handle, sessionId },
         JWT_SECRET,
         { expiresIn: '30d' }
       );
-      return res.json({ user: formatted, token });
+      return res.json({ user: formatted, token, sessionId });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Link and verify email to upgrade unverified account to Verified
+app.post('/api/auth/link-email', authenticateToken, authRateLimiter, async (req, res) => {
+  try {
+    const { email, verificationCode } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    // Verify OTP code
+    const storedCodeEntry = emailVerificationCodes.get(cleanEmail);
+    if (!storedCodeEntry) {
+      return res.status(400).json({ error: 'Please request a verification code for this email first.' });
+    }
+
+    if (Date.now() > storedCodeEntry.expiresAt) {
+      emailVerificationCodes.delete(cleanEmail);
+      return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
+    }
+
+    if (storedCodeEntry.attempts >= 5) {
+      emailVerificationCodes.delete(cleanEmail);
+      return res.status(429).json({ error: 'Too many incorrect attempts. Please request a new code.' });
+    }
+
+    if (!verificationCode || storedCodeEntry.code !== String(verificationCode).trim()) {
+      storedCodeEntry.attempts += 1;
+      return res.status(400).json({ error: 'Incorrect verification code. Please check your email.' });
+    }
+
+    // Code is valid! Consume it
+    emailVerificationCodes.delete(cleanEmail);
+
+    const userId = req.user.id || req.user._id;
+
+    if (isMongoConnected) {
+      const existingEmail = await UserModel.findOne({ email: cleanEmail, _id: { $ne: userId } });
+      if (existingEmail) {
+        return res.status(409).json({ error: 'This email is already registered to another account.' });
+      }
+
+      const updated = await UserModel.findByIdAndUpdate(
+        userId,
+        { email: cleanEmail, emailVerified: true, isVerified: true },
+        { new: true }
+      );
+      const formatted = formatUser(updated);
+      io.emit('user_updated', formatted);
+      return res.json({ success: true, user: formatted });
+    } else {
+      const db = readLocalDB();
+      const existingEmail = db.users.find(
+        (u) => u.email && u.email.toLowerCase() === cleanEmail && String(u.id) !== String(userId) && u.handle !== req.user.handle
+      );
+      if (existingEmail) {
+        return res.status(409).json({ error: 'This email is already registered to another account.' });
+      }
+
+      const u = db.users.find((item) => String(item.id) === String(userId) || item.handle === req.user.handle);
+      if (!u) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      u.email = cleanEmail;
+      u.emailVerified = true;
+      u.isVerified = true;
+      writeLocalDB(db);
+
+      const formatted = formatUser(u);
+      io.emit('user_updated', formatted);
+      return res.json({ success: true, user: formatted });
+    }
+  } catch (err) {
+    console.error('link-email error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Two-Step Verification (2FA / Cloud Password) Management Endpoints ───
+
+// Enable Two-Step Verification
+app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
+  try {
+    const { twoFactorPassword, hint } = req.body;
+    if (!twoFactorPassword || typeof twoFactorPassword !== 'string' || twoFactorPassword.length < 6) {
+      return res.status(400).json({ error: '2FA password must be at least 6 characters long.' });
+    }
+
+    const hashed2FA = await bcrypt.hash(twoFactorPassword, 10);
+    const cleanHint = typeof hint === 'string' ? hint.trim() : '';
+
+    if (isMongoConnected) {
+      await UserModel.updateOne(
+        { _id: req.user.id },
+        { $set: { twoFactorEnabled: true, twoFactorPassword: hashed2FA, twoFactorHint: cleanHint } }
+      );
+    } else {
+      const db = readLocalDB();
+      const u = db.users.find((user) => user.id === req.user.id || String(user._id) === req.user.id);
+      if (u) {
+        u.twoFactorEnabled = true;
+        u.twoFactorPassword = hashed2FA;
+        u.twoFactorHint = cleanHint;
+        writeLocalDB(db);
+      }
+    }
+
+    res.json({ success: true, message: 'Two-Step Verification enabled successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Disable Two-Step Verification (Requires current 2FA password)
+app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
+  try {
+    const { currentTwoFactorPassword } = req.body;
+    if (!currentTwoFactorPassword) {
+      return res.status(400).json({ error: 'Current 2FA password is required to disable 2FA' });
+    }
+
+    let user;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id).select('+twoFactorPassword');
+    } else {
+      const db = readLocalDB();
+      user = db.users.find((u) => u.id === req.user.id || String(u._id) === req.user.id);
+    }
+
+    if (!user || !user.twoFactorEnabled) {
+      return res.status(400).json({ error: 'Two-Step Verification is not enabled' });
+    }
+
+    const stored2FA = user.twoFactorPassword || '';
+    let isValid = false;
+    if (stored2FA.startsWith('$2a$') || stored2FA.startsWith('$2b$')) {
+      isValid = await bcrypt.compare(currentTwoFactorPassword, stored2FA);
+    } else {
+      isValid = stored2FA === currentTwoFactorPassword;
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect Two-Step Verification password' });
+    }
+
+    if (isMongoConnected) {
+      await UserModel.updateOne(
+        { _id: req.user.id },
+        { $set: { twoFactorEnabled: false, twoFactorPassword: '', twoFactorHint: '' } }
+      );
+    } else {
+      const db = readLocalDB();
+      const u = db.users.find((user) => user.id === req.user.id || String(user._id) === req.user.id);
+      if (u) {
+        u.twoFactorEnabled = false;
+        u.twoFactorPassword = '';
+        u.twoFactorHint = '';
+        writeLocalDB(db);
+      }
+    }
+
+    res.json({ success: true, message: 'Two-Step Verification disabled' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change Two-Step Verification Password
+app.post('/api/auth/2fa/change', authenticateToken, async (req, res) => {
+  try {
+    const { currentTwoFactorPassword, newTwoFactorPassword, hint } = req.body;
+    if (!currentTwoFactorPassword || !newTwoFactorPassword) {
+      return res.status(400).json({ error: 'Current and new 2FA passwords are required' });
+    }
+    if (newTwoFactorPassword.length < 6) {
+      return res.status(400).json({ error: 'New 2FA password must be at least 6 characters long' });
+    }
+
+    let user;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id).select('+twoFactorPassword');
+    } else {
+      const db = readLocalDB();
+      user = db.users.find((u) => u.id === req.user.id || String(u._id) === req.user.id);
+    }
+
+    if (!user || !user.twoFactorEnabled) {
+      return res.status(400).json({ error: 'Two-Step Verification is not enabled' });
+    }
+
+    const stored2FA = user.twoFactorPassword || '';
+    let isValid = false;
+    if (stored2FA.startsWith('$2a$') || stored2FA.startsWith('$2b$')) {
+      isValid = await bcrypt.compare(currentTwoFactorPassword, stored2FA);
+    } else {
+      isValid = stored2FA === currentTwoFactorPassword;
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Current Two-Step Verification password is incorrect' });
+    }
+
+    const hashedNew2FA = await bcrypt.hash(newTwoFactorPassword, 10);
+    const cleanHint = typeof hint === 'string' ? hint.trim() : (user.twoFactorHint || '');
+
+    if (isMongoConnected) {
+      await UserModel.updateOne(
+        { _id: req.user.id },
+        { $set: { twoFactorPassword: hashedNew2FA, twoFactorHint: cleanHint } }
+      );
+    } else {
+      const db = readLocalDB();
+      const u = db.users.find((user) => user.id === req.user.id || String(user._id) === req.user.id);
+      if (u) {
+        u.twoFactorPassword = hashedNew2FA;
+        u.twoFactorHint = cleanHint;
+        writeLocalDB(db);
+      }
+    }
+
+    res.json({ success: true, message: 'Two-Step Verification password updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── QR Code Quick Login Endpoints ───
+
+// Pending QR Code Login Sessions: Map<qrToken, { qrToken, quickCode, status, deviceInfo, ip, createdAt, expiresAt, token?, user?, sessionId? }>
+const pendingQrLogins = new Map();
+
+// Periodic cleanup of expired QR login tokens every 30 seconds
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, item] of pendingQrLogins.entries()) {
+    if (item.expiresAt < now) {
+      pendingQrLogins.delete(token);
+    }
+  }
+}, 30000);
+
+// 1. Generate QR Code Login Token (called by Desktop login screen)
+app.post('/api/auth/qr/generate', authRateLimiter, (req, res) => {
+  try {
+    const qrToken = `qr_${crypto.randomBytes(24).toString('hex')}`;
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let quickCode = '';
+    for (let i = 0; i < 6; i++) {
+      quickCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const expiresIn = 120; // 2 minutes
+
+    const sessionData = {
+      qrToken,
+      quickCode,
+      status: 'pending', // 'pending' | 'scanned' | 'confirmed' | 'expired'
+      deviceInfo: parseUserAgent(req.headers['user-agent']),
+      ip: getClientIp(req),
+      createdAt: Date.now(),
+      expiresAt: Date.now() + expiresIn * 1000,
+    };
+
+    pendingQrLogins.set(qrToken, sessionData);
+    res.json({ qrToken, quickCode, expiresIn });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate QR login session' });
+  }
+});
+
+// 2. Check QR Code Login Status (called by Desktop login screen polling fallback)
+app.get('/api/auth/qr/status', authRateLimiter, (req, res) => {
+  try {
+    const { qrToken } = req.query;
+    if (!qrToken || typeof qrToken !== 'string') {
+      return res.status(400).json({ error: 'qrToken is required' });
+    }
+
+    const item = pendingQrLogins.get(qrToken);
+    if (!item || item.expiresAt < Date.now()) {
+      pendingQrLogins.delete(qrToken);
+      return res.json({ status: 'expired' });
+    }
+
+    if (item.status === 'confirmed') {
+      const result = {
+        status: 'confirmed',
+        token: item.token,
+        user: item.user,
+        sessionId: item.sessionId,
+      };
+      pendingQrLogins.delete(qrToken);
+      return res.json(result);
+    }
+
+    res.json({ status: item.status });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check QR login status' });
+  }
+});
+
+// 3. Scan / Preview QR Code Login (called by Authenticated Device camera or code input)
+app.post('/api/auth/qr/scan', authenticateToken, async (req, res) => {
+  try {
+    const { qrTokenOrCode } = req.body;
+    if (!qrTokenOrCode || typeof qrTokenOrCode !== 'string') {
+      return res.status(400).json({ error: 'QR token or quick code is required' });
+    }
+
+    const cleanInput = qrTokenOrCode.trim().replace(/^eztalk:\/\/qr-login\?token=/, '');
+
+    // Search by qrToken or quickCode
+    let found = null;
+    for (const [t, item] of pendingQrLogins.entries()) {
+      if (item.expiresAt >= Date.now()) {
+        if (t === cleanInput || item.quickCode.toUpperCase() === cleanInput.toUpperCase()) {
+          found = item;
+          break;
+        }
+      }
+    }
+
+    if (!found) {
+      return res.status(404).json({ error: 'QR code has expired or is invalid. Please refresh the QR code.' });
+    }
+
+    found.status = 'scanned';
+    io.to(`qr_${found.qrToken}`).emit('qr_scanned', { targetDevice: found.deviceInfo });
+
+    // Check if scanner user has 2FA enabled
+    let user = null;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id);
+    } else {
+      const db = readLocalDB();
+      user = db.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+    }
+
+    res.json({
+      valid: true,
+      qrToken: found.qrToken,
+      targetDevice: found.deviceInfo,
+      ip: found.ip,
+      requires2FA: Boolean(user?.twoFactorEnabled),
+      twoFactorHint: user?.twoFactorHint || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process QR scan' });
+  }
+});
+
+// 4. Confirm QR Code Login (called by Authenticated Device after user confirms & inputs 2FA password if active)
+app.post('/api/auth/qr/confirm', authenticateToken, async (req, res) => {
+  try {
+    const { qrToken, twoFactorPassword } = req.body;
+    if (!qrToken || typeof qrToken !== 'string') {
+      return res.status(400).json({ error: 'qrToken is required' });
+    }
+
+    const item = pendingQrLogins.get(qrToken);
+    if (!item || item.expiresAt < Date.now()) {
+      pendingQrLogins.delete(qrToken);
+      return res.status(400).json({ error: 'QR code session has expired. Please refresh the QR code.' });
+    }
+
+    let user = null;
+    let localDB = null;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id).select('+twoFactorPassword');
+    } else {
+      localDB = readLocalDB();
+      user = localDB.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found' });
+    }
+
+    // Verify 2FA password if Two-Step Verification is active
+    if (user.twoFactorEnabled) {
+      if (!twoFactorPassword) {
+        return res.status(400).json({ error: 'Two-Step Verification password is required to link this device' });
+      }
+      const stored2FAPass = user.twoFactorPassword || '';
+      let isValid = false;
+      if (stored2FAPass.startsWith('$2a$') || stored2FAPass.startsWith('$2b$')) {
+        isValid = await bcrypt.compare(twoFactorPassword, stored2FAPass);
+      } else {
+        isValid = stored2FAPass === twoFactorPassword;
+      }
+      if (!isValid) {
+        return res.status(401).json({ error: 'Incorrect Two-Step Verification password' });
+      }
+    }
+
+    // Create session specifically for the target device
+    const targetSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const newSession = {
+      sessionId: targetSessionId,
+      device: item.deviceInfo || parseUserAgent(''),
+      ip: item.ip || '127.0.0.1',
+      clientName: 'EzTalk Web',
+      createdAt: new Date(),
+      lastActive: new Date(),
+    };
+
+    if (isMongoConnected) {
+      await UserModel.updateOne(
+        { _id: user._id },
+        {
+          $push: {
+            sessions: {
+              $each: [newSession],
+              $position: 0,
+              $slice: 20,
+            },
+          },
+        }
+      );
+    } else {
+      if (!Array.isArray(user.sessions)) user.sessions = [];
+      user.sessions.unshift(newSession);
+      if (user.sessions.length > 20) user.sessions.length = 20;
+      writeLocalDB(localDB);
+    }
+
+    const token = jwt.sign(
+      { id: user.id || user._id, handle: user.handle, sessionId: targetSessionId },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    const formattedUser = formatUser(user);
+    item.status = 'confirmed';
+    item.token = token;
+    item.user = formattedUser;
+    item.sessionId = targetSessionId;
+
+    // Real-time broadcast to the waiting desktop browser
+    io.to(`qr_${qrToken}`).emit('qr_login_success', {
+      token,
+      user: formattedUser,
+      sessionId: targetSessionId,
+    });
+
+    res.json({ success: true, message: 'Device authorized successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to confirm QR login' });
+  }
+});
+
+// ─── Active Sessions & Devices Management Endpoints ───
+
+// Get active sessions for the current authenticated user
+app.get('/api/auth/sessions', authenticateToken, async (req, res) => {
+  try {
+    let user = null;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id).select('+sessions').lean();
+    } else {
+      const db = readLocalDB();
+      user = db.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let sessions = Array.isArray(user.sessions) ? [...user.sessions] : [];
+
+    // If current user has no session entry yet, synthesize current session
+    if (!sessions.some((s) => s.sessionId === req.sessionId)) {
+      const synSession = {
+        sessionId: req.sessionId || `sess_${Date.now()}_cur`,
+        device: parseUserAgent(req.headers['user-agent']),
+        ip: getClientIp(req),
+        clientName: 'EzTalk Web',
+        createdAt: new Date(),
+        lastActive: new Date(),
+      };
+      sessions.unshift(synSession);
+    }
+
+    const mapped = sessions.map((s) => ({
+      sessionId: s.sessionId,
+      device: s.device || { os: 'Unknown OS', browser: 'Web Browser', type: 'desktop' },
+      ip: s.ip || '127.0.0.1',
+      clientName: s.clientName || 'EzTalk Web',
+      createdAt: s.createdAt,
+      lastActive: s.lastActive || s.createdAt,
+      isCurrent: Boolean(req.sessionId && s.sessionId === req.sessionId),
+    }));
+
+    // Sort so current is always first, then most recently active
+    mapped.sort((a, b) => {
+      if (a.isCurrent) return -1;
+      if (b.isCurrent) return 1;
+      return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
+    });
+
+    res.json({ sessions: mapped });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve active sessions' });
+  }
+});
+
+// Terminate a specific session
+app.delete('/api/auth/sessions/:sessionId', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    if (sessionId === req.sessionId) {
+      return res.status(400).json({ error: 'Cannot terminate current session here. Use logout instead.' });
+    }
+
+    let user = null;
+    let localDB = null;
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id);
+      if (user) {
+        user.sessions = (user.sessions || []).filter((s) => s.sessionId !== sessionId);
+        await user.save();
+      }
+    } else {
+      localDB = readLocalDB();
+      user = localDB.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+      if (user) {
+        user.sessions = (user.sessions || []).filter((s) => s.sessionId !== sessionId);
+        writeLocalDB(localDB);
+      }
+    }
+
+    // Real-time broadcast to revoke that specific device
+    io.to(normalizeHandle(req.user.handle)).emit('session_terminated', { sessionId });
+
+    res.json({ success: true, message: 'Session terminated' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to terminate session' });
+  }
+});
+
+// Terminate all other sessions
+app.post('/api/auth/sessions/terminate-others', authenticateToken, async (req, res) => {
+  try {
+    const currentSessionId = req.sessionId;
+    let user = null;
+    let localDB = null;
+
+    if (isMongoConnected) {
+      user = await UserModel.findById(req.user.id);
+      if (user) {
+        user.sessions = (user.sessions || []).filter((s) => s.sessionId === currentSessionId);
+        await user.save();
+      }
+    } else {
+      localDB = readLocalDB();
+      user = localDB.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+      if (user) {
+        user.sessions = (user.sessions || []).filter((s) => s.sessionId === currentSessionId);
+        writeLocalDB(localDB);
+      }
+    }
+
+    // Real-time broadcast: all other sessions are terminated
+    io.to(normalizeHandle(req.user.handle)).emit('session_terminated', {
+      sessionId: 'all_others',
+      keptSessionId: currentSessionId,
+    });
+
+    res.json({ success: true, message: 'All other sessions terminated' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to terminate other sessions' });
   }
 });
 
@@ -1670,11 +2603,17 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
     spamRecord.timestamps = spamRecord.timestamps.filter(t => now - t <= 3000);
     spamRecord.timestamps.push(now);
     
-    const maxBurst = isDev ? 20 : 5;
+    const isUnverified = !Boolean(req.user?.isVerified || req.user?.emailVerified);
+    const maxBurst = isUnverified ? 2 : (isDev ? 20 : 5);
     if (spamRecord.timestamps.length > maxBurst) {
       spamRecord.cooldownUntil = now + (isDev ? 5000 : 30000);
       userSpamRecords.set(sHandle, spamRecord);
-      io.to(sHandle).emit('spam_warning', { cooldownSeconds: isDev ? 5 : 30, message: 'Too many messages. Please wait.' });
+      io.to(sHandle).emit('spam_warning', {
+        cooldownSeconds: isDev ? 5 : 30,
+        message: isUnverified
+          ? 'Rate limit: max 2 messages/sec for unverified accounts. Verify email in Settings to remove limits.'
+          : 'Too many messages. Please wait.',
+      });
       return res.status(429).json({ error: 'Spam detected. Muted.', cooldownSeconds: isDev ? 5 : 30 });
     }
     userSpamRecords.set(sHandle, spamRecord);
@@ -1712,6 +2651,7 @@ app.post('/api/messages', authenticateToken, messageRateLimiter, async (req, res
       groupId: groupId || null,
       senderHandle: sHandle,
       recipientHandle: rHandle,
+      senderIsVerified: !isUnverified,
       text: encryptedText,
       attachment: attachment || null,
       replyTo: encryptedReplyTo,
@@ -2027,6 +2967,8 @@ app.get('/api/groups', authenticateToken, async (req, res) => {
   }
 });
 
+const unverifiedRoomCreations = new Map(); // handle -> timestamp[]
+
 app.post('/api/groups', authenticateToken, async (req, res) => {
   try {
     const { name, avatar, creatorHandle, memberHandles } = req.body;
@@ -2037,6 +2979,20 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
 
     const cleanCreator = normalizeHandle(creatorHandle);
     const cleanMembers = (memberHandles || []).map((h) => normalizeHandle(h));
+
+    const isUnverified = !Boolean(req.user?.isVerified || req.user?.emailVerified);
+    if (isUnverified) {
+      const now = Date.now();
+      const userCreations = (unverifiedRoomCreations.get(cleanCreator) || []).filter((t) => now - t < 3600000);
+      if (userCreations.length >= 3) {
+        return res.status(429).json({
+          error: 'Unverified accounts can create up to 3 rooms per hour. Link an email in Settings to remove limits.',
+          isUnverified: true,
+        });
+      }
+      userCreations.push(now);
+      unverifiedRoomCreations.set(cleanCreator, userCreations);
+    }
 
     if (!cleanMembers.includes(cleanCreator)) {
       cleanMembers.push(cleanCreator);
@@ -2440,6 +3396,14 @@ io.on('connection', (socket) => {
   // Send current online users immediately on connection
   socket.emit('online_users', getOnlineHandles());
 
+  // Subscribe to QR Code login room (desktop browser waiting for scan)
+  socket.on('subscribe_qr', (data) => {
+    const qrToken = typeof data === 'object' ? data?.qrToken : data;
+    if (qrToken && typeof qrToken === 'string') {
+      socket.join(`qr_${qrToken}`);
+    }
+  });
+
   socket.on('join', (data) => {
     const clientHandle = typeof data === 'object' ? data?.handle : data;
     const clientToken = typeof data === 'object' ? data?.token : null;
@@ -2466,6 +3430,21 @@ io.on('connection', (socket) => {
     socket.join(cleanHandle);
     socket.join(bareHandle);
     socketHandleMap.set(socket.id, cleanHandle);
+
+    // Resolve verification status for ESS rate limiting
+    if (isMongoConnected) {
+      UserModel.findOne({ handle: cleanHandle }).lean().then((foundUser) => {
+        if (foundUser) {
+          socket.isUnverified = !Boolean(foundUser.isVerified || foundUser.emailVerified);
+        }
+      }).catch(() => {});
+    } else {
+      const db = readLocalDB();
+      const foundUser = (db.users || []).find((u) => u.handle.toLowerCase() === cleanHandle);
+      if (foundUser) {
+        socket.isUnverified = !Boolean(foundUser.isVerified || foundUser.emailVerified);
+      }
+    }
 
     // Auto-join all group socket rooms for this user
     if (isMongoConnected) {

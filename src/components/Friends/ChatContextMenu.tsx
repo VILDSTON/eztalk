@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pin, BellOff, Eraser, Trash2, Volume2, X } from 'lucide-react';
+import { Pin, BellOff, Eraser, Trash2 } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
 
 export interface ChatContextMenuProps {
@@ -36,9 +36,16 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
 }) => {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
+  const mountedAtRef = useRef(Date.now());
   const [isMobileView, setIsMobileView] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
   );
+
+  useEffect(() => {
+    if (isOpen) {
+      mountedAtRef.current = Date.now();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -82,12 +89,19 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
     <>
       {/* Blurred Backdrop */}
       <div
-        className={`fixed inset-0 z-[9998] transition-opacity duration-200 ${
-          isMobileView ? 'bg-black/70 backdrop-blur-sm' : 'bg-black/20'
-        }`}
+        className={`fixed inset-0 z-[9998] transition-opacity duration-200 ${isMobileView ? 'bg-black/70' : 'bg-black/20'
+          }`}
         onClick={(e) => {
           e.stopPropagation();
+          if (Date.now() - mountedAtRef.current < 400) return;
           onClose();
+        }}
+        onTouchEnd={(e) => {
+          if (Date.now() - mountedAtRef.current < 400) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
         }}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -103,13 +117,14 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
           aria-modal="true"
           className="fixed inset-x-0 bottom-0 z-[9999] max-w-lg mx-auto bg-[#141518]/95 backdrop-blur-2xl border-t border-white/10 rounded-t-[26px] shadow-[0_-10px_40px_rgba(0,0,0,0.7)] p-4 pb-8 animate-in slide-in-from-bottom duration-200 select-none"
           onClick={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* Pull handle indicator */}
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-3" />
 
           {/* Chat Header info */}
           {targetName && (
-            <div className="flex items-center justify-between pb-3.5 mb-2 border-b border-white/10">
+            <div className="flex items-center pb-3.5 mb-2 border-b border-white/10">
               <div className="flex items-center space-x-3 min-w-0 flex-1">
                 {targetAvatar ? (
                   <img
@@ -129,14 +144,6 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 active:bg-white/15 text-gray-400 hover:text-white transition-colors cursor-pointer ml-2"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           )}
 
@@ -171,7 +178,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
             >
               <div className="flex items-center space-x-3">
                 {isMuted ? (
-                  <Volume2 className="w-4 h-4 text-[var(--ez-accent)]" />
+                  <BellOff className="w-4 h-4 text-rose-500" />
                 ) : (
                   <BellOff className="w-4 h-4 text-gray-400" />
                 )}
@@ -179,11 +186,6 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
                   {isMuted ? t.contextMenu?.unmute || 'Unmute notifications' : t.contextMenu?.mute || 'Mute notifications'}
                 </span>
               </div>
-              {isMuted && (
-                <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded-md">
-                  {t.contextMenu?.muted || 'Muted'}
-                </span>
-              )}
             </button>
 
             <div className="h-px bg-white/5 my-1" />
@@ -272,7 +274,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
           >
             <div className="flex items-center space-x-2.5">
               {isMuted ? (
-                <Volume2 className="w-3.5 h-3.5 text-[var(--ez-accent)] transition-colors" />
+                <BellOff className="w-3.5 h-3.5 text-rose-500 transition-colors" />
               ) : (
                 <BellOff className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors" />
               )}
@@ -280,11 +282,6 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
                 {isMuted ? t.contextMenu?.unmute || 'Unmute notifications' : t.contextMenu?.mute || 'Mute notifications'}
               </span>
             </div>
-            {isMuted && (
-              <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded">
-                {t.contextMenu?.muted || 'Muted'}
-              </span>
-            )}
           </button>
 
           <div className="h-px bg-white/5 my-1" />

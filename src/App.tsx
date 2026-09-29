@@ -21,7 +21,7 @@ import { applyTheme, applyCompactMode } from './utils/theme';
 import { LegalModal } from './components/Legal/LegalModal';
 import { CookieBanner } from './components/Common/CookieBanner';
 import { NotFoundScreen } from './components/Common/NotFoundScreen';
-import { X, MessageSquare, Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, MessageSquare, Send, Sparkles } from 'lucide-react';
 import { useMatch, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useLocalizedNavigate } from './hooks/useLocalizedNavigate';
 import { useTranslation } from './context/LanguageContext';
@@ -1346,6 +1346,18 @@ function MainApp() {
       });
     });
 
+    // Remote Session Revocation
+    const unsubSessionTerminated = socketService.onSessionTerminated((data) => {
+      const mySessionId = localStorage.getItem('eztalk_session_id');
+      if (
+        (data.sessionId === 'all_others' && data.keptSessionId !== mySessionId) ||
+        (data.sessionId && data.sessionId === mySessionId)
+      ) {
+        alert(t.auth.sessionTerminated || 'Your session was terminated from another device');
+        handleLogout();
+      }
+    });
+
     return () => {
       unsubMsg();
       unsubEdit();
@@ -1366,6 +1378,7 @@ function MainApp() {
       unsubFriends();
       unsubDraft();
       unsubRead();
+      unsubSessionTerminated();
     };
   }, [currentUser, selectedUser, selectedGroupId, mutedUsers, refreshUsersAndGroups]);
 
@@ -1499,6 +1512,7 @@ function MainApp() {
       ChatStorageService.removeAccountToken(currentUser.handle);
     }
     localStorage.removeItem('eztalk_token');
+    localStorage.removeItem('eztalk_session_id');
     setCurrentUser(null);
     ChatStorageService.saveAuthUser(null);
     setSelectedUserId('');
@@ -2268,6 +2282,7 @@ function MainApp() {
               currentUser={currentUser}
               allUsers={allUsers}
               allGroups={userGroups}
+              forwardableContacts={chatUsers}
               onlineHandles={onlineHandles}
               isMuted={isSelectedUserMuted}
               isTyping={isCurrentContactTyping}
@@ -2340,18 +2355,15 @@ function MainApp() {
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none telegram-chat-bg relative overflow-hidden">
+              <div className="absolute inset-0 bg-black/25 pointer-events-none z-0" />
               <div className="bg-ez-elevated/90 backdrop-blur-xl border border-ez-border p-8 rounded-3xl max-w-sm flex flex-col items-center shadow-glass-lg relative z-10 animate-scale-up">
                 <div className="w-16 h-16 rounded-2xl bg-neon-green/10 text-neon-green flex items-center justify-center mb-4 shadow-neon-sm border border-neon-green/25">
                   <Send className="w-7 h-7 ml-0.5 text-neon-green" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">Select a conversation</h3>
-                <p className="text-xs text-ez-muted leading-relaxed mb-4">
-                  Choose a contact from the list or start a new conversation to begin real-time encrypted messaging.
+                <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.chat.selectConversation || 'Select a conversation'}</h3>
+                <p className="text-xs text-ez-muted leading-relaxed">
+                  {t.chat.selectConversationDesc || 'Choose a contact from the list or start a new conversation to begin real-time encrypted messaging.'}
                 </p>
-                <div className="inline-flex items-center space-x-1.5 text-[11px] font-mono text-neon-green bg-neon-green/10 px-3 py-1 rounded-full border border-neon-green/20">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Real-time P2P Ready</span>
-                </div>
               </div>
             </div>
           )}

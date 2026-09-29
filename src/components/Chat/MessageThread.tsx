@@ -282,10 +282,12 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
 
   return (
     <div className="flex-1 relative flex flex-col min-h-0 telegram-chat-bg overflow-hidden font-sans">
+      {/* Subtle backdrop overlay to guarantee high-contrast legibility over any custom wallpaper */}
+      <div className="absolute inset-0 bg-black/25 pointer-events-none z-0" />
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative py-3"
+        className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative z-10 py-3"
       >
         {/* Message Canvas (Full width) */}
         <div className="w-full px-2 sm:px-3 flex flex-col flex-1 min-h-full">

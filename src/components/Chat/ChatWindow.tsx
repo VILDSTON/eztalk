@@ -18,6 +18,7 @@ interface ChatWindowProps {
   currentUser?: User | null;
   allUsers?: User[];
   allGroups?: Group[];
+  forwardableContacts?: User[];
   onlineHandles?: string[];
   isMuted?: boolean;
   isTyping?: boolean;
@@ -66,6 +67,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   currentUser,
   allUsers = [],
   allGroups = [],
+  forwardableContacts,
   onlineHandles = [],
   isMuted = false,
   isTyping = false,
@@ -269,7 +271,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           isOpen={Boolean(forwardingMessage)}
           message={forwardingMessage}
           currentUser={currentUser}
-          contacts={allUsers}
+          contacts={forwardableContacts || allUsers}
           groups={allGroups}
           onlineHandles={onlineHandles}
           onClose={() => setForwardingMessage(null)}
