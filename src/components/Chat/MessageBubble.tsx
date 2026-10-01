@@ -1511,9 +1511,8 @@ function areMessageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubbl
   if (p.id !== n.id) return false;
   if (p.text !== n.text) return false;
   if (p.isEdited !== n.isEdited) return false;
+  if (p.isDeleted !== n.isDeleted) return false;
   if (p.status !== n.status) return false;
-  if (p.pinned !== n.pinned) return false;
-  if (p.deleted !== n.deleted) return false;
   if (p.createdAt !== n.createdAt || p.timestamp !== n.timestamp) return false;
   if (p.senderHandle !== n.senderHandle || p.senderId !== n.senderId) return false;
 
@@ -1526,17 +1525,10 @@ function areMessageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubbl
     if (p.attachment.duration !== n.attachment.duration) return false;
   }
 
-  // Compare reactions
-  const pReactions = p.reactions || {};
-  const nReactions = n.reactions || {};
-  const pKeys = Object.keys(pReactions);
-  const nKeys = Object.keys(nReactions);
-  if (pKeys.length !== nKeys.length) return false;
-  for (let i = 0; i < pKeys.length; i++) {
-    const k = pKeys[i];
-    const pArr = pReactions[k] || [];
-    const nArr = nReactions[k] || [];
-    if (pArr.length !== nArr.length) return false;
+  // Compare reactions (safe for both Array and Record)
+  if (p.reactions !== n.reactions) {
+    if (!p.reactions || !n.reactions) return false;
+    if (JSON.stringify(p.reactions) !== JSON.stringify(n.reactions)) return false;
   }
 
   // Compare layout flags & context

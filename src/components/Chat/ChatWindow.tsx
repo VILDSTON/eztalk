@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Group, Message, Attachment, QuotedMessage } from '../../types/chat';
 import { ChatHeader } from './ChatHeader';
 import { MessageThread } from './MessageThread';
