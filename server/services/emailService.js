@@ -130,6 +130,7 @@ function createVerificationEmailHtml(code) {
 export async function sendVerificationEmail(toEmail, code) {
   dotenv.config();
   const cleanEmail = (toEmail || '').trim().toLowerCase();
+  const allowCodeDisplay = process.env.SHOW_VERIFICATION_CODE === 'true' || process.env.NODE_ENV !== 'production';
 
   // 1. Resend HTTP API (Recommended for cloud hosts like Render Free tier which block SMTP ports 25/465/587)
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
@@ -168,7 +169,7 @@ export async function sendVerificationEmail(toEmail, code) {
         if (resData?.message && resData.message.includes('only send testing emails to your own email address')) {
           const match = resData.message.match(/\(([^)]+)\)/);
           const allowed = match ? match[1] : 'your registered email';
-          throw new Error(`Resend test mode can only send to ${allowed}. Please enter ${allowed} to verify.`);
+          throw new Error(`Resend test mode can only send to ${allowed}. To send to all users, verify a custom domain at resend.com/domains.`);
         }
       }
     } catch (resendErr) {
@@ -179,9 +180,38 @@ export async function sendVerificationEmail(toEmail, code) {
     }
   }
 
-  // 2. Fallback to dev simulation if SMTP is not configured or SHOW_VERIFICATION_CODE is enabled
+  // 2. Brevo HTTP API (Alternative HTTPS delivery — supports sending to all users)
+  const brevoApiKey = (process.env.BREVO_API_KEY || '').trim();
+  if (brevoApiKey) {
+    try {
+      const fromEmail = process.env.BREVO_FROM || process.env.SMTP_USER || 'no-reply@eztalk.app';
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': brevoApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'EzTalk Security', email: fromEmail },
+          to: [{ email: cleanEmail }],
+          subject: `${code} is your EzTalk verification code`,
+          htmlContent: createVerificationEmailHtml(code),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        console.log(`[EzTalk Email] Verification code sent via Brevo API to ${cleanEmail}`);
+        return { success: true, simulated: false };
+      } else {
+        console.warn('[EzTalk Email] Brevo API error:', data);
+      }
+    } catch (bErr) {
+      console.error('[EzTalk Email] Brevo API exception:', bErr?.message);
+    }
+  }
+
+  // 3. Fallback to dev simulation if SMTP is not configured or SHOW_VERIFICATION_CODE is enabled
   const mailer = getTransporter();
-  const allowCodeDisplay = process.env.SHOW_VERIFICATION_CODE === 'true' || process.env.NODE_ENV !== 'production';
 
   if (!mailer) {
     console.log('\n' + '='.repeat(62));
