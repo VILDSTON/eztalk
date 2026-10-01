@@ -156,8 +156,25 @@ export async function sendVerificationEmail(toEmail, code) {
         return { success: true, simulated: false };
       } else {
         console.warn(`[EzTalk Email] Resend API error:`, resData);
+        if (allowCodeDisplay) {
+          console.log(`[EzTalk Email] Fallback Code: >>> ${code} <<<`);
+          return {
+            success: true,
+            simulated: true,
+            code,
+            warning: resData?.message || 'Resend API error',
+          };
+        }
+        if (resData?.message && resData.message.includes('only send testing emails to your own email address')) {
+          const match = resData.message.match(/\(([^)]+)\)/);
+          const allowed = match ? match[1] : 'your registered email';
+          throw new Error(`Resend test mode can only send to ${allowed}. Please enter ${allowed} to verify.`);
+        }
       }
     } catch (resendErr) {
+      if (resendErr?.message && resendErr.message.includes('Resend test mode')) {
+        throw resendErr;
+      }
       console.error(`[EzTalk Email] Resend API exception:`, resendErr?.message);
     }
   }

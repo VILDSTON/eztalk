@@ -1040,13 +1040,14 @@ setInterval(() => {
 
 // Send Email Verification Code (6-digit OTP)
 app.post('/api/auth/send-verification-code', authRateLimiter, async (req, res) => {
+  let cleanEmail = null;
   try {
     const { email } = req.body;
     if (!email || typeof email !== 'string' || !email.trim()) {
       return res.status(400).json({ error: 'Valid email address is required' });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    cleanEmail = email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
       return res.status(400).json({ error: 'Please provide a valid email address.' });
@@ -1066,11 +1067,11 @@ app.post('/api/auth/send-verification-code', authRateLimiter, async (req, res) =
       }
     }
 
-    // Rate-limit resend: 60 seconds
+    // Rate-limit resend: 15 seconds
     const existing = emailVerificationCodes.get(cleanEmail);
     const now = Date.now();
-    if (existing && now - existing.lastSentAt < 60000) {
-      const waitSeconds = Math.ceil((60000 - (now - existing.lastSentAt)) / 1000);
+    if (existing && now - existing.lastSentAt < 15000) {
+      const waitSeconds = Math.ceil((15000 - (now - existing.lastSentAt)) / 1000);
       return res.status(429).json({ error: `Please wait ${waitSeconds}s before requesting a new code.` });
     }
 

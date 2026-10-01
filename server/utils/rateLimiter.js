@@ -18,7 +18,7 @@ const isDevOrLocalhost = (req) => {
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 150,
   skip: isDevOrLocalhost,
   message: { error: 'Too many authentication attempts from this IP, please try again after 15 minutes.' },
   standardHeaders: true,
