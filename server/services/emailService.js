@@ -128,6 +128,7 @@ function createVerificationEmailHtml(code) {
  * If SMTP is not set up, gracefully outputs to console for development.
  */
 export async function sendVerificationEmail(toEmail, code) {
+  dotenv.config();
   const cleanEmail = (toEmail || '').trim().toLowerCase();
 
   // 1. Resend HTTP API (Recommended for cloud hosts like Render Free tier which block SMTP ports 25/465/587)
