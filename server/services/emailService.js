@@ -26,27 +26,25 @@ function getTransporter() {
   }
 
   const isGmail = host.toLowerCase().includes('gmail.com') || user.toLowerCase().endsWith('@gmail.com');
+  const effectiveHost = host || (isGmail ? 'smtp.gmail.com' : 'localhost');
+  const effectivePort = port || 587;
+  const isSecure = effectivePort === 465;
 
-  const transportOptions = isGmail
-    ? {
-        service: 'gmail',
-        auth: {
-          user,
-          pass,
-        },
-      }
-    : {
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      };
+  const transportOptions = {
+    host: effectiveHost,
+    port: effectivePort,
+    secure: isSecure,
+    auth: {
+      user,
+      pass,
+    },
+    connectionTimeout: 8000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
+    tls: {
+      rejectUnauthorized: false,
+    },
+  };
 
   cachedTransporter = nodemailer.createTransport(transportOptions);
   cachedConfigKey = configKey;
@@ -165,7 +163,13 @@ export async function sendVerificationEmail(toEmail, code) {
   };
 
   try {
-    const info = await mailer.sendMail(mailOptions);
+    const sendWithTimeout = Promise.race([
+      mailer.sendMail(mailOptions),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP connection timed out after 8s')), 8000)
+      ),
+    ]);
+    const info = await sendWithTimeout;
     console.log(`[EzTalk Email] Verification code sent to ${cleanEmail}: ${info.messageId}`);
     return { success: true, simulated: false };
   } catch (err) {

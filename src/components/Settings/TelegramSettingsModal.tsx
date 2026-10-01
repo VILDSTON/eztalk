@@ -672,10 +672,16 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             <span>{t.profile?.verifiedBadge || 'Verified'}</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium">
-                            <Shield className="w-3 h-3 text-zinc-400" />
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('safety')}
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 hover:border-zinc-500/80 text-zinc-300 hover:text-white text-[10px] font-medium transition-all cursor-pointer group"
+                            title={t.profile?.unverifiedBadge || 'Unverified — Click to verify'}
+                          >
+                            <Shield className="w-3 h-3 text-zinc-400 group-hover:text-amber-400 transition-colors" />
                             <span>{t.profile?.unverifiedBadge || 'Unverified'}</span>
-                          </span>
+                            <span className="text-[9px] text-[var(--ez-accent)] underline ml-0.5 font-semibold">Verify</span>
+                          </button>
                         )}
                       </div>
                     </div>
