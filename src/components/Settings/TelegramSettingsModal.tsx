@@ -316,6 +316,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       setTwoFactorError('');
       setTwoFactorSuccessMsg('');
 
+      setIsAccountVerified(Boolean(currentUser.isVerified));
+      setAccountEmail(currentUser.email || '');
+      setLinkEmailInput(currentUser.email || '');
+      setLinkEmailStep('idle');
+      setLinkEmailError('');
+
       setSavedSuccess(false);
     }
   }, [isOpen, currentUser]);
@@ -1203,13 +1209,13 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                               setLinkEmailError('');
                             }}
                             placeholder="you@example.com"
-                            className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                            className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                           />
                         </div>
                         <button
                           type="submit"
                           disabled={linkEmailLoading || !linkEmailInput.trim()}
-                          className="px-4 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 disabled:opacity-50"
+                          className="px-4 py-2 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 disabled:opacity-50"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${linkEmailLoading ? 'animate-spin' : ''}`} />
                           <span>{linkEmailLoading ? t.common.loading : (t.settings.linkEmailBtn || 'Verify Email & Upgrade')}</span>
@@ -1233,7 +1239,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                               setLinkEmailError('');
                             }}
                             placeholder="••••••"
-                            className="w-full bg-ez-base border border-white/15 focus:border-neon-green rounded-xl py-2 px-3 text-center text-xl font-mono font-bold tracking-[0.3em] text-neon-green placeholder:text-zinc-700 outline-none transition-all"
+                            className="w-full bg-ez-base border border-white/15 focus:border-[var(--ez-accent)] rounded-xl py-2 px-3 text-center text-xl font-mono font-bold tracking-[0.3em] text-[var(--ez-accent)] placeholder:text-zinc-700 outline-none transition-all"
                           />
                         </div>
 
@@ -1245,7 +1251,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                                 setLinkOtpCode(linkDevCode);
                                 setLinkEmailError('');
                               }}
-                              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-neon-green/15 border border-neon-green/30 text-neon-green text-xs font-mono font-semibold hover:bg-neon-green/25 transition-colors cursor-pointer"
+                              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[var(--ez-accent)]/15 border border-[var(--ez-accent)]/30 text-[var(--ez-accent)] text-xs font-mono font-semibold hover:bg-[var(--ez-accent)]/25 transition-colors cursor-pointer"
                             >
                               <Sparkles className="w-3.5 h-3.5" />
                               <span>Dev OTP: <strong className="underline">{linkDevCode}</strong></span>
@@ -1267,7 +1273,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           <button
                             type="submit"
                             disabled={linkEmailLoading || linkOtpCode.length !== 6}
-                            className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                            className="px-4 py-1.5 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
                           >
                             {linkEmailLoading ? t.common.loading : t.common.confirm}
                           </button>
@@ -1375,7 +1381,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           setTwoFactorConfirmInput('');
                           setTwoFactorHintInput('');
                         }}
-                        className="px-4 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5"
+                        className="px-4 py-2 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 text-xs font-bold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5"
                       >
                         <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
                         <span>{t.settings.enableTwoFactor}</span>
@@ -1405,7 +1411,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             setTwoFactorError('');
                           }}
                           placeholder="••••••••"
-                          className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                         />
                         <button
                           type="button"
@@ -1430,7 +1436,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           setTwoFactorError('');
                         }}
                         placeholder="••••••••"
-                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                       />
                     </div>
 
@@ -1443,7 +1449,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                         value={twoFactorHintInput}
                         onChange={(e) => setTwoFactorHintInput(e.target.value)}
                         placeholder="e.g. My favorite pet's name"
-                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                       />
                     </div>
 
@@ -1461,7 +1467,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       <button
                         type="submit"
                         disabled={twoFactorLoading}
-                        className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                        className="px-4 py-1.5 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 text-xs font-bold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
                       >
                         {twoFactorLoading ? t.common.loading : t.common.save}
                       </button>
@@ -1490,7 +1496,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           setTwoFactorError('');
                         }}
                         placeholder="••••••••"
-                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                       />
                     </div>
 
@@ -1508,7 +1514,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             setTwoFactorError('');
                           }}
                           placeholder="••••••••"
-                          className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                         />
                         <button
                           type="button"
@@ -1533,7 +1539,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           setTwoFactorError('');
                         }}
                         placeholder="••••••••"
-                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                       />
                     </div>
 
@@ -1546,7 +1552,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                         value={twoFactorHintInput}
                         onChange={(e) => setTwoFactorHintInput(e.target.value)}
                         placeholder="e.g. My favorite pet's name"
-                        className="w-full bg-ez-base border border-white/10 focus:border-neon-green rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                       />
                     </div>
 
@@ -1564,7 +1570,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       <button
                         type="submit"
                         disabled={twoFactorLoading}
-                        className="px-4 py-1.5 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+                        className="px-4 py-1.5 rounded-xl bg-[var(--ez-accent)] hover:brightness-110 text-zinc-950 text-xs font-bold cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
                       >
                         {twoFactorLoading ? t.common.loading : t.common.save}
                       </button>
