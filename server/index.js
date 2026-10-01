@@ -1087,9 +1087,14 @@ app.post('/api/auth/send-verification-code', authRateLimiter, async (req, res) =
     return res.json({
       success: true,
       message: 'Verification code sent to your email.',
-      ...(sendResult.simulated && sendResult.code ? { devCode: sendResult.code } : {}),
+      ...((sendResult.simulated || process.env.SHOW_VERIFICATION_CODE === 'true') && sendResult.code
+        ? { devCode: sendResult.code }
+        : {}),
     });
   } catch (err) {
+    if (cleanEmail) {
+      emailVerificationCodes.delete(cleanEmail);
+    }
     console.error('send-verification-code error:', err);
     res.status(400).json({ error: err.message || 'Failed to send verification code' });
   }

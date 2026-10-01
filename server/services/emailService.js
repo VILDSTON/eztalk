@@ -128,23 +128,55 @@ function createVerificationEmailHtml(code) {
  * If SMTP is not set up, gracefully outputs to console for development.
  */
 export async function sendVerificationEmail(toEmail, code) {
-  const mailer = getTransporter();
   const cleanEmail = (toEmail || '').trim().toLowerCase();
+
+  // 1. Resend HTTP API (Recommended for cloud hosts like Render Free tier which block SMTP ports 25/465/587)
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
+  if (resendApiKey) {
+    try {
+      const fromAddress = process.env.RESEND_FROM || 'EzTalk Security <onboarding@resend.dev>';
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [cleanEmail],
+          subject: `${code} is your EzTalk verification code`,
+          html: createVerificationEmailHtml(code),
+        }),
+      });
+
+      const resData = await response.json().catch(() => ({}));
+      if (response.ok) {
+        console.log(`[EzTalk Email] Verification code sent via Resend API to ${cleanEmail}: ${resData?.id}`);
+        return { success: true, simulated: false };
+      } else {
+        console.warn(`[EzTalk Email] Resend API error:`, resData);
+      }
+    } catch (resendErr) {
+      console.error(`[EzTalk Email] Resend API exception:`, resendErr?.message);
+    }
+  }
+
+  // 2. Fallback to dev simulation if SMTP is not configured or SHOW_VERIFICATION_CODE is enabled
+  const mailer = getTransporter();
+  const allowCodeDisplay = process.env.SHOW_VERIFICATION_CODE === 'true' || process.env.NODE_ENV !== 'production';
 
   if (!mailer) {
     console.log('\n' + '='.repeat(62));
-    console.log('⚡ [EzTalk Security] EMAIL VERIFICATION CODE (DEV SIMULATION)');
+    console.log('⚡ [EzTalk Security] EMAIL VERIFICATION CODE (SIMULATION)');
     console.log(`   Recipient : ${cleanEmail}`);
     console.log(`   OTP Code  : >>> ${code} <<<`);
     console.log('   Expires In: 10 minutes');
-    console.log('   Note      : Configure SMTP_HOST, SMTP_USER, SMTP_PASS in .env');
-    console.log('               to send real outgoing emails via SMTP.');
     console.log('='.repeat(62) + '\n');
 
     return {
       success: true,
       simulated: true,
-      code: process.env.NODE_ENV !== 'production' ? code : undefined,
+      code: allowCodeDisplay ? code : undefined,
     };
   }
 
@@ -170,7 +202,7 @@ export async function sendVerificationEmail(toEmail, code) {
     const sendWithTimeout = Promise.race([
       mailer.sendMail(mailOptions),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SMTP connection timed out after 8s')), 8000)
+        setTimeout(() => reject(new Error('SMTP connection timed out after 5s')), 5000)
       ),
     ]);
     const info = await sendWithTimeout;
@@ -179,7 +211,7 @@ export async function sendVerificationEmail(toEmail, code) {
   } catch (err) {
     console.error(`[EzTalk Email] Failed to send email to ${cleanEmail}:`, err.message);
 
-    // Always log the code to server terminal/Render logs for debugging & recovery
+    // Always log the code to server terminal/Render logs for debugging & instant recovery
     console.log('\n' + '='.repeat(64));
     console.log(`⚡ [EzTalk Security] OTP Code for ${cleanEmail}: >>> ${code} <<<`);
     console.log('='.repeat(64) + '\n');
@@ -198,12 +230,27 @@ export async function sendVerificationEmail(toEmail, code) {
     }
 
     if (err.message && err.message.includes('timed out')) {
-      throw new Error('Email server connection timed out. Please check SMTP settings or try again.');
+      console.warn('⚠️ [EzTalk Email] SMTP CONNECTION TIMED OUT');
+      console.warn('   Render.com Free tier blocks outbound SMTP ports (25, 465, 587).');
+      console.warn('   To fix on Render: add RESEND_API_KEY in Render Environment Variables,');
+      console.warn('   or set SHOW_VERIFICATION_CODE=true to auto-fill the code.');
+
+      // If user enabled SHOW_VERIFICATION_CODE or in dev, provide code so the user is never stuck
+      if (allowCodeDisplay) {
+        return {
+          success: true,
+          simulated: true,
+          code,
+          warning: 'Render Free tier blocks SMTP ports 587/465. Code provided via instant fallback.',
+        };
+      }
+
+      throw new Error('Email server timed out. Render Free tier blocks SMTP ports 587/465. Use RESEND_API_KEY (free HTTPS API) or set SHOW_VERIFICATION_CODE=true in Render.');
     }
 
     // In dev, don't let broken SMTP completely block user testing
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[EzTalk Email] Dev Fallback Code: >>> ${code} <<<`);
+    if (allowCodeDisplay) {
+      console.log(`[EzTalk Email] Fallback Code: >>> ${code} <<<`);
       return {
         success: true,
         simulated: true,
