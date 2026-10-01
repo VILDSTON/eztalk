@@ -179,6 +179,39 @@ export function getClientIp(req) {
   return req?.ip || req?.connection?.remoteAddress || '127.0.0.1';
 }
 
+// Robust user lookup helper: finds by ObjectId, string id, or normalized handle
+async function findUser(id, handle, selectFields = null) {
+  if (isMongoConnected) {
+    let user = null;
+    if (id && mongoose.Types.ObjectId.isValid(id)) {
+      let query = UserModel.findById(id);
+      if (selectFields) query = query.select(selectFields);
+      user = await query;
+    }
+    if (!user && handle) {
+      let query = UserModel.findOne({ handle: normalizeHandle(handle) });
+      if (selectFields) query = query.select(selectFields);
+      user = await query;
+    }
+    return user;
+  } else {
+    try {
+      const db = readLocalDB();
+      const cleanHandle = handle ? normalizeHandle(handle) : '';
+      return (
+        db.users.find(
+          (u) =>
+            (id && String(u.id) === String(id)) ||
+            (id && String(u._id) === String(id)) ||
+            (cleanHandle && normalizeHandle(u.handle) === cleanHandle)
+        ) || null
+      );
+    } catch {
+      return null;
+    }
+  }
+}
+
 // Session Creation Helper
 async function createSessionForUser(user, req) {
   const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -197,7 +230,13 @@ async function createSessionForUser(user, req) {
 
   if (isMongoConnected) {
     try {
-      const u = await UserModel.findById(userId);
+      let u = null;
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        u = await UserModel.findById(userId);
+      }
+      if (!u && user.handle) {
+        u = await UserModel.findOne({ handle: normalizeHandle(user.handle) });
+      }
       if (u) {
         if (!Array.isArray(u.sessions)) u.sessions = [];
         u.sessions.unshift(newSession);
@@ -221,7 +260,7 @@ async function createSessionForUser(user, req) {
   } else {
     try {
       const db = readLocalDB();
-      const u = db.users.find((item) => String(item.id) === String(userId) || item.handle === user.handle);
+      const u = db.users.find((item) => String(item.id) === String(userId) || normalizeHandle(item.handle) === normalizeHandle(user.handle));
       if (u) {
         if (!Array.isArray(u.sessions)) u.sessions = [];
         u.sessions.unshift(newSession);
@@ -267,13 +306,7 @@ function authenticateToken(req, res, next) {
     // Session validation: If token has a sessionId, check if it was revoked/terminated
     if (decoded && decoded.sessionId) {
       try {
-        let user = null;
-        if (isMongoConnected) {
-          user = await UserModel.findById(decoded.id).select('+sessions');
-        } else {
-          const db = readLocalDB();
-          user = db.users.find((u) => String(u.id) === String(decoded.id) || String(u._id) === String(decoded.id));
-        }
+        const user = await findUser(decoded.id, decoded.handle, '+sessions');
 
         if (user && Array.isArray(user.sessions) && user.sessions.length > 0) {
           const session = user.sessions.find((s) => s.sessionId === decoded.sessionId);
@@ -283,7 +316,7 @@ function authenticateToken(req, res, next) {
           // Throttled update of lastActive (once every 2 mins)
           if (!session.lastActive || Date.now() - new Date(session.lastActive).getTime() > 120000) {
             session.lastActive = new Date();
-            if (isMongoConnected) {
+            if (isMongoConnected && user._id) {
               await UserModel.updateOne(
                 { _id: user._id, 'sessions.sessionId': decoded.sessionId },
                 { $set: { 'sessions.$.lastActive': new Date() } }
@@ -1058,7 +1091,7 @@ app.post('/api/auth/send-verification-code', authRateLimiter, async (req, res) =
     });
   } catch (err) {
     console.error('send-verification-code error:', err);
-    res.status(500).json({ error: err.message || 'Failed to send verification code' });
+    res.status(400).json({ error: err.message || 'Failed to send verification code' });
   }
 });
 
@@ -1248,29 +1281,44 @@ app.post('/api/auth/link-email', authenticateToken, authRateLimiter, async (req,
     const userId = req.user.id || req.user._id;
 
     if (isMongoConnected) {
-      const existingEmail = await UserModel.findOne({ email: cleanEmail, _id: { $ne: userId } });
+      const isObjectId = userId && mongoose.Types.ObjectId.isValid(userId);
+      const query = isObjectId ? { _id: userId } : { handle: normalizeHandle(req.user.handle) };
+
+      const existingEmail = await UserModel.findOne({
+        email: cleanEmail,
+        ...(isObjectId ? { _id: { $ne: userId } } : { handle: { $ne: normalizeHandle(req.user.handle) } }),
+      });
       if (existingEmail) {
         return res.status(409).json({ error: 'This email is already registered to another account.' });
       }
 
-      const updated = await UserModel.findByIdAndUpdate(
-        userId,
+      const updated = await UserModel.findOneAndUpdate(
+        query,
         { email: cleanEmail, emailVerified: true, isVerified: true },
         { new: true }
       );
+      if (!updated) {
+        return res.status(404).json({ error: 'User not found' });
+      }
       const formatted = formatUser(updated);
       io.emit('user_updated', formatted);
       return res.json({ success: true, user: formatted });
     } else {
       const db = readLocalDB();
       const existingEmail = db.users.find(
-        (u) => u.email && u.email.toLowerCase() === cleanEmail && String(u.id) !== String(userId) && u.handle !== req.user.handle
+        (u) =>
+          u.email &&
+          u.email.toLowerCase() === cleanEmail &&
+          String(u.id) !== String(userId) &&
+          normalizeHandle(u.handle) !== normalizeHandle(req.user.handle)
       );
       if (existingEmail) {
         return res.status(409).json({ error: 'This email is already registered to another account.' });
       }
 
-      const u = db.users.find((item) => String(item.id) === String(userId) || item.handle === req.user.handle);
+      const u = db.users.find(
+        (item) => String(item.id) === String(userId) || normalizeHandle(item.handle) === normalizeHandle(req.user.handle)
+      );
       if (!u) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -1666,19 +1714,9 @@ app.post('/api/auth/qr/confirm', authenticateToken, async (req, res) => {
 // Get active sessions for the current authenticated user
 app.get('/api/auth/sessions', authenticateToken, async (req, res) => {
   try {
-    let user = null;
-    if (isMongoConnected) {
-      user = await UserModel.findById(req.user.id).select('+sessions').lean();
-    } else {
-      const db = readLocalDB();
-      user = db.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
-    }
+    const user = await findUser(req.user.id, req.user.handle, '+sessions');
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    let sessions = Array.isArray(user.sessions) ? [...user.sessions] : [];
+    let sessions = (user && Array.isArray(user.sessions)) ? [...user.sessions] : [];
 
     // If current user has no session entry yet, synthesize current session
     if (!sessions.some((s) => s.sessionId === req.sessionId)) {
@@ -1712,7 +1750,20 @@ app.get('/api/auth/sessions', authenticateToken, async (req, res) => {
 
     res.json({ sessions: mapped });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to retrieve active sessions' });
+    console.error('Failed to retrieve active sessions:', err);
+    res.json({
+      sessions: [
+        {
+          sessionId: req.sessionId || 'current',
+          device: parseUserAgent(req.headers['user-agent']),
+          ip: getClientIp(req),
+          clientName: 'EzTalk Web',
+          createdAt: new Date(),
+          lastActive: new Date(),
+          isCurrent: true,
+        },
+      ],
+    });
   }
 });
 
@@ -1728,17 +1779,17 @@ app.delete('/api/auth/sessions/:sessionId', authenticateToken, async (req, res) 
       return res.status(400).json({ error: 'Cannot terminate current session here. Use logout instead.' });
     }
 
-    let user = null;
-    let localDB = null;
     if (isMongoConnected) {
-      user = await UserModel.findById(req.user.id);
+      const user = await findUser(req.user.id, req.user.handle, '+sessions');
       if (user) {
         user.sessions = (user.sessions || []).filter((s) => s.sessionId !== sessionId);
         await user.save();
       }
     } else {
-      localDB = readLocalDB();
-      user = localDB.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+      const localDB = readLocalDB();
+      const user = localDB.users.find(
+        (u) => String(u.id) === String(req.user.id) || normalizeHandle(u.handle) === normalizeHandle(req.user.handle)
+      );
       if (user) {
         user.sessions = (user.sessions || []).filter((s) => s.sessionId !== sessionId);
         writeLocalDB(localDB);
@@ -1758,18 +1809,18 @@ app.delete('/api/auth/sessions/:sessionId', authenticateToken, async (req, res) 
 app.post('/api/auth/sessions/terminate-others', authenticateToken, async (req, res) => {
   try {
     const currentSessionId = req.sessionId;
-    let user = null;
-    let localDB = null;
 
     if (isMongoConnected) {
-      user = await UserModel.findById(req.user.id);
+      const user = await findUser(req.user.id, req.user.handle, '+sessions');
       if (user) {
         user.sessions = (user.sessions || []).filter((s) => s.sessionId === currentSessionId);
         await user.save();
       }
     } else {
-      localDB = readLocalDB();
-      user = localDB.users.find((u) => String(u.id) === String(req.user.id) || u.handle === req.user.handle);
+      const localDB = readLocalDB();
+      const user = localDB.users.find(
+        (u) => String(u.id) === String(req.user.id) || normalizeHandle(u.handle) === normalizeHandle(req.user.handle)
+      );
       if (user) {
         user.sessions = (user.sessions || []).filter((s) => s.sessionId === currentSessionId);
         writeLocalDB(localDB);

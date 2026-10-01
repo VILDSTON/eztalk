@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 
 /**
  * EzTalk Email Delivery Service
@@ -10,6 +11,9 @@ let cachedTransporter = null;
 let cachedConfigKey = '';
 
 function getTransporter() {
+  // Dynamically load fresh .env values in case .env was edited
+  dotenv.config();
+
   const host = (process.env.SMTP_HOST || '').trim();
   const user = (process.env.SMTP_USER || '').trim();
   const rawPass = (process.env.SMTP_PASS || '').trim();
@@ -175,6 +179,11 @@ export async function sendVerificationEmail(toEmail, code) {
   } catch (err) {
     console.error(`[EzTalk Email] Failed to send email to ${cleanEmail}:`, err.message);
 
+    // Always log the code to server terminal/Render logs for debugging & recovery
+    console.log('\n' + '='.repeat(64));
+    console.log(`⚡ [EzTalk Security] OTP Code for ${cleanEmail}: >>> ${code} <<<`);
+    console.log('='.repeat(64) + '\n');
+
     if (err.message && (err.message.includes('535') || err.message.includes('BadCredentials'))) {
       console.warn('\n' + '!'.repeat(70));
       console.warn('⚠️ [EzTalk Email] GMAIL SMTP AUTHENTICATION FAILED (535 BadCredentials)');
@@ -183,8 +192,13 @@ export async function sendVerificationEmail(toEmail, code) {
       console.warn(`   1. Turn on 2-Step Verification for ${user}`);
       console.warn('   2. Visit: https://myaccount.google.com/apppasswords');
       console.warn('   3. Create an app password named "EzTalk"');
-      console.warn('   4. Put that 16-character code into SMTP_PASS in .env');
+      console.warn('   4. Put that 16-character code into SMTP_PASS in .env or Render Dashboard');
       console.warn('!'.repeat(70) + '\n');
+      throw new Error('Gmail SMTP authentication failed (535 BadCredentials). Please ensure valid Google App Password is set in server environment variables.');
+    }
+
+    if (err.message && err.message.includes('timed out')) {
+      throw new Error('Email server connection timed out. Please check SMTP settings or try again.');
     }
 
     // In dev, don't let broken SMTP completely block user testing
@@ -197,6 +211,6 @@ export async function sendVerificationEmail(toEmail, code) {
         warning: err.message.includes('535') ? 'Gmail App Password required (see server terminal)' : err.message,
       };
     }
-    throw new Error('Failed to send verification email. Please check the email address or try again later.');
+    throw new Error(err.message || 'Failed to send verification email. Please check the email address or try again later.');
   }
 }

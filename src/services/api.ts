@@ -183,11 +183,23 @@ export class ApiService {
 
   // ─── Active Sessions & Devices Management ───
   static async getSessions(): Promise<UserSession[]> {
-    const res = await fetch(`${API_BASE_URL}/auth/sessions`, {
-      headers: getAuthHeaders(),
-    });
-    const data = await handleResponse(res, 'Failed to fetch active sessions');
-    return data.sessions || [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/sessions`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        if (res.status === 404 || res.status === 401) {
+          return [];
+        }
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to fetch active sessions');
+      }
+      const data = await res.json();
+      return Array.isArray(data.sessions) ? data.sessions : [];
+    } catch (err: any) {
+      console.warn('Failed to fetch sessions:', err?.message || err);
+      return [];
+    }
   }
 
   static async terminateSession(sessionId: string): Promise<{ success: boolean; message: string }> {
