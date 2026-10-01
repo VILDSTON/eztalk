@@ -306,12 +306,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 )}
               </div>
 
-              {/* Handle & Verification Badge */}
-              <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                <p className="text-xs font-mono font-bold text-[var(--ez-accent)] tracking-wide">{user.handle}</p>
+              {/* Handle */}
+              <p className="text-xs font-mono font-bold text-[var(--ez-accent)] tracking-wide mt-0.5">{user.handle}</p>
+
+              {/* Verification Badge (Below username) */}
+              <div className="flex items-center justify-center mt-1.5">
                 {user.isVerified ? (
                   <span
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold tracking-wide shadow-sm"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold tracking-wide shadow-sm"
                     title={t.profile?.verifiedBadge || 'Verified'}
                   >
                     <ShieldCheck className="w-3 h-3 text-emerald-400" />
@@ -319,7 +321,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </span>
                 ) : (
                   <span
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium tracking-wide"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium tracking-wide"
                     title={t.profile?.unverifiedBadge || 'Unverified'}
                   >
                     <Shield className="w-3 h-3 text-zinc-400" />

@@ -664,7 +664,20 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                         <h3 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">{name || currentUser.handle}</h3>
                         <span className="text-sm shrink-0">{statusEmoji}</span>
                       </div>
-                      <p className="text-xs text-neon-green font-mono truncate">{currentUser.handle}</p>
+                      <p className="text-xs text-[var(--ez-accent)] font-mono truncate">{currentUser.handle}</p>
+                      <div className="mt-1">
+                        {isAccountVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>{t.profile?.verifiedBadge || 'Verified'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium">
+                            <Shield className="w-3 h-3 text-zinc-400" />
+                            <span>{t.profile?.unverifiedBadge || 'Unverified'}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

@@ -6,31 +6,51 @@ import nodemailer from 'nodemailer';
  * Falls back to terminal logging in development if SMTP is not configured.
  */
 
-let transporter = null;
+let cachedTransporter = null;
+let cachedConfigKey = '';
 
 function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = (process.env.SMTP_HOST || '').trim();
+  const user = (process.env.SMTP_USER || '').trim();
+  const rawPass = (process.env.SMTP_PASS || '').trim();
+  const pass = rawPass.replace(/\s+/g, ''); // automatically strip spaces from 16-char Google App Passwords
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
 
   if (!host || !user || !pass) {
     return null;
   }
 
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+  const configKey = `${host}:${port}:${user}:${pass}`;
+  if (cachedTransporter && cachedConfigKey === configKey) {
+    return cachedTransporter;
   }
 
-  return transporter;
+  const isGmail = host.toLowerCase().includes('gmail.com') || user.toLowerCase().endsWith('@gmail.com');
+
+  const transportOptions = isGmail
+    ? {
+        service: 'gmail',
+        auth: {
+          user,
+          pass,
+        },
+      }
+    : {
+        host,
+        port,
+        secure: port === 465,
+        auth: {
+          user,
+          pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      };
+
+  cachedTransporter = nodemailer.createTransport(transportOptions);
+  cachedConfigKey = configKey;
+  return cachedTransporter;
 }
 
 export function isSmtpConfigured() {
@@ -126,7 +146,15 @@ export async function sendVerificationEmail(toEmail, code) {
     };
   }
 
-  const fromAddress = process.env.SMTP_FROM || `"EzTalk Security" <${process.env.SMTP_USER}>`;
+  const host = (process.env.SMTP_HOST || '').trim().toLowerCase();
+  const user = (process.env.SMTP_USER || '').trim();
+  const isGmail = host.includes('gmail.com') || user.endsWith('@gmail.com');
+
+  // For Gmail SMTP, the From address MUST match the authenticated user, or Google rejects/marks as spam
+  let fromAddress = process.env.SMTP_FROM || `"EzTalk Security" <${user}>`;
+  if (isGmail && !fromAddress.includes(user)) {
+    fromAddress = `"EzTalk Security" <${user}>`;
+  }
 
   const mailOptions = {
     from: fromAddress,
@@ -142,10 +170,28 @@ export async function sendVerificationEmail(toEmail, code) {
     return { success: true, simulated: false };
   } catch (err) {
     console.error(`[EzTalk Email] Failed to send email to ${cleanEmail}:`, err.message);
+
+    if (err.message && (err.message.includes('535') || err.message.includes('BadCredentials'))) {
+      console.warn('\n' + '!'.repeat(70));
+      console.warn('⚠️ [EzTalk Email] GMAIL SMTP AUTHENTICATION FAILED (535 BadCredentials)');
+      console.warn('   Google DOES NOT accept regular account passwords for SMTP!');
+      console.warn('   You MUST generate and use a 16-character Google App Password:');
+      console.warn(`   1. Turn on 2-Step Verification for ${user}`);
+      console.warn('   2. Visit: https://myaccount.google.com/apppasswords');
+      console.warn('   3. Create an app password named "EzTalk"');
+      console.warn('   4. Put that 16-character code into SMTP_PASS in .env');
+      console.warn('!'.repeat(70) + '\n');
+    }
+
     // In dev, don't let broken SMTP completely block user testing
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[EzTalk Email] Dev Fallback Code: >>> ${code} <<<`);
-      return { success: true, simulated: true, code };
+      return {
+        success: true,
+        simulated: true,
+        code,
+        warning: err.message.includes('535') ? 'Gmail App Password required (see server terminal)' : err.message,
+      };
     }
     throw new Error('Failed to send verification email. Please check the email address or try again later.');
   }
