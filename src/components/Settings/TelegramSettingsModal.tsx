@@ -588,7 +588,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         className="relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
       >
         {/* ─── Window Header (Titlebar) ─── */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 pt-[max(12px,env(safe-area-inset-top))] border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
               <Sliders className="w-4 h-4" />
@@ -599,16 +599,16 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-150 cursor-pointer"
             title={t.common.close}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-3 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-0.5 w-full">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-2 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar sm:custom-scrollbar pb-0.5 w-full">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1442,12 +1442,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             setTwoFactorError('');
                           }}
                           placeholder="••••••••"
-                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                         />
                         <button
                           type="button"
                           onClick={() => setShow2FAPassword(!show2FAPassword)}
-                          className="absolute right-2 text-ez-muted hover:text-white cursor-pointer"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -1458,17 +1458,26 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
                         {t.settings.confirmTwoFactorPass}
                       </label>
-                      <input
-                        type={show2FAPassword ? 'text' : 'password'}
-                        required
-                        value={twoFactorConfirmInput}
-                        onChange={(e) => {
-                          setTwoFactorConfirmInput(e.target.value);
-                          setTwoFactorError('');
-                        }}
-                        placeholder="••••••••"
-                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
-                      />
+                      <div className="relative flex items-center">
+                        <input
+                          type={show2FAPassword ? 'text' : 'password'}
+                          required
+                          value={twoFactorConfirmInput}
+                          onChange={(e) => {
+                            setTwoFactorConfirmInput(e.target.value);
+                            setTwoFactorError('');
+                          }}
+                          placeholder="••••••••"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShow2FAPassword(!show2FAPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                          {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
@@ -1545,12 +1554,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                             setTwoFactorError('');
                           }}
                           placeholder="••••••••"
-                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
                         />
                         <button
                           type="button"
                           onClick={() => setShow2FAPassword(!show2FAPassword)}
-                          className="absolute right-2 text-ez-muted hover:text-white cursor-pointer"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -1561,17 +1570,26 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       <label className="block text-[11px] font-semibold text-ez-muted uppercase tracking-wider mb-1">
                         {t.settings.confirmTwoFactorPass}
                       </label>
-                      <input
-                        type={show2FAPassword ? 'text' : 'password'}
-                        required
-                        value={twoFactorConfirmInput}
-                        onChange={(e) => {
-                          setTwoFactorConfirmInput(e.target.value);
-                          setTwoFactorError('');
-                        }}
-                        placeholder="••••••••"
-                        className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
-                      />
+                      <div className="relative flex items-center">
+                        <input
+                          type={show2FAPassword ? 'text' : 'password'}
+                          required
+                          value={twoFactorConfirmInput}
+                          onChange={(e) => {
+                            setTwoFactorConfirmInput(e.target.value);
+                            setTwoFactorError('');
+                          }}
+                          placeholder="••••••••"
+                          className="w-full bg-ez-base border border-white/10 focus:border-[var(--ez-accent)] rounded-xl pl-3 pr-10 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShow2FAPassword(!show2FAPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                          {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
@@ -1706,10 +1724,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     type="button"
                     onClick={fetchSessions}
                     disabled={sessionsLoading}
-                    title="Refresh"
-                    className="p-2 rounded-xl text-ez-muted hover:text-white hover:bg-white/5 border border-white/5 transition-colors cursor-pointer disabled:opacity-50"
+                    title={t.common.refresh || 'Refresh'}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 border border-white/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
                   >
-                    <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-neon-green' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-[var(--ez-accent)]' : ''}`} />
                   </button>
                 </div>
 
@@ -1717,15 +1735,15 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 {sessions.find((s) => s.isCurrent) && (() => {
                   const currentDevice = sessions.find((s) => s.isCurrent)!;
                   return (
-                    <div className="p-3.5 rounded-xl bg-neon-green/[0.04] border border-neon-green/20 flex items-center justify-between gap-3">
-                      <div className="flex items-center space-x-3 min-w-0">
-                        <div className="p-2.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/30 shrink-0">
+                    <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/15 transition-colors flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="p-2.5 rounded-xl bg-[var(--ez-accent)]/10 text-[var(--ez-accent)] border border-[var(--ez-accent)]/25 shrink-0">
                           {getDeviceIcon(currentDevice.device?.type, currentDevice.device?.os)}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-white flex items-center gap-2 truncate">
-                            <span>{currentDevice.device?.os || 'This Device'} • {currentDevice.device?.browser || 'Browser'}</span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-neon-green/20 text-neon-green border border-neon-green/30">
+                            <span className="truncate">{currentDevice.device?.os || 'This Device'} • {currentDevice.device?.browser || 'Browser'}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--ez-accent)]/15 text-[var(--ez-accent)] border border-[var(--ez-accent)]/30 shrink-0">
                               {t.settings.thisDevice}
                             </span>
                           </div>
@@ -1735,8 +1753,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                               <span>{currentDevice.ip || 'Local Network'}</span>
                             </span>
                             <span>•</span>
-                            <span className="text-neon-green flex items-center space-x-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+                            <span className="text-[var(--ez-accent)] flex items-center space-x-1 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--ez-accent)] animate-pulse" />
                               <span>{t.settings.activeNow}</span>
                             </span>
                           </div>
@@ -1842,7 +1860,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Footer Actions ─── */}
-        <div className="p-3.5 sm:p-4 px-4 sm:px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
+        {/* ─── Window Footer (Action Buttons) ─── */}
+        <div className="p-3 sm:p-4 px-4 sm:px-6 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
           <div className="text-xs text-ez-muted flex items-center space-x-1.5">
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
@@ -1852,18 +1871,18 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-2.5 sm:space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 transition-colors duration-150 cursor-pointer"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-150 cursor-pointer"
             >
               {t.common.cancel}
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 sm:px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-transform duration-150 hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5"
+              className="px-4 sm:px-5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold shadow-neon-sm transition-all duration-150 hover:scale-105 active:scale-95 cursor-pointer flex items-center space-x-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               <span>{t.settings.saveChanges}</span>

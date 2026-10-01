@@ -276,9 +276,9 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-ez-muted hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-150 cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -433,7 +433,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShow2FAPassword(!show2FAPassword)}
-                      className="absolute right-2 text-ez-muted hover:text-white cursor-pointer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       {show2FAPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>

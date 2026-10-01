@@ -70,7 +70,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-150 cursor-pointer"
           title={(t as any)?.common?.close || 'Close'}
         >
           <X className="w-4 h-4" />
