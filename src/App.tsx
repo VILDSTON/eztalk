@@ -434,7 +434,11 @@ function MainApp() {
 
   const aliasedAllUsers = useMemo(() => {
     return allUsers.map((u) => {
-      const alias = currentUser?.contactAliases?.[normalizeHandle(u.handle).toLowerCase()];
+      const handleClean = normalizeHandle(u.handle).toLowerCase();
+      const handleWithoutAt = u.handle.replace('@', '').trim().toLowerCase();
+      const alias =
+        currentUser?.contactAliases?.[handleClean] ||
+        currentUser?.contactAliases?.[handleWithoutAt];
       if (alias) {
         return { ...u, name: alias };
       }
@@ -2029,16 +2033,19 @@ function MainApp() {
   const handleSaveContactAlias = async (targetHandle: string, newAlias: string) => {
     if (!currentUser) return;
     const cleanTarget = normalizeHandle(targetHandle);
-    const normalizedKey = cleanTarget.toLowerCase();
+    const keyWithAt = cleanTarget.toLowerCase();
+    const keyWithoutAt = cleanTarget.replace('@', '').toLowerCase();
     const cleanAlias = sanitizeDisplayName(newAlias).trim();
 
     const currentAliases = currentUser.contactAliases || {};
     const newAliases = { ...currentAliases };
 
     if (cleanAlias) {
-      newAliases[normalizedKey] = cleanAlias;
+      newAliases[keyWithAt] = cleanAlias;
+      newAliases[keyWithoutAt] = cleanAlias;
     } else {
-      delete newAliases[normalizedKey];
+      delete newAliases[keyWithAt];
+      delete newAliases[keyWithoutAt];
     }
 
     handleUpdateCurrentUser({ ...currentUser, contactAliases: newAliases });
@@ -2366,7 +2373,12 @@ function MainApp() {
               isLoadingInitial={isFetchingChat}
               onLoadMore={handleLoadMoreMessages}
               onRetryMessage={handleRetryMessage}
-              currentAlias={selectedUser ? currentUser?.contactAliases?.[normalizeHandle(selectedUser.handle).toLowerCase()] : undefined}
+              currentAlias={
+                selectedUser
+                  ? currentUser?.contactAliases?.[normalizeHandle(selectedUser.handle).toLowerCase()] ||
+                    currentUser?.contactAliases?.[selectedUser.handle.replace('@', '').toLowerCase()]
+                  : undefined
+              }
               originalName={selectedUser ? allUsers.find((u) => normalizeHandle(u.handle) === normalizeHandle(selectedUser.handle))?.name : undefined}
               onSaveAlias={(newAlias) => selectedUser && handleSaveContactAlias(selectedUser.handle, newAlias)}
               onEditAlias={() => {
@@ -2484,7 +2496,10 @@ function MainApp() {
         <EditContactNameModal
           isOpen={Boolean(editingAliasUser)}
           user={editingAliasUser}
-          currentAlias={currentUser.contactAliases?.[normalizeHandle(editingAliasUser.handle).toLowerCase()]}
+          currentAlias={
+            currentUser.contactAliases?.[normalizeHandle(editingAliasUser.handle).toLowerCase()] ||
+            currentUser.contactAliases?.[editingAliasUser.handle.replace('@', '').toLowerCase()]
+          }
           originalName={allUsers.find((u) => normalizeHandle(u.handle) === normalizeHandle(editingAliasUser.handle))?.name}
           onClose={() => setEditingAliasUser(null)}
           onSave={(newAlias) => {

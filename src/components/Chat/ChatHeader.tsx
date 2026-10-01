@@ -467,7 +467,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <div className="flex flex-col min-w-0">
               <div className="flex items-center space-x-1.5 min-w-0">
                 <span className="text-sm font-bold text-white tracking-tight group-hover:text-neon-green transition-colors duration-150 truncate">
-                  {user.name || user.handle || 'User'}
+                  {currentAlias || user.name || user.handle || 'User'}
                 </span>
                 {user.isVerified ? (
                   <span title={t.profile?.verifiedBadge || 'Verified'}>

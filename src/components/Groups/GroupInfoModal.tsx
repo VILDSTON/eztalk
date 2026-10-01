@@ -585,29 +585,35 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
             className="relative max-w-2xl max-h-[90vh] flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-ez-border/60">
-              {/* Single Image Top-Right Corner Close Button */}
+            {/* Header bar above photo - close button is completely outside the photo */}
+            <div className="w-full flex items-center justify-between pb-2.5 px-1">
+              <span className="text-xs font-semibold text-white/80 truncate max-w-[280px]">
+                {previewAttachment.name}
+              </span>
               <button
                 type="button"
                 onClick={() => setPreviewAttachment(null)}
-                className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/75 hover:bg-black/95 border border-white/20 rounded-full backdrop-blur-md shadow-lg transition-transform hover:scale-110 cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer ml-3 shrink-0"
                 title={t.common?.close || 'Close'}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
+            </div>
 
+            {/* Clean Image - 100% visible, not covered by any buttons */}
+            <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-ez-border/60 bg-black/40">
               {previewAttachment.type === 'video' ? (
                 <video
                   src={previewAttachment.url}
                   controls
                   autoPlay
-                  className="max-w-full max-h-[72vh] object-contain"
+                  className="max-w-full max-h-[70vh] object-contain"
                 />
               ) : (
                 <img
                   src={previewAttachment.url}
                   alt={previewAttachment.name}
-                  className="max-w-full max-h-[72vh] object-contain"
+                  className="max-w-full max-h-[70vh] object-contain"
                 />
               )}
             </div>

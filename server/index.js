@@ -2287,7 +2287,10 @@ app.patch('/api/users/:handle/contacts/alias', authenticateToken, async (req, re
     const { targetHandle, aliasName } = req.body;
     const cleanTarget = normalizeHandle(targetHandle);
 
-    if (req.user.handle !== userHandle) {
+    if (
+      normalizeHandle(req.user.handle) !== userHandle &&
+      String(req.user.id) !== String(req.params.handle)
+    ) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     if (!cleanTarget) {
@@ -2297,39 +2300,48 @@ app.patch('/api/users/:handle/contacts/alias', authenticateToken, async (req, re
       return res.status(400).json({ error: 'Alias must be 50 characters or less.' });
     }
 
+    const keyWithAt = cleanTarget.toLowerCase();
+    const keyWithoutAt = cleanTarget.replace('@', '').toLowerCase();
+
     if (isMongoConnected) {
-      const user = await UserModel.findOne({ handle: userHandle });
+      const user = await findUser(req.user.id, userHandle);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       if (!user.contactAliases) user.contactAliases = {};
-      
+
       if (!aliasName || aliasName.trim() === '') {
-        delete user.contactAliases[cleanTarget];
+        delete user.contactAliases[keyWithAt];
+        delete user.contactAliases[keyWithoutAt];
       } else {
-        user.contactAliases[cleanTarget] = aliasName.trim();
+        user.contactAliases[keyWithAt] = aliasName.trim();
+        user.contactAliases[keyWithoutAt] = aliasName.trim();
       }
-      
+
       user.markModified('contactAliases');
       await user.save();
-      
+
       io.to(userHandle).emit('profile_updated', formatUser(user));
       res.json({ success: true, contactAliases: user.contactAliases });
     } else {
       const db = readLocalDB();
-      const idx = db.users.findIndex((u) => u.handle.toLowerCase() === userHandle);
-      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+      const user = db.users.find(
+        (u) => String(u.id) === String(req.user.id) || normalizeHandle(u.handle) === userHandle
+      );
+      if (!user) return res.status(404).json({ error: 'User not found' });
 
-      if (!db.users[idx].contactAliases) db.users[idx].contactAliases = {};
-      
+      if (!user.contactAliases) user.contactAliases = {};
+
       if (!aliasName || aliasName.trim() === '') {
-        delete db.users[idx].contactAliases[cleanTarget];
+        delete user.contactAliases[keyWithAt];
+        delete user.contactAliases[keyWithoutAt];
       } else {
-        db.users[idx].contactAliases[cleanTarget] = aliasName.trim();
+        user.contactAliases[keyWithAt] = aliasName.trim();
+        user.contactAliases[keyWithoutAt] = aliasName.trim();
       }
 
       writeLocalDB(db);
-      io.to(userHandle).emit('profile_updated', formatUser(db.users[idx]));
-      res.json({ success: true, contactAliases: db.users[idx].contactAliases });
+      io.to(userHandle).emit('profile_updated', formatUser(user));
+      res.json({ success: true, contactAliases: user.contactAliases });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
