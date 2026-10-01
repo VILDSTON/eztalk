@@ -529,35 +529,54 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Lightbox Modal */}
         {previewAttachment && (
           <div
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-fade-in"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
             onClick={(e) => {
               e.stopPropagation();
               setPreviewAttachment(null);
             }}
           >
-            <div className="relative max-w-2xl max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => setPreviewAttachment(null)}
-                className="absolute -top-10 right-0 w-8 h-8 flex items-center justify-center text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors duration-150 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              {previewAttachment.type === 'video' ? (
-                <video
-                  src={previewAttachment.url}
-                  controls
-                  autoPlay
-                  className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl border border-ez-border"
-                />
-              ) : (
-                <img
-                  src={previewAttachment.url}
-                  alt={previewAttachment.name}
-                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-ez-border"
-                />
-              )}
-              <div className="mt-3 flex items-center space-x-3 bg-ez-surface/90 px-4 py-2 rounded-xl border border-ez-border/50">
+            {/* Global Fixed Close Button (Top-Right Screen Corner) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewAttachment(null);
+              }}
+              className="fixed top-4 right-4 z-[120] w-10 h-10 flex items-center justify-center text-white/90 hover:text-white bg-black/70 hover:bg-black/90 border border-white/20 rounded-full shadow-2xl backdrop-blur-md transition-all hover:scale-110 cursor-pointer"
+              title={t.common?.close || 'Close'}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="relative max-w-2xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-ez-border/60">
+                {/* Image Top-Right Corner Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setPreviewAttachment(null)}
+                  className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/70 hover:bg-black/90 border border-white/20 rounded-full backdrop-blur-md shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                  title={t.common?.close || 'Close'}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {previewAttachment.type === 'video' ? (
+                  <video
+                    src={previewAttachment.url}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-[72vh] object-contain"
+                  />
+                ) : (
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.name}
+                    className="max-w-full max-h-[72vh] object-contain"
+                  />
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center space-x-3 bg-ez-surface/95 px-4 py-2 rounded-xl border border-ez-border/50 shadow-xl">
                 <span className="text-xs font-medium text-white truncate max-w-xs">{previewAttachment.name}</span>
                 <button
                   type="button"
