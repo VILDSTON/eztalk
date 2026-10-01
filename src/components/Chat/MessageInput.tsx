@@ -25,7 +25,7 @@ interface MessageInputProps {
   onCancelEdit?: () => void;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({
+const MessageInputComponent: React.FC<MessageInputProps> = ({
   recipientHandle,
   currentUserHandle,
   replyingTo,
@@ -731,3 +731,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     </div>
   );
 };
+
+export const MessageInput = React.memo(MessageInputComponent, (prev, next) => {
+  if (prev.recipientHandle !== next.recipientHandle) return false;
+  if (prev.currentUserHandle !== next.currentUserHandle) return false;
+  if (prev.enterToSend !== next.enterToSend) return false;
+  if (prev.replyingTo !== next.replyingTo) return false;
+  if (prev.editingMessage !== next.editingMessage) return false;
+  // If draft changes only because of our own keystroke, don't re-render input
+  if (prev.initialDraft !== next.initialDraft && prev.recipientHandle !== next.recipientHandle) return false;
+  return true;
+});
+

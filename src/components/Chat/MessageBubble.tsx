@@ -88,7 +88,7 @@ const PLAYBACK_SPEEDS = [1, 1.5, 2];
 let activeAudioElement: HTMLAudioElement | null = null;
 let activeAudioStop: (() => void) | null = null;
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   currentUserId,
   currentUserHandle,
@@ -821,7 +821,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         id={`message-${message.id}`}
         className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : (showTail !== false ? 'mb-2' : 'mb-1')
           } max-w-full ${isMe ? 'items-end' : 'items-start'
-          } ${isNewMessage ? 'animate-slide-up' : 'animate-fade-in'} font-sans touch-manipulation`}
+          } ${isNewMessage ? 'animate-slide-up will-change-transform' : ''} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -841,7 +841,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div
             className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-transform duration-75"
             style={{
-              transform: `translateX(${Math.abs(swipeOffset) * 0.3}px) scale(${Math.min(1.2, Math.abs(swipeOffset) / 50)})`,
+              transform: `translate3d(${Math.abs(swipeOffset) * 0.3}px, 0, 0) scale(${Math.min(1.2, Math.abs(swipeOffset) / 50)})`,
               opacity: Math.min(1, Math.abs(swipeOffset) / 40),
             }}
           >
@@ -872,7 +872,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
               }`
             }`}
-          style={{ transform: `translateX(${swipeOffset}px)` }}
+          style={{
+            transform: `translate3d(${swipeOffset}px, 0, 0)`,
+            willChange: isSwiping ? 'transform' : 'auto'
+          }}
         >
           {/* Authentic Telegram Message Tail Corner */}
           {showTail !== false && !emojiInfo.isEmojiOnly && (
@@ -1195,7 +1198,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Bubble Meta Footer: Time + Checkmarks */}
           {emojiInfo.isEmojiOnly ? (
-            <div className="flex items-center space-x-1.5 text-[10px] font-mono select-none mt-0.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-sm">
+            <div className="flex items-center space-x-1.5 text-[10px] font-mono select-none mt-0.5 px-2.5 py-0.5 rounded-full bg-zinc-950/95 border border-white/10 text-white shadow-sm">
               {(message.forwardRestricted || message.isSecret) && (
                 <span title={t?.chat?.forwardRestricted || "Forward Restricted"}>
                   <Lock className="w-2.5 h-2.5 text-neon-green" />
@@ -1334,7 +1337,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 }}
               />
               <div
-                className="fixed bg-ez-elevated/95 backdrop-blur-md border border-ez-border rounded-2xl shadow-glass-lg p-2 z-50 animate-scale-up text-xs space-y-1 w-56 select-none"
+                className="fixed bg-zinc-900 border border-zinc-700/60 rounded-2xl shadow-2xl p-2 z-50 animate-scale-up text-xs space-y-1 w-56 select-none"
                 style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1472,7 +1475,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {notFoundUsername &&
         createPortal(
           <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center p-4">
-            <div className="bg-ez-elevated/95 text-white text-xs sm:text-sm px-5 py-3 rounded-2xl border border-red-500/35 shadow-glass flex items-center space-x-2.5 backdrop-blur-md animate-scale-up pointer-events-auto select-none">
+            <div className="bg-zinc-900 text-white text-xs sm:text-sm px-5 py-3 rounded-2xl border border-red-500/35 shadow-2xl flex items-center space-x-2.5 animate-scale-up pointer-events-auto select-none">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
               <span className="font-medium tracking-tight">
                 {language === 'ru'
@@ -1488,3 +1491,64 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </>
   );
 };
+
+function areMessageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): boolean {
+  if (
+    prev.message === next.message &&
+    prev.showTail === next.showTail &&
+    prev.isFirstInGroup === next.isFirstInGroup &&
+    prev.isNewMessage === next.isNewMessage &&
+    prev.currentUserId === next.currentUserId &&
+    prev.currentUserHandle === next.currentUserHandle &&
+    prev.isGroupChat === next.isGroupChat
+  ) {
+    return true;
+  }
+
+  const p = prev.message;
+  const n = next.message;
+
+  if (p.id !== n.id) return false;
+  if (p.text !== n.text) return false;
+  if (p.isEdited !== n.isEdited) return false;
+  if (p.status !== n.status) return false;
+  if (p.pinned !== n.pinned) return false;
+  if (p.deleted !== n.deleted) return false;
+  if (p.createdAt !== n.createdAt || p.timestamp !== n.timestamp) return false;
+  if (p.senderHandle !== n.senderHandle || p.senderId !== n.senderId) return false;
+
+  // Compare attachment
+  if (!p.attachment !== !n.attachment) return false;
+  if (p.attachment && n.attachment) {
+    if (p.attachment.url !== n.attachment.url) return false;
+    if (p.attachment.type !== n.attachment.type) return false;
+    if (p.attachment.name !== n.attachment.name) return false;
+    if (p.attachment.duration !== n.attachment.duration) return false;
+  }
+
+  // Compare reactions
+  const pReactions = p.reactions || {};
+  const nReactions = n.reactions || {};
+  const pKeys = Object.keys(pReactions);
+  const nKeys = Object.keys(nReactions);
+  if (pKeys.length !== nKeys.length) return false;
+  for (let i = 0; i < pKeys.length; i++) {
+    const k = pKeys[i];
+    const pArr = pReactions[k] || [];
+    const nArr = nReactions[k] || [];
+    if (pArr.length !== nArr.length) return false;
+  }
+
+  // Compare layout flags & context
+  if (prev.showTail !== next.showTail) return false;
+  if (prev.isFirstInGroup !== next.isFirstInGroup) return false;
+  if (prev.isNewMessage !== next.isNewMessage) return false;
+  if (prev.currentUserId !== next.currentUserId) return false;
+  if (prev.currentUserHandle !== next.currentUserHandle) return false;
+  if (prev.isGroupChat !== next.isGroupChat) return false;
+
+  return true;
+}
+
+export const MessageBubble = React.memo(MessageBubbleComponent, areMessageBubblePropsEqual);
+

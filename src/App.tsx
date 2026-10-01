@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react';
 import { LeftSidebar } from './components/Sidebar/LeftSidebar';
 import { FriendsList } from './components/Friends/FriendsList';
 import { ChatWindow } from './components/Chat/ChatWindow';
@@ -881,100 +881,108 @@ function MainApp() {
       if (!isForGroup && !isForMe) return;
 
       // Ensure active chats list includes this direct conversation
-      if (!isForGroup) {
-        const otherHandle = sHandle === myHandle ? rHandle : sHandle;
-        if (otherHandle) {
-          setActiveChatHandles((prev) => [...new Set([...prev, otherHandle])]);
-        }
-      }
-
-      // Update last message preview for the chat list
-      setLastMessages((prev) => {
-        const updated = { ...prev };
-        if (isForGroup) {
-          updated[newMsg.groupId!] = newMsg;
-          updated[`group__${newMsg.groupId!}`] = newMsg;
-        } else {
+      startTransition(() => {
+        if (!isForGroup) {
           const otherHandle = sHandle === myHandle ? rHandle : sHandle;
           if (otherHandle) {
-            const clean = normalizeHandle(otherHandle).toLowerCase();
-            updated[clean] = newMsg;
-            updated[normalizeHandle(otherHandle)] = newMsg;
-            if (sHandle === myHandle && rHandle === myHandle) {
-              updated['saved_messages'] = newMsg;
-            }
+            setActiveChatHandles((prev) => (prev.includes(otherHandle) ? prev : [...prev, otherHandle]));
           }
         }
-        return updated;
+
+        // Update last message preview for the chat list
+        setLastMessages((prev) => {
+          const updated = { ...prev };
+          if (isForGroup) {
+            updated[newMsg.groupId!] = newMsg;
+            updated[`group__${newMsg.groupId!}`] = newMsg;
+          } else {
+            const otherHandle = sHandle === myHandle ? rHandle : sHandle;
+            if (otherHandle) {
+              const clean = normalizeHandle(otherHandle).toLowerCase();
+              updated[clean] = newMsg;
+              updated[normalizeHandle(otherHandle)] = newMsg;
+              if (sHandle === myHandle && rHandle === myHandle) {
+                updated['saved_messages'] = newMsg;
+              }
+            }
+          }
+          return updated;
+        });
+
+        // Update unread count if message is not sent by current user and chat is not open
+        const isCurrentChatOpen = isForGroup
+          ? selectedGroupIdRef.current === newMsg.groupId
+          : selectedUserRef.current && normalizeHandle(selectedUserRef.current.handle) === sHandle;
+
+        if (sHandle !== myHandle && !isCurrentChatOpen) {
+          setUnreadCounts((prev) => {
+            const key = isForGroup ? newMsg.groupId! : sHandle;
+            return {
+              ...prev,
+              [key]: (prev[key] || 0) + 1,
+            };
+          });
+        }
+
+        // Add to conversation cache immediately whether chat is active or not
+        const targetConvKey = isForGroup
+          ? `group__${newMsg.groupId}`
+          : getConversationKey(sHandle, rHandle);
+
+        setMessagesByChat((prev) => {
+          const existing = prev[targetConvKey] || ChatStorageService.getConversations()[targetConvKey] || [];
+
+          // 1. Exact ID match
+          let matchIndex = existing.findIndex((m) => m.id === newMsg.id);
+
+          // 2. Race condition deduplication: If message is from current user, merge with matching optimistic temp message
+          if (matchIndex === -1 && sHandle === myHandle) {
+            matchIndex = existing.findIndex((m) => {
+              // Match by tempId if passed by backend
+              if ((newMsg as any).tempId && ((m as any).tempId === (newMsg as any).tempId || m.id === (newMsg as any).tempId)) {
+                return true;
+              }
+              // Match by pending optimistic state and matching content
+              if (m.id.startsWith('temp_') || m.status === 'sending') {
+                const sameText = (m.text || '').trim() === (newMsg.text || '').trim();
+                const sameAttachment =
+                  (!m.attachment && !newMsg.attachment) ||
+                  (Boolean(m.attachment) &&
+                    Boolean(newMsg.attachment) &&
+                    (m.attachment?.url === newMsg.attachment?.url || m.attachment?.name === newMsg.attachment?.name));
+                return sameText && sameAttachment;
+              }
+              return false;
+            });
+          }
+
+          let updated: Message[];
+          if (matchIndex >= 0) {
+            // Replace temp_* optimistic message in-place with confirmed server message (preventing duplicate bubbles)
+            updated = [...existing];
+            updated[matchIndex] = {
+              ...newMsg,
+              status: newMsg.status || 'sent',
+            };
+          } else {
+            // New message from remote sender
+            updated = [...existing, newMsg];
+          }
+
+          ChatStorageService.saveConversation(targetConvKey, updated);
+          return { ...prev, [targetConvKey]: updated };
+        });
       });
 
-      // Update unread count if message is not sent by current user and chat is not open
       const isCurrentChatOpen = isForGroup
         ? selectedGroupIdRef.current === newMsg.groupId
         : selectedUserRef.current && normalizeHandle(selectedUserRef.current.handle) === sHandle;
 
-      if (sHandle !== myHandle && !isCurrentChatOpen) {
-        setUnreadCounts((prev) => {
-          const key = isForGroup ? newMsg.groupId! : sHandle;
-          return {
-            ...prev,
-            [key]: (prev[key] || 0) + 1,
-          };
-        });
-      } else if (sHandle !== myHandle && isCurrentChatOpen) {
+      if (sHandle !== myHandle && isCurrentChatOpen) {
         // Chat is open, mark as read immediately
         const convKey = isForGroup ? `group__${newMsg.groupId}` : getConversationKey(sHandle, rHandle);
         socketService.markMessageRead(newMsg.id, myHandle, convKey);
       }
-
-      // Add to conversation cache immediately whether chat is active or not
-      const targetConvKey = isForGroup
-        ? `group__${newMsg.groupId}`
-        : getConversationKey(sHandle, rHandle);
-
-      setMessagesByChat((prev) => {
-        const existing = prev[targetConvKey] || ChatStorageService.getConversations()[targetConvKey] || [];
-
-        // 1. Exact ID match
-        let matchIndex = existing.findIndex((m) => m.id === newMsg.id);
-
-        // 2. Race condition deduplication: If message is from current user, merge with matching optimistic temp message
-        if (matchIndex === -1 && sHandle === myHandle) {
-          matchIndex = existing.findIndex((m) => {
-            // Match by tempId if passed by backend
-            if ((newMsg as any).tempId && ((m as any).tempId === (newMsg as any).tempId || m.id === (newMsg as any).tempId)) {
-              return true;
-            }
-            // Match by pending optimistic state and matching content
-            if (m.id.startsWith('temp_') || m.status === 'sending') {
-              const sameText = (m.text || '').trim() === (newMsg.text || '').trim();
-              const sameAttachment =
-                (!m.attachment && !newMsg.attachment) ||
-                (Boolean(m.attachment) &&
-                  Boolean(newMsg.attachment) &&
-                  (m.attachment?.url === newMsg.attachment?.url || m.attachment?.name === newMsg.attachment?.name));
-              return sameText && sameAttachment;
-            }
-            return false;
-          });
-        }
-
-        let updated: Message[];
-        if (matchIndex >= 0) {
-          // Replace temp_* optimistic message in-place with confirmed server message (preventing duplicate bubbles)
-          updated = [...existing];
-          updated[matchIndex] = {
-            ...newMsg,
-            status: newMsg.status || 'sent',
-          };
-        } else {
-          // New message from remote sender
-          updated = [...existing, newMsg];
-        }
-
-        ChatStorageService.saveConversation(targetConvKey, updated);
-        return { ...prev, [targetConvKey]: updated };
-      });
 
       // Check if notifications are muted for this sender or group
       const isMuted =
@@ -1025,100 +1033,114 @@ function MainApp() {
 
     // Message edited event
     const unsubEdit = socketService.onMessageEdited(({ id, text, isEdited }) => {
-      setMessagesByChat((prev) => {
-        const next = { ...prev };
-        let modified = false;
-        for (const [convKey, msgList] of Object.entries(next)) {
-          const idx = msgList.findIndex((m) => m.id === id);
-          if (idx >= 0) {
-            const updated = [...msgList];
-            updated[idx] = { ...updated[idx], text, isEdited };
-            next[convKey] = updated;
-            ChatStorageService.saveConversation(convKey, updated);
-            modified = true;
+      startTransition(() => {
+        setMessagesByChat((prev) => {
+          const next = { ...prev };
+          let modified = false;
+          for (const [convKey, msgList] of Object.entries(next)) {
+            const idx = msgList.findIndex((m) => m.id === id);
+            if (idx >= 0) {
+              const updated = [...msgList];
+              updated[idx] = { ...updated[idx], text, isEdited };
+              next[convKey] = updated;
+              ChatStorageService.saveConversation(convKey, updated);
+              modified = true;
+            }
           }
-        }
-        return modified ? next : prev;
-      });
-      setLastMessages((prev) => {
-        const updated = { ...prev };
-        let changed = false;
-        for (const [k, m] of Object.entries(updated)) {
-          if (m.id === id) {
-            updated[k] = { ...m, text, isEdited };
-            changed = true;
+          return modified ? next : prev;
+        });
+        setLastMessages((prev) => {
+          const updated = { ...prev };
+          let changed = false;
+          for (const [k, m] of Object.entries(updated)) {
+            if (m.id === id) {
+              updated[k] = { ...m, text, isEdited };
+              changed = true;
+            }
           }
-        }
-        return changed ? updated : prev;
+          return changed ? updated : prev;
+        });
       });
     });
 
     // Message deleted event
     const unsubDel = socketService.onMessageDeleted(({ id }) => {
-      setMessagesByChat((prev) => {
-        const next = { ...prev };
-        let modified = false;
-        for (const [convKey, msgList] of Object.entries(next)) {
-          if (msgList.some((m) => m.id === id)) {
-            const updated = msgList.filter((m) => m.id !== id);
-            next[convKey] = updated;
-            ChatStorageService.saveConversation(convKey, updated);
-            modified = true;
+      startTransition(() => {
+        setMessagesByChat((prev) => {
+          const next = { ...prev };
+          let modified = false;
+          for (const [convKey, msgList] of Object.entries(next)) {
+            if (msgList.some((m) => m.id === id)) {
+              const updated = msgList.filter((m) => m.id !== id);
+              next[convKey] = updated;
+              ChatStorageService.saveConversation(convKey, updated);
+              modified = true;
+            }
           }
-        }
-        return modified ? next : prev;
+          return modified ? next : prev;
+        });
       });
     });
 
     // Reaction updated event
     const unsubReact = socketService.onReactionUpdated(({ id, reactions }) => {
-      setMessagesByChat((prev) => {
-        const next = { ...prev };
-        let modified = false;
-        for (const [convKey, msgList] of Object.entries(next)) {
-          const idx = msgList.findIndex((m) => m.id === id);
-          if (idx >= 0) {
-            const updated = [...msgList];
-            updated[idx] = { ...updated[idx], reactions };
-            next[convKey] = updated;
-            ChatStorageService.saveConversation(convKey, updated);
-            modified = true;
+      startTransition(() => {
+        setMessagesByChat((prev) => {
+          const next = { ...prev };
+          let modified = false;
+          for (const [convKey, msgList] of Object.entries(next)) {
+            const idx = msgList.findIndex((m) => m.id === id);
+            if (idx >= 0) {
+              const updated = [...msgList];
+              updated[idx] = { ...updated[idx], reactions };
+              next[convKey] = updated;
+              ChatStorageService.saveConversation(convKey, updated);
+              modified = true;
+            }
           }
-        }
-        return modified ? next : prev;
+          return modified ? next : prev;
+        });
       });
     });
 
     // New Group created event
     const unsubGroup = socketService.onNewGroup((newGrp: Group) => {
-      setGroups((prev) => (prev.some((g) => g.id === newGrp.id) ? prev : [...prev, newGrp]));
+      startTransition(() => {
+        setGroups((prev) => (prev.some((g) => g.id === newGrp.id) ? prev : [...prev, newGrp]));
+      });
     });
 
     // Group deleted event
     const unsubGroupDel = socketService.onGroupDeleted(({ groupId }) => {
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      if (selectedGroupIdRef.current === groupId) {
-        setSelectedGroupId(null);
-      }
+      startTransition(() => {
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        if (selectedGroupIdRef.current === groupId) {
+          setSelectedGroupId(null);
+        }
+      });
     });
 
     // Group updated event
     const unsubGroupUpdate = socketService.onGroupUpdated((updatedGrp: Group) => {
-      const myHandle = normalizeHandle(currentUserRef.current?.handle || '');
-      const isMember = updatedGrp.memberHandles.some((h) => normalizeHandle(h) === myHandle);
-      if (isMember) {
-        setGroups((prev) => prev.map((g) => (g.id === updatedGrp.id ? updatedGrp : g)));
-      } else {
-        setGroups((prev) => prev.filter((g) => g.id !== updatedGrp.id));
-        if (selectedGroupIdRef.current === updatedGrp.id) {
-          setSelectedGroupId(null);
+      startTransition(() => {
+        const myHandle = normalizeHandle(currentUserRef.current?.handle || '');
+        const isMember = updatedGrp.memberHandles.some((h) => normalizeHandle(h) === myHandle);
+        if (isMember) {
+          setGroups((prev) => prev.map((g) => (g.id === updatedGrp.id ? updatedGrp : g)));
+        } else {
+          setGroups((prev) => prev.filter((g) => g.id !== updatedGrp.id));
+          if (selectedGroupIdRef.current === updatedGrp.id) {
+            setSelectedGroupId(null);
+          }
         }
-      }
+      });
     });
 
     // Online users presence event
     const unsubOnline = socketService.onOnlineUsers((handles) => {
-      setOnlineHandles(Array.from(new Set([...handles, '@ai'])));
+      startTransition(() => {
+        setOnlineHandles(Array.from(new Set([...handles, '@ai'])));
+      });
     });
 
     // Typing state event

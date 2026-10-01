@@ -152,6 +152,39 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   const todayText = useMemo(() => t?.chat?.today || 'Today', [t]);
   const hasTodayMessages = useMemo(() => messages.some((m) => isTodayDate(m.createdAt, m.timestamp)), [messages]);
 
+  const threadItems = useMemo(() => {
+    return messages.map((msg, index) => {
+      const prevMsg = index > 0 ? messages[index - 1] : null;
+      const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+      const currentKey = getDateKey(msg.createdAt, msg.timestamp);
+      const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
+      const nextKey = nextMsg ? getDateKey(nextMsg.createdAt, nextMsg.timestamp) : null;
+      const showDateDivider = !hideDateDividers && currentKey !== prevKey;
+
+      const isSameSenderAsPrev =
+        !isCallOrSystemMessage(msg) &&
+        !isCallOrSystemMessage(prevMsg) &&
+        areMessagesSameSender(prevMsg, msg, currentUserId, currentUserHandle);
+      const isSameDayAsPrev = prevKey === currentKey;
+      const isFirstInGroup = !(isSameSenderAsPrev && isSameDayAsPrev);
+
+      const isSameSenderAsNext =
+        !isCallOrSystemMessage(msg) &&
+        !isCallOrSystemMessage(nextMsg) &&
+        areMessagesSameSender(msg, nextMsg, currentUserId, currentUserHandle);
+      const isSameDayAsNext = nextKey === currentKey;
+      const isLastInGroup = !(isSameSenderAsNext && isSameDayAsNext);
+
+      return {
+        msg,
+        showDateDivider,
+        dividerText: showDateDivider ? formatMessageDateDivider(msg.createdAt, msg.timestamp, t, language) : '',
+        isFirstInGroup,
+        isLastInGroup,
+      };
+    });
+  }, [messages, currentUserId, currentUserHandle, hideDateDividers, t, language]);
+
   const scrollToToday = () => {
     if (todayRef.current) {
       todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -297,7 +330,7 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
           {/* Top spacer & Infinite Scroll Spinner */}
           {isLoadingMore && hasMore ? (
             <div className="flex justify-center py-2.5 my-1 select-none shrink-0">
-              <div className="flex items-center space-x-2 bg-ez-elevated/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-ez-border/60 shadow-glass">
+              <div className="flex items-center space-x-2 bg-[#121214] px-3.5 py-1.5 rounded-full border border-white/10 shadow-md">
                 <Loader2 className="w-3.5 h-3.5 text-neon-green animate-spin" />
                 <span className="text-[11px] font-mono text-ez-muted">{t.chat?.loadingEarlier || 'Loading earlier messages...'}</span>
               </div>
@@ -327,34 +360,16 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
               </div>
             )
           ) : (
-            messages.map((msg, index) => {
-              const prevMsg = index > 0 ? messages[index - 1] : null;
-              const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
-              const currentKey = getDateKey(msg.createdAt, msg.timestamp);
-              const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
-              const nextKey = nextMsg ? getDateKey(nextMsg.createdAt, nextMsg.timestamp) : null;
-              const showDateDivider = !hideDateDividers && currentKey !== prevKey;
-
-              const isSameSenderAsPrev =
-                !isCallOrSystemMessage(msg) &&
-                !isCallOrSystemMessage(prevMsg) &&
-                areMessagesSameSender(prevMsg, msg, currentUserId, currentUserHandle);
-              const isSameDayAsPrev = prevKey === currentKey;
-              const isFirstInGroup = !(isSameSenderAsPrev && isSameDayAsPrev);
-
-              const isSameSenderAsNext =
-                !isCallOrSystemMessage(msg) &&
-                !isCallOrSystemMessage(nextMsg) &&
-                areMessagesSameSender(msg, nextMsg, currentUserId, currentUserHandle);
-              const isSameDayAsNext = nextKey === currentKey;
-              const isLastInGroup = !(isSameSenderAsNext && isSameDayAsNext);
+            threadItems.map((item) => {
+              const { msg, showDateDivider, dividerText, isFirstInGroup, isLastInGroup } = item;
+              const isNew = initialLoadComplete && !initialMessageIdsRef.current.has(msg.id);
 
               return (
-                <React.Fragment key={msg.id}>
+                <div key={msg.id} className="message-row-contain w-full">
                   {showDateDivider && (
                     <div className="flex justify-center my-3 select-none">
-                      <span className="bg-ez-elevated/80 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 shadow-elevated border border-ez-border/50">
-                        {formatMessageDateDivider(msg.createdAt, msg.timestamp, t, language)}
+                      <span className="bg-[#18181b] px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 border border-white/10 shadow-sm">
+                        {dividerText}
                       </span>
                     </div>
                   )}
@@ -373,9 +388,9 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                     onOpenMedia={onOpenMedia}
                     onCallBack={onCallBack}
                     onRetry={onRetry}
-                    isNewMessage={initialLoadComplete && !initialMessageIdsRef.current.has(msg.id)}
+                    isNewMessage={isNew}
                   />
-                </React.Fragment>
+                </div>
               );
             })
           )}
@@ -402,7 +417,7 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-5 right-4 sm:right-8 z-30 w-10 h-10 rounded-full bg-ez-elevated/95 hover:bg-ez-hover text-neon-green border border-neon-green/30 shadow-glass backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-scale-up"
+          className="absolute bottom-5 right-4 sm:right-8 z-30 w-10 h-10 rounded-full bg-zinc-900 hover:bg-zinc-800 text-neon-green border border-neon-green/30 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center animate-scale-up"
           title={t.chat.scrollToBottom}
         >
           <ArrowDown className="w-5 h-5" />

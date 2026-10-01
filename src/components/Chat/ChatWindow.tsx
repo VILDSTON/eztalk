@@ -58,7 +58,7 @@ interface ChatWindowProps {
   onSaveAlias?: (newAlias: string) => void;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({
+const ChatWindowComponent: React.FC<ChatWindowProps> = ({
   user,
   group,
   messages,
@@ -126,6 +126,65 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const recipientLabel = group ? group.name : user ? user.name || user.handle : 'Contact';
 
+  const handleReply = useCallback((msg: QuotedMessage) => {
+    setReplyingTo(msg);
+  }, []);
+
+  const handleForward = useCallback((msg: Message) => {
+    setForwardingMessage(msg);
+  }, []);
+
+  const handleEdit = useCallback((msg: Message) => {
+    setEditingMessage({ id: msg.id, text: msg.text });
+  }, []);
+
+  const handleCancelReply = useCallback(() => {
+    setReplyingTo(null);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => {
+    setLightboxMedia(null);
+  }, []);
+
+  const handleCloseForward = useCallback(() => {
+    setForwardingMessage(null);
+  }, []);
+
+  const handleOpenMedia = useCallback((m: { url: string; name?: string; type?: 'image' | 'video' | 'file' | 'audio' }) => {
+    if (!isImageMedia(m.url, m.name, m.type) && !isVideoMedia(m.url, m.name, m.type)) {
+      downloadOrOpenFile(m.url, m.name);
+    } else {
+      setLightboxMedia(m);
+    }
+  }, []);
+
+  const handleSearchChange = useCallback((q: string) => {
+    setInChatSearchQuery(q);
+  }, []);
+
+  const handleSendMessageInput = useCallback((text: string, attachment?: Attachment, replyTo?: QuotedMessage) => {
+    onSendMessage(text, attachment, replyTo);
+    setReplyingTo(null);
+  }, [onSendMessage]);
+
+  const handleSaveEditInput = useCallback((id: string, newText: string) => {
+    if (onEditMessage) {
+      onEditMessage(id, newText);
+    }
+    setEditingMessage(null);
+  }, [onEditMessage]);
+
+  const handleForwardMessageModal = useCallback((msg: Message, targetUser?: User, targetGroup?: Group) => {
+    if (onForwardMessage) {
+      onForwardMessage(msg, targetUser, targetGroup);
+    }
+    setForwardingMessage(null);
+  }, [onForwardMessage]);
+
   // In-chat search filter
   const displayedMessages = useMemo(() => {
     if (!inChatSearchQuery.trim()) return messages;
@@ -151,7 +210,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isTyping={isTyping}
         isSavedMessages={isSavedMessages}
         onBack={onBack}
-        onSearchChange={(q) => setInChatSearchQuery(q)}
+        onSearchChange={handleSearchChange}
         onToggleMute={onToggleMute}
         onToggleBlock={onToggleBlock}
         onClearChat={onClearChat}
@@ -240,18 +299,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isLoadingMore={isLoadingMore}
         isLoadingInitial={isLoadingInitial}
         onLoadMore={onLoadMore}
-        onReply={(msg) => setReplyingTo(msg)}
-        onForward={(msg) => setForwardingMessage(msg)}
-        onEdit={(msg: Message) => setEditingMessage({ id: msg.id, text: msg.text })}
+        onReply={handleReply}
+        onForward={handleForward}
+        onEdit={handleEdit}
         onDelete={onDeleteMessage}
         onToggleReaction={onToggleReaction}
-        onOpenMedia={(m) => {
-          if (!isImageMedia(m.url, m.name, m.type) && !isVideoMedia(m.url, m.name, m.type)) {
-            downloadOrOpenFile(m.url, m.name);
-          } else {
-            setLightboxMedia(m);
-          }
-        }}
+        onOpenMedia={handleOpenMedia}
         onCallBack={onStartCall}
         onRetry={onRetryMessage}
       />
@@ -261,7 +314,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <MediaLightboxModal
           isOpen={Boolean(lightboxMedia)}
           media={lightboxMedia}
-          onClose={() => setLightboxMedia(null)}
+          onClose={handleCloseLightbox}
         />
       )}
 
@@ -274,13 +327,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           contacts={forwardableContacts || allUsers}
           groups={allGroups}
           onlineHandles={onlineHandles}
-          onClose={() => setForwardingMessage(null)}
-          onForward={(msg, targetUser, targetGroup) => {
-            if (onForwardMessage) {
-              onForwardMessage(msg, targetUser, targetGroup);
-            }
-            setForwardingMessage(null);
-          }}
+          onClose={handleCloseForward}
+          onForward={handleForwardMessageModal}
         />
       )}
 
@@ -308,23 +356,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           enterToSend={currentUser?.settings?.enterToSend !== false}
           initialDraft={draftText}
           onDraftChange={onDraftChange}
-          onSendMessage={(text, attachment, replyTo) => {
-            onSendMessage(text, attachment, replyTo);
-            setReplyingTo(null);
-          }}
-          onSaveEdit={(id, newText) => {
-            if (onEditMessage) {
-              onEditMessage(id, newText);
-            }
-            setEditingMessage(null);
-          }}
+          onSendMessage={handleSendMessageInput}
+          onSaveEdit={handleSaveEditInput}
           replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
+          onCancelReply={handleCancelReply}
           editingMessage={editingMessage}
-          onCancelEdit={() => setEditingMessage(null)}
+          onCancelEdit={handleCancelEdit}
           recipientHandle={group ? group.id : user?.handle}
         />
       )}
     </div>
   );
 };
+
+export const ChatWindow = React.memo(ChatWindowComponent);
+

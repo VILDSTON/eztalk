@@ -727,3 +727,17 @@ html[lang="ru"] button,
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
 }
+
+/* High Performance Message Row Virtualization (Zero Layout Cost Offscreen) */
+.message-row-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 54px;
+  contain: layout style paint;
+}
+
+/* GPU hardware acceleration helper */
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
