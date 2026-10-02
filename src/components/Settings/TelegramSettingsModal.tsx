@@ -1796,7 +1796,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                       type="button"
                       disabled={isTerminatingAll}
                       onClick={handleTerminateOtherSessions}
-                      className="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-bold transition-all cursor-pointer active:scale-95 flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                      className="w-full py-2.5 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/15 active:bg-rose-500/20 border border-rose-500/25 hover:border-rose-500/40 text-rose-400 text-xs font-bold transition-all cursor-pointer active:scale-[0.98] flex items-center justify-center space-x-2 disabled:opacity-50 shadow-sm"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{isTerminatingAll ? t.common.loading : t.settings.terminateOtherSessions}</span>
@@ -1814,14 +1814,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   </div>
 
                   {sessions.filter((s) => !s.isCurrent).length === 0 ? (
-                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center text-xs text-ez-muted">
+                    <div className="p-3.5 rounded-xl bg-ez-elevated border border-ez-border text-center text-xs text-ez-muted">
                       {t.settings.noOtherDevices}
                     </div>
                   ) : (
                     sessions.filter((s) => !s.isCurrent).map((session) => (
                       <div
                         key={session.sessionId}
-                        className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/5 flex items-center justify-between gap-3 transition-colors"
+                        className="p-3 rounded-xl bg-ez-elevated hover:border-white/15 border border-ez-border flex items-center justify-between gap-3 transition-colors"
                       >
                         <div className="flex items-center space-x-3 min-w-0">
                           <div className="p-2 rounded-lg bg-white/5 text-zinc-300 border border-white/10 shrink-0">
@@ -1843,7 +1843,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                           type="button"
                           disabled={terminatingSessionId === session.sessionId}
                           onClick={() => handleTerminateSession(session.sessionId)}
-                          className="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
                           title={t.settings.terminateSession}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
