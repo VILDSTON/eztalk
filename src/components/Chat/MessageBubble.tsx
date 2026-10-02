@@ -866,8 +866,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             } ${emojiInfo.isEmojiOnly
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
               : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${isMe
-                ? `bg-ez-sent text-white border border-white/10 rounded-2xl ${showTail !== false ? 'rounded-br-sm' : ''} telegram-bubble-out`
-                : `bg-ez-received text-slate-100 border border-ez-border/50 rounded-2xl ${showTail !== false ? 'rounded-bl-sm' : ''} telegram-bubble-in`
+                ? `bg-ez-sent text-white rounded-[18px] ${showTail !== false && !callPresentation ? 'rounded-br-[3px]' : ''} telegram-bubble-out`
+                : `bg-ez-received text-slate-100 rounded-[18px] ${showTail !== false && !callPresentation ? 'rounded-bl-[3px]' : ''} telegram-bubble-in`
               }`
             }`}
           style={{
@@ -875,6 +875,32 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             willChange: isSwiping ? 'transform' : 'auto'
           }}
         >
+          {/* Authentic Telegram Message Tail Corner */}
+          {showTail !== false && !emojiInfo.isEmojiOnly && !callPresentation && (
+            isMe ? (
+              <svg
+                className="absolute -right-[7px] -bottom-[0.5px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
+                viewBox="0 0 8 16"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  fill="var(--ez-sent)"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="absolute -left-[7px] -bottom-[0.5px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible -scale-x-100"
+                viewBox="0 0 8 16"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  fill="var(--ez-received)"
+                />
+              </svg>
+            )
+          )}
           {/* Double-tap Floating Heart Burst Animation */}
           {showHeartBurst && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 select-none">
