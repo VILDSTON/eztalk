@@ -1735,15 +1735,34 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                 {sessions.find((s) => s.isCurrent) && (() => {
                   const currentDevice = sessions.find((s) => s.isCurrent)!;
                   return (
-                    <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/15 transition-colors flex items-center justify-between gap-3">
+                    <div
+                      className="p-3.5 rounded-2xl bg-ez-elevated border transition-all flex items-center justify-between gap-3 shadow-sm"
+                      style={{
+                        borderColor: 'color-mix(in srgb, var(--ez-accent) 25%, var(--ez-border))',
+                      }}
+                    >
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
-                        <div className="p-2.5 rounded-xl bg-[var(--ez-accent)]/10 text-[var(--ez-accent)] border border-[var(--ez-accent)]/25 shrink-0">
+                        <div
+                          className="p-2.5 rounded-xl border shrink-0 flex items-center justify-center"
+                          style={{
+                            backgroundColor: 'color-mix(in srgb, var(--ez-accent) 12%, transparent)',
+                            borderColor: 'color-mix(in srgb, var(--ez-accent) 25%, transparent)',
+                            color: 'var(--ez-accent)',
+                          }}
+                        >
                           {getDeviceIcon(currentDevice.device?.type, currentDevice.device?.os)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-white flex items-center gap-2 truncate">
                             <span className="truncate">{currentDevice.device?.os || 'This Device'} • {currentDevice.device?.browser || 'Browser'}</span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--ez-accent)]/15 text-[var(--ez-accent)] border border-[var(--ez-accent)]/30 shrink-0">
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0"
+                              style={{
+                                backgroundColor: 'color-mix(in srgb, var(--ez-accent) 15%, transparent)',
+                                borderColor: 'color-mix(in srgb, var(--ez-accent) 30%, transparent)',
+                                color: 'var(--ez-accent)',
+                              }}
+                            >
                               {t.settings.thisDevice}
                             </span>
                           </div>
@@ -1753,8 +1772,14 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                               <span>{currentDevice.ip || 'Local Network'}</span>
                             </span>
                             <span>•</span>
-                            <span className="text-[var(--ez-accent)] flex items-center space-x-1 font-medium">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--ez-accent)] animate-pulse" />
+                            <span
+                              className="flex items-center space-x-1 font-medium"
+                              style={{ color: 'var(--ez-accent)' }}
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                                style={{ backgroundColor: 'var(--ez-accent)' }}
+                              />
                               <span>{t.settings.activeNow}</span>
                             </span>
                           </div>
