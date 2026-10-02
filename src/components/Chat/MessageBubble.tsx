@@ -866,8 +866,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             } ${emojiInfo.isEmojiOnly
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
               : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${isMe
-                ? `bg-ez-sent text-white rounded-[18px] ${showTail !== false ? 'rounded-br-[3px]' : ''} telegram-bubble-out`
-                : `bg-ez-received text-slate-100 rounded-[18px] ${showTail !== false ? 'rounded-bl-[3px]' : ''} telegram-bubble-in`
+                ? `bg-ez-sent text-white rounded-tl-[16px] rounded-bl-[16px] ${isFirstInGroup ? 'rounded-tr-[16px]' : 'rounded-tr-[6px]'
+                } ${showTail !== false ? 'rounded-br-[2px]' : 'rounded-br-[6px]'} telegram-bubble-out`
+                : `bg-ez-received text-slate-100 rounded-tr-[16px] rounded-br-[16px] ${isFirstInGroup ? 'rounded-tl-[16px]' : 'rounded-tl-[6px]'
+                } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
               }`
             }`}
           style={{
@@ -879,7 +881,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {showTail !== false && !emojiInfo.isEmojiOnly && (
             isMe ? (
               <svg
-                className="absolute -right-[7px] -bottom-[0.5px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
+                className="absolute -right-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
                 viewBox="0 0 8 16"
                 aria-hidden="true"
               >
@@ -890,7 +892,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               </svg>
             ) : (
               <svg
-                className="absolute -left-[7px] -bottom-[0.5px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible -scale-x-100"
+                className="absolute -left-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible -scale-x-100"
                 viewBox="0 0 8 16"
                 aria-hidden="true"
               >
