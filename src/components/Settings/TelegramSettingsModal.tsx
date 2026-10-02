@@ -575,7 +575,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 md:p-6 select-none font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 select-none font-sans">
       {/* Backdrop */}
       <div
         onClick={onClose}
@@ -585,10 +585,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       {/* Settings Window Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
+        className="relative w-full max-w-2xl h-[620px] max-h-[90vh] bg-ez-surface border border-ez-border/80 rounded-3xl shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
       >
         {/* ─── Window Header (Titlebar) ─── */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 pt-[max(12px,env(safe-area-inset-top))] border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
               <Sliders className="w-4 h-4" />
@@ -607,8 +607,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-2 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar sm:custom-scrollbar pb-0.5 w-full">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-4 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-0.5 w-full">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -632,7 +632,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Content Body ─── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5 sm:space-y-6">
           {/* TAB 1: Profile Settings */}
           {activeTab === 'profile' && (
             <div className="space-y-5 sm:space-y-6 animate-fade-in">
@@ -1677,12 +1677,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
               {/* Link Desktop Device Card */}
               <div className="p-4 sm:p-5 bg-ez-elevated rounded-2xl border border-ez-border relative overflow-hidden">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-start space-x-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-start space-x-3 min-w-0 flex-1">
                     <div className="p-2 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/20 shrink-0 mt-0.5">
                       <QrCode className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>{t.settings.linkDesktop}</span>
                       </h4>
@@ -1695,7 +1695,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsQRScannerOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 shrink-0"
+                    className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-neon-green hover:bg-neon-green-light text-black text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-neon-sm active:scale-95 flex items-center space-x-1.5 shrink-0"
                   >
                     <Camera className="w-3.5 h-3.5 stroke-[2.5]" />
                     <span>{t.settings.scanQrCode}</span>
@@ -1886,7 +1886,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
         {/* ─── Window Footer Actions ─── */}
         {/* ─── Window Footer (Action Buttons) ─── */}
-        <div className="p-3 sm:p-4 px-4 sm:px-6 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
+        <div className="p-3.5 sm:p-4 px-5 sm:px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
           <div className="text-xs text-ez-muted flex items-center space-x-1.5">
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
@@ -1896,11 +1896,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-150 cursor-pointer"
+              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-150 cursor-pointer"
             >
               {t.common.cancel}
             </button>
