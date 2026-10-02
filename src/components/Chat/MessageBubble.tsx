@@ -820,7 +820,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       <div
         id={`message-${message.id}`}
         className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : (showTail !== false ? 'mb-2' : 'mb-1')
-          } max-w-full ${isMe ? 'items-end' : 'items-start'
+          } max-w-full ${isMe ? 'items-end mr-2 sm:mr-2.5' : 'items-start ml-2 sm:ml-2.5'
           } ${isNewMessage ? 'animate-slide-up will-change-transform' : ''} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}

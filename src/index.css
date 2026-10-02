@@ -732,7 +732,7 @@ html[lang="ru"] button,
 .message-row-contain {
   content-visibility: auto;
   contain-intrinsic-size: 0 54px;
-  contain: layout style paint;
+  contain: layout style;
 }
 
 /* GPU hardware acceleration helper */
