@@ -867,9 +867,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
               : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${isMe
                 ? `bg-ez-sent text-white rounded-tl-[16px] rounded-bl-[16px] ${isFirstInGroup ? 'rounded-tr-[16px]' : 'rounded-tr-[6px]'
-                } ${showTail !== false ? 'rounded-br-[2px]' : 'rounded-br-[6px]'} telegram-bubble-out`
+                } ${showTail !== false ? 'rounded-br-none' : 'rounded-br-[6px]'} telegram-bubble-out`
                 : `bg-ez-received text-slate-100 rounded-tr-[16px] rounded-br-[16px] ${isFirstInGroup ? 'rounded-tl-[16px]' : 'rounded-tl-[6px]'
-                } ${showTail !== false ? 'rounded-bl-[2px]' : 'rounded-bl-[6px]'} telegram-bubble-in`
+                } ${showTail !== false ? 'rounded-bl-none' : 'rounded-bl-[6px]'} telegram-bubble-in`
               }`
             }`}
           style={{
@@ -881,23 +881,23 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {showTail !== false && !emojiInfo.isEmojiOnly && (
             isMe ? (
               <svg
-                className="absolute -right-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
-                viewBox="0 0 8 16"
+                className="absolute -right-[8px] bottom-0 w-[9px] h-[18px] pointer-events-none z-10 overflow-visible"
+                viewBox="0 0 9 18"
                 aria-hidden="true"
               >
                 <path
-                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  d="M 0,0 C 0.5,7 3.5,14.5 9,18 L 0,18 Z"
                   fill="var(--ez-sent)"
                 />
               </svg>
             ) : (
               <svg
-                className="absolute -left-[7px] -bottom-[1px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible -scale-x-100"
-                viewBox="0 0 8 16"
+                className="absolute -left-[8px] bottom-0 w-[9px] h-[18px] pointer-events-none z-10 overflow-visible -scale-x-100"
+                viewBox="0 0 9 18"
                 aria-hidden="true"
               >
                 <path
-                  d="M 0,0 C 0.5,6.5 3,13.5 8,16 L 0,16 Z"
+                  d="M 0,0 C 0.5,7 3.5,14.5 9,18 L 0,18 Z"
                   fill="var(--ez-received)"
                 />
               </svg>
