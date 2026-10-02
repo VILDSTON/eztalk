@@ -575,7 +575,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 select-none font-sans">
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 md:p-6 select-none font-sans">
       {/* Backdrop */}
       <div
         onClick={onClose}
@@ -585,10 +585,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
       {/* Settings Window Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl h-[620px] max-h-[90vh] bg-ez-surface border border-ez-border/80 rounded-3xl shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
+        className="relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
       >
         {/* ─── Window Header (Titlebar) ─── */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 pt-[max(14px,env(safe-area-inset-top))] border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/25">
               <Sliders className="w-4 h-4" />
@@ -607,7 +607,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Horizontal Sidebar / Tab Bar ─── */}
-        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-4 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
+        <div className="border-b border-ez-border/50 bg-ez-elevated/40 px-3 sm:px-6 py-2 sm:py-2.5 shrink-0 overflow-hidden">
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-0.5 w-full">
             {TABS.map((tab) => {
               const Icon = tab.icon;
@@ -632,7 +632,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
         </div>
 
         {/* ─── Window Content Body ─── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* TAB 1: Profile Settings */}
           {activeTab === 'profile' && (
             <div className="space-y-5 sm:space-y-6 animate-fade-in">
@@ -1884,9 +1884,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
           )}
         </div>
 
-        {/* ─── Window Footer Actions ─── */}
         {/* ─── Window Footer (Action Buttons) ─── */}
-        <div className="p-3.5 sm:p-4 px-5 sm:px-6 border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
+        <div className="p-3.5 sm:p-4 px-4 sm:px-6 pb-[max(14px,env(safe-area-inset-bottom))] border-t border-ez-border/50 bg-ez-elevated/70 flex items-center justify-between shrink-0">
           <div className="text-xs text-ez-muted flex items-center space-x-1.5">
             {savedSuccess && (
               <span className="text-neon-green flex items-center space-x-1 font-bold animate-fade-in">
