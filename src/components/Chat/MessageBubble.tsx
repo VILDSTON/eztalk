@@ -866,8 +866,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             } ${emojiInfo.isEmojiOnly
               ? `bg-transparent border-0 shadow-none p-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`
               : `px-3.5 pt-2 pb-1.5 text-[14px] leading-relaxed shadow-sm ${isMe
-                ? `bg-ez-sent text-white rounded-[18px] ${showTail !== false && !callPresentation ? 'rounded-br-[3px]' : ''} telegram-bubble-out`
-                : `bg-ez-received text-slate-100 rounded-[18px] ${showTail !== false && !callPresentation ? 'rounded-bl-[3px]' : ''} telegram-bubble-in`
+                ? `bg-ez-sent text-white rounded-[18px] ${showTail !== false ? 'rounded-br-[3px]' : ''} telegram-bubble-out`
+                : `bg-ez-received text-slate-100 rounded-[18px] ${showTail !== false ? 'rounded-bl-[3px]' : ''} telegram-bubble-in`
               }`
             }`}
           style={{
@@ -876,7 +876,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           }}
         >
           {/* Authentic Telegram Message Tail Corner */}
-          {showTail !== false && !emojiInfo.isEmojiOnly && !callPresentation && (
+          {showTail !== false && !emojiInfo.isEmojiOnly && (
             isMe ? (
               <svg
                 className="absolute -right-[7px] -bottom-[0.5px] w-[8px] h-[16px] pointer-events-none z-10 overflow-visible"
