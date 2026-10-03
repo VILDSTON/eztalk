@@ -1293,8 +1293,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     if (onToggleReaction) onToggleReaction(message.id, reaction.emoji);
                   }}
                   className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-xs cursor-pointer ${reaction.hasReacted
-                    ? 'bg-black/75 border-[var(--ez-accent)]/50 text-[var(--ez-accent)] font-semibold shadow-xs'
-                    : 'bg-black/65 border-white/10 text-white/90 hover:bg-black/80 hover:border-white/20'
+                    ? 'bg-black/75 border-neon-green/50 text-neon-green font-semibold'
+                    : 'bg-black/65 border-ez-border/60 text-zinc-300 hover:bg-black/80 hover:border-ez-border'
                     }`}
                 >
                   <span className="text-[12px] leading-none">{reaction.emoji}</span>
