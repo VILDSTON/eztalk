@@ -819,7 +819,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     <>
       <div
         id={`message-${message.id}`}
-        className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-3.5 sm:mb-4' : (showTail !== false ? 'mb-2' : 'mb-1')
+        className={`group/bubble relative flex flex-col ${formattedReactions.length > 0 ? 'mb-2 sm:mb-2.5' : (showTail !== false ? 'mb-2' : 'mb-1')
           } max-w-full ${isMe ? 'items-end pr-[9px]' : 'items-start pl-[9px]'
           } ${isNewMessage ? 'animate-slide-up will-change-transform' : ''} font-sans touch-manipulation`}
         onContextMenu={handleContextMenu}
@@ -1280,8 +1280,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {formattedReactions.length > 0 && (
             <div
               className={`${emojiInfo.isEmojiOnly
-                ? `mt-1.5 flex items-center gap-1 z-20 select-none ${isMe ? 'justify-end' : 'justify-start'}`
-                : `absolute -bottom-2 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 z-20 select-none`
+                ? `mt-1 flex items-center gap-1 z-20 select-none ${isMe ? 'justify-end' : 'justify-start'}`
+                : `absolute -bottom-1.5 ${isMe ? 'right-2' : 'left-2'} flex items-center gap-1 z-20 select-none`
                 }`}
             >
               {formattedReactions.map((reaction, idx) => (
@@ -1292,12 +1292,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     e.stopPropagation();
                     if (onToggleReaction) onToggleReaction(message.id, reaction.emoji);
                   }}
-                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-md cursor-pointer ${reaction.hasReacted
-                    ? 'bg-ez-surface border-neon-green/40 text-neon-green font-semibold shadow-xs'
-                    : 'bg-ez-elevated border-white/10 text-gray-200 hover:bg-ez-hover hover:border-white/20'
+                  className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-xs transition-all active:scale-90 border shadow-xs cursor-pointer ${reaction.hasReacted
+                    ? 'bg-black/75 border-[var(--ez-accent)]/50 text-[var(--ez-accent)] font-semibold shadow-xs'
+                    : 'bg-black/65 border-white/10 text-white/90 hover:bg-black/80 hover:border-white/20'
                     }`}
                 >
-                  <span className="text-[13px] leading-none">{reaction.emoji}</span>
+                  <span className="text-[12px] leading-none">{reaction.emoji}</span>
                   {reaction.count > 1 && (
                     <span className="text-[10px] font-bold font-mono ml-0.5">
                       {reaction.count}
