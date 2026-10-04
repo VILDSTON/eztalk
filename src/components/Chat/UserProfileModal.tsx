@@ -22,6 +22,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import { ConfirmModal } from '../Common/ConfirmModal';
 import { EditContactNameModal } from './EditContactNameModal';
 import { isUserBlockedBy } from '../../utils/chatStorage';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 interface UserProfileModalProps {
   user: User;
@@ -73,6 +74,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [showAllMedia, setShowAllMedia] = useState(false);
 
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose,
+    durationMs: 200,
+  });
+
   // Закрытие по клавише Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,19 +87,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         if (previewAttachment) {
           setPreviewAttachment(null);
         } else {
-          onClose();
+          handleClose();
         }
       }
     };
-    if (isOpen) {
+    if (shouldRender) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, previewAttachment, onClose]);
+  }, [shouldRender, previewAttachment, handleClose]);
 
-  if (!isOpen || !user) return null;
+  if (!shouldRender || !user) return null;
 
   const fallbackAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user?.handle || user?.name || 'user')}`;
   const effectiveViewerHandle = currentUserHandle || currentUser?.handle;
@@ -194,17 +201,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/85 animate-fade-in select-none p-0 sm:p-4 font-sans"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/85 select-none p-0 sm:p-4 font-sans cursor-pointer ${
+        isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+      }`}
+      onClick={handleClose}
     >
       <div
-        className="bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-md shadow-none sm:shadow-glass-lg relative overflow-hidden sm:max-h-[85vh] flex flex-col transform-gpu will-change-[transform,opacity]"
+        className={`bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-md shadow-none sm:shadow-glass-lg relative overflow-hidden sm:max-h-[85vh] flex flex-col transform-gpu will-change-[transform,opacity] cursor-default ${
+          isClosing ? 'animate-modal-out' : 'animate-modal-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Floating Close Button */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           aria-label={t.common.close}
           className="absolute top-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-full text-white/80 hover:text-white bg-black/50 hover:bg-black/70 backdrop-blur-md transition-all duration-150 cursor-pointer shadow-glass border border-white/10 hover:scale-105"
         >

@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Users, Check, AlertCircle, Camera, Search } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { ApiService } from '../../services/api';
 import { useTranslation } from '../../context/LanguageContext';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -33,7 +34,34 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  const resetForm = () => {
+    setName('');
+    setSelectedMembers([]);
+    setSearchQuery('');
+    setError('');
+  };
+
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose: () => {
+      resetForm();
+      onClose();
+    },
+    durationMs: 200,
+  });
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shouldRender, handleClose]);
+
+  if (!shouldRender) return null;
 
   const rawList = friends !== undefined ? friends : existingUsers;
   const myHandle = normalizeHandle(currentUserHandle || '').toLowerCase();
@@ -91,22 +119,25 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     }
 
     onCreateGroup(trimmedName, selectedAvatar, selectedMembers);
-    setName('');
-    setSelectedMembers([]);
-    setSearchQuery('');
-    setError('');
-    onClose();
+    handleClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 select-none font-sans">
+    <div
+      className={`fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 select-none font-sans cursor-pointer ${
+        isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+      }`}
+      onClick={handleClose}
+    >
       {/* Backdrop */}
-      <div onClick={onClose} className="fixed inset-0 glass-overlay animate-fade-in" />
+      <div className="fixed inset-0 glass-overlay pointer-events-none" />
 
       {/* Modal Card */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-md bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col animate-scale-up"
+        className={`relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-md bg-ez-elevated border-0 sm:border border-ez-border rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity] cursor-default ${
+          isClosing ? 'animate-modal-out' : 'animate-modal-in'
+        }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-ez-border/50 bg-ez-surface shrink-0">
@@ -121,7 +152,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />

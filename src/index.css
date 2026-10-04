@@ -577,20 +577,136 @@ textarea::-moz-selection {
   box-shadow: 0 0 35px var(--ez-accent-glow);
 }
 
-/* ─── Mobile Bottom Sheet Animation & Safe Inset ─── */
+/* ─── Telegram & iOS Smooth Transitions (Entrance & Exit) ─── */
 @keyframes slideUpBottomSheet {
   0% {
-    transform: translateY(100%);
+    transform: translateY(100%) scale(0.98);
+    opacity: 0.9;
   }
 
   100% {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDownBottomSheet {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100%) scale(0.98);
+    opacity: 0.9;
   }
 }
 
 .animate-slide-up-sheet {
-  animation: slideUpBottomSheet 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: slideUpBottomSheet 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-slide-down-sheet {
+  animation: slideDownBottomSheet 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Telegram Side Drawer Transitions */
+@keyframes drawerSlideIn {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawerSlideOut {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-drawer-in {
+  animation: drawerSlideIn 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: transform;
+}
+
+.animate-drawer-out {
+  animation: drawerSlideOut 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform;
+}
+
+/* Telegram / iOS Center Modal Transitions */
+@keyframes modalScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale3d(0.95, 0.95, 1) translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1) translateY(0);
+  }
+}
+
+@keyframes modalScaleOut {
+  0% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1) translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale3d(0.95, 0.95, 1) translateY(6px);
+  }
+}
+
+.animate-modal-in {
+  animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-modal-out {
+  animation: modalScaleOut 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Backdrop Fade Transitions */
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes backdropFadeOut {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-backdrop-in {
+  animation: backdropFadeIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: opacity;
+}
+
+.animate-backdrop-out {
+  animation: backdropFadeOut 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: opacity;
 }
 
 /* ─── Double Tap Heart Burst Animation ─── */

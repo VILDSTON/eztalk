@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Search,
@@ -11,6 +11,7 @@ import {
 import { User, Group, Message } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 interface ForwardModalProps {
   isOpen: boolean;
@@ -57,23 +58,50 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
     });
   }, [groups, cleanQuery]);
 
-  if (!isOpen || !message) return null;
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose,
+    durationMs: 200,
+  });
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shouldRender, handleClose]);
+
+  if (!shouldRender || !message) return null;
 
   const handleConfirm = () => {
     if (!selectedTarget) return;
     onForward(message, selectedTarget.user, selectedTarget.group);
-    onClose();
+    handleClose();
   };
 
   const handleSelect = (target: { user?: User; group?: Group }) => {
     setSelectedTarget(target);
     onForward(message, target.user, target.group);
-    onClose();
+    handleClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay animate-fade-in select-none font-sans">
-      <div className="relative w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg overflow-hidden flex flex-col max-h-[85vh] animate-scale-up transform-gpu will-change-[transform,opacity]">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay select-none font-sans cursor-pointer ${
+        isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`relative w-full max-w-md bg-ez-elevated border border-ez-border rounded-3xl shadow-glass-lg overflow-hidden flex flex-col max-h-[85vh] transform-gpu will-change-[transform,opacity] cursor-default ${
+          isClosing ? 'animate-modal-out' : 'animate-modal-in'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-ez-border/50 flex items-center justify-between bg-ez-surface">
           <div className="flex items-center space-x-2.5">
@@ -87,7 +115,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />

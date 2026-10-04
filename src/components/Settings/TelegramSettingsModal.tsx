@@ -49,6 +49,7 @@ interface TelegramSettingsModalProps {
 
 import { PRESET_AVATARS } from '../../constants/avatars';
 import { useTranslation } from '../../context/LanguageContext';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 const BANNER_NAMES: Record<string, { en: string; ru: string; uz: string }> = {
   dark: { en: 'Obsidian Night', ru: 'Обсидиановая ночь', uz: 'Obsidian kechasi' },
@@ -344,7 +345,24 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     }
   }, [isOpen, activeTab, fetchSessions]);
 
-  if (!isOpen) return null;
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose,
+    durationMs: 200,
+  });
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shouldRender, handleClose]);
+
+  if (!shouldRender) return null;
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -575,17 +593,23 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 md:p-6 select-none font-sans">
+    <div
+      className={`fixed inset-0 z-50 flex sm:items-center sm:justify-center p-0 sm:p-4 md:p-6 select-none font-sans cursor-pointer ${
+        isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+      }`}
+      onClick={handleClose}
+    >
       {/* Backdrop */}
       <div
-        onClick={onClose}
-        className="fixed inset-0 bg-black/80 animate-fade-in transition-opacity duration-200"
+        className="fixed inset-0 bg-black/80 pointer-events-none"
       />
 
       {/* Settings Window Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity]"
+        className={`relative w-full h-full sm:h-[620px] sm:max-h-[88vh] sm:max-w-2xl bg-ez-surface border-0 sm:border border-ez-border/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-glass-lg overflow-hidden z-10 flex flex-col transform-gpu will-change-[transform,opacity] cursor-default ${
+          isClosing ? 'animate-modal-out' : 'animate-modal-in'
+        }`}
       >
         {/* ─── Window Header (Titlebar) ─── */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 pt-[max(14px,env(safe-area-inset-top))] border-b border-ez-border/50 bg-ez-elevated/70 shrink-0">
@@ -598,7 +622,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-full text-ez-muted hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-150 cursor-pointer"
             title={t.common.close}
           >
@@ -1724,7 +1748,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
                     type="button"
                     onClick={fetchSessions}
                     disabled={sessionsLoading}
-                    title={t.common.refresh || 'Refresh'}
+                    title={(t.common as any).refresh || 'Refresh'}
                     className="w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 border border-white/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
                   >
                     <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-[var(--ez-accent)]' : ''}`} />

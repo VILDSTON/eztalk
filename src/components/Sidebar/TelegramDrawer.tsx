@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   X,
   Settings,
@@ -16,6 +16,7 @@ import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
 import { LanguageSwitch } from '../Common/LanguageSwitch';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 interface TelegramDrawerProps {
   isOpen: boolean;
@@ -54,7 +55,25 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
 }) => {
   const { t } = useTranslation();
   const navigate = useLocalizedNavigate();
-  if (!isOpen) return null;
+
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose,
+    durationMs: 220,
+  });
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shouldRender, handleClose]);
+
+  if (!shouldRender) return null;
 
   const otherAccounts = myAccounts.filter(
     (acc) => normalizeHandle(acc.handle) !== normalizeHandle(currentUser.handle)
@@ -64,17 +83,23 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
     <div className="fixed inset-0 z-50 flex select-none font-sans">
       {/* Backdrop */}
       <div
-        onClick={onClose}
-        className="fixed inset-0 glass-overlay animate-fade-in"
+        onClick={handleClose}
+        className={`fixed inset-0 glass-overlay pointer-events-auto cursor-pointer ${
+          isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+        }`}
       />
 
       {/* Drawer Panel */}
-      <div className="relative w-80 max-w-[85vw] h-full glass-panel border-r border-ez-border/50 shadow-glass-lg flex flex-col z-10 animate-slide-in-right overflow-hidden">
+      <div
+        className={`relative w-80 max-w-[85vw] h-full glass-panel border-r border-ez-border/50 shadow-glass-lg flex flex-col z-10 overflow-hidden transform-gpu will-change-transform ${
+          isClosing ? 'animate-drawer-out' : 'animate-drawer-in'
+        }`}
+      >
         {/* User Profile Header */}
         <div className="p-5 bg-gradient-to-b from-ez-elevated to-ez-surface border-b border-ez-border/50 relative">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-4 h-4" />

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Message } from '../../types/chat';
 import { useTranslation } from '../../context/LanguageContext';
+import { useModalTransition } from '../../hooks/useModalTransition';
 
 export interface MobileMessageActionSheetProps {
   isOpen: boolean;
@@ -49,16 +50,24 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
 }) => {
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const [isInteractive, setIsInteractive] = useState(false);
   const { t } = useTranslation();
+
+  const { shouldRender, isClosing, handleClose } = useModalTransition({
+    isOpen,
+    onClose: () => {
+      setDragY(0);
+      onClose();
+    },
+    durationMs: 220,
+  });
 
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
 
   // Prevent ghost clicks upon opening: only allow taps after animation completes (220ms)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isClosing) {
       setIsInteractive(false);
       const timer = setTimeout(() => {
         setIsInteractive(true);
@@ -67,22 +76,12 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     } else {
       setIsInteractive(false);
     }
-  }, [isOpen]);
-
-  const handleClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setIsClosing(false);
-      setDragY(0);
-      onClose();
-    }, 200);
-  }, [onClose]);
+  }, [isOpen, isClosing]);
 
   // Lock body scroll and handle Escape + Hardware Back button
   useEffect(() => {
-    if (!isOpen) {
+    if (!shouldRender) {
       setDragY(0);
-      setIsClosing(false);
       return;
     }
 
@@ -147,7 +146,7 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!shouldRender) return;
     const handleGlobalMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.action-sheet-content')) {
@@ -158,16 +157,16 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     return () => {
       document.removeEventListener('mousedown', handleGlobalMouseDown);
     };
-  }, [isOpen, handleClose]);
+  }, [shouldRender, handleClose]);
 
-  if (!isOpen || !message || typeof document === 'undefined') return null;
+  if (!shouldRender || !message || typeof document === 'undefined') return null;
 
   const hasCopyableContent = Boolean(message.text || message.attachment?.url || message.attachment?.name || message.callInfo);
   const canEdit = isMe && Boolean(message.text);
   const canForward = !message.forwardRestricted && !message.isSecret;
 
   const handleEmojiClick = (emoji: string) => {
-    if (!isInteractive) return;
+    if (!isInteractive || isClosing) return;
     if ('vibrate' in navigator) {
       try {
         navigator.vibrate(15);
@@ -183,23 +182,29 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
     <div className="fixed inset-0 z-[9999] flex flex-col justify-end pointer-events-none">
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/80 z-[9998] transition-opacity duration-200 pointer-events-auto cursor-pointer ${isClosing ? 'opacity-0' : 'opacity-100'
-          }`}
+        className={`fixed inset-0 bg-black/80 z-[9998] pointer-events-auto cursor-pointer ${
+          isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'
+        }`}
         onClick={handleClose}
       />
 
-      {/* Slide-Up Bottom Sheet */}
+      {/* Slide-Up / Slide-Down Bottom Sheet */}
       <div
-        className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden transform-gpu ${isDragging ? '' : 'transition-transform duration-200 ease-out'
-          } ${!isDragging && !isClosing && dragY === 0 ? 'animate-slide-up-sheet' : ''}`}
+        className={`action-sheet-content pointer-events-auto relative z-[9999] w-full max-w-lg mx-auto bg-ez-elevated border-t border-white/10 rounded-t-3xl shadow-2xl pb-safe pb-6 select-none overflow-hidden transform-gpu ${
+          isClosing
+            ? 'animate-slide-down-sheet'
+            : !isDragging && dragY === 0
+              ? 'animate-slide-up-sheet'
+              : ''
+        }`}
         style={{
           transform: isClosing
-            ? 'translate3d(0, 100%, 0)'
+            ? undefined
             : dragY > 0
               ? `translate3d(0, ${dragY}px, 0)`
-              : 'translate3d(0, 0px, 0)',
+              : undefined,
           willChange: 'transform, opacity',
-          pointerEvents: isInteractive ? 'auto' : 'none',
+          pointerEvents: isInteractive && !isClosing ? 'auto' : 'none',
         }}
         onClick={(e) => e.stopPropagation()}
       >
