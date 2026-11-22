@@ -14,19 +14,19 @@ export interface UseModalTransitionResult {
 
 /**
  * useModalTransition
- * Provides smooth Telegram/iOS-grade exit animations without unmounting flickers.
- * Intercepts closing actions and holds the DOM element mounted during the exit transition duration.
+ * Provides smooth 60fps exit transitions without unmounting flickers, double-closing,
+ * or hanging states.
  */
 export function useModalTransition({
   isOpen,
   onClose,
-  durationMs = 220,
+  durationMs = 170,
 }: UseModalTransitionOptions): UseModalTransitionResult {
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
 
-  const prevIsOpenRef = useRef(isOpen);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -37,45 +37,52 @@ export function useModalTransition({
     }
   }, []);
 
-  // Internal trigger to start exit animation then notify parent
   const handleClose = useCallback(() => {
-    if (isClosing) return;
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
     setIsClosing(true);
     clearTimer();
 
     timerRef.current = setTimeout(() => {
-      setIsClosing(false);
       setShouldRender(false);
+      clearTimer();
       if (onCloseRef.current) {
         onCloseRef.current();
       }
     }, durationMs);
-  }, [isClosing, clearTimer, durationMs]);
+  }, [clearTimer, durationMs]);
 
-  // Sync with external isOpen prop changes
+  // Handle external isOpen changes (e.g. parent toggles isOpen)
   useEffect(() => {
-    const wasOpen = prevIsOpenRef.current;
-    prevIsOpenRef.current = isOpen;
-
     if (isOpen) {
-      // Opening
+      // Opening or already open
       clearTimer();
-      setShouldRender(true);
+      isClosingRef.current = false;
       setIsClosing(false);
-    } else if (wasOpen && !isOpen) {
-      // External close triggered by parent
-      setIsClosing(true);
       setShouldRender(true);
+    } else {
+      // Parent changed isOpen to false
+      // If handleClose already initiated the exit animation, do not trigger a second animation or hang!
+      if (isClosingRef.current) {
+        return;
+      }
+      // If it wasn't rendered anyway, do nothing
+      if (!shouldRender) {
+        return;
+      }
+      // External close (parent dismissed modal without handleClose)
+      isClosingRef.current = true;
+      setIsClosing(true);
       clearTimer();
 
       timerRef.current = setTimeout(() => {
-        setIsClosing(false);
         setShouldRender(false);
+        clearTimer();
       }, durationMs);
     }
-  }, [isOpen, clearTimer, durationMs]);
+  }, [isOpen, shouldRender, clearTimer, durationMs]);
 
-  // Cleanup on unmount
+  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       clearTimer();

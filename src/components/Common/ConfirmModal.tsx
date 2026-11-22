@@ -28,7 +28,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose: onCancel,
-    durationMs: 200,
+    durationMs: 170,
   });
 
   useEffect(() => {

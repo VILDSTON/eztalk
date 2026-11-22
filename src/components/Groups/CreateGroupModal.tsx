@@ -47,7 +47,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       resetForm();
       onClose();
     },
-    durationMs: 200,
+    durationMs: 170,
   });
 
   useEffect(() => {

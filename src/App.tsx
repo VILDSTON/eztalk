@@ -2232,10 +2232,14 @@ function MainApp() {
             currentUser={currentUser}
             myAccounts={myAccounts}
             activeSection={isSavedMessages ? 'saved' : 'chats'}
+            unreadCount={Object.values(unreadCounts).reduce((a, b) => a + b, 0)}
+            onOpenMenu={() => setIsDrawerOpen(true)}
             onSelectSection={(sec) => {
               setActiveSection(sec);
               if (sec === 'saved' && currentUser) {
                 navigate(`/direct/t/${normalizeHandle(currentUser.handle).replace('@', '')}`);
+              } else if (sec === 'chats') {
+                navigate('/direct/t');
               }
             }}
             onOpenAddFriend={() => setIsAddFriendOpen(true)}

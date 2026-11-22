@@ -348,7 +348,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose,
-    durationMs: 200,
+    durationMs: 170,
   });
 
   useEffect(() => {
@@ -562,8 +562,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
     onSaveProfile(updated);
     setSavedSuccess(true);
     setTimeout(() => {
-      onClose();
-    }, 400);
+      handleClose();
+    }, 300);
   };
 
   const playTestChime = () => {
@@ -1922,7 +1922,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
           <div className="flex items-center space-x-2.5 sm:space-x-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-ez-muted hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-150 cursor-pointer"
             >
               {t.common.cancel}

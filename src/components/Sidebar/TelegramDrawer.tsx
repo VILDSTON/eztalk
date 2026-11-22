@@ -59,7 +59,7 @@ export const TelegramDrawer: React.FC<TelegramDrawerProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose,
-    durationMs: 220,
+    durationMs: 180,
   });
 
   useEffect(() => {

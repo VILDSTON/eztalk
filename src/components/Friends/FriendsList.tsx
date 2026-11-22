@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Menu,
   Search,
@@ -133,6 +133,15 @@ export const FriendsList: React.FC<FriendsListProps> = ({
 
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const handleSelectAllChats = () => {
+      setActiveTab('all');
+      setSearchQuery('');
+    };
+    window.addEventListener('ez:select-all-chats', handleSelectAllChats);
+    return () => window.removeEventListener('ez:select-all-chats', handleSelectAllChats);
+  }, []);
   const isLongPressActiveRef = React.useRef(false);
 
   const handleContextMenu = (e: React.MouseEvent, id: string, isGroup: boolean, name?: string, avatar?: string) => {
@@ -506,7 +515,7 @@ export const FriendsList: React.FC<FriendsListProps> = ({
           <button
             type="button"
             onClick={onOpenMenu}
-            className="w-9 h-9 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0"
+            className="w-9 h-9 flex items-center justify-center text-ez-muted hover:text-white rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0 lg:hidden"
             title={t.common.openMenu}
           >
             <Menu className="w-5 h-5" />

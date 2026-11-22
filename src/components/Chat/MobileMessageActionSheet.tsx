@@ -59,19 +59,19 @@ export const MobileMessageActionSheet: React.FC<MobileMessageActionSheetProps> =
       setDragY(0);
       onClose();
     },
-    durationMs: 220,
+    durationMs: 180,
   });
 
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
 
-  // Prevent ghost clicks upon opening: only allow taps after animation completes (220ms)
+  // Prevent ghost clicks upon opening: only allow taps after animation completes (180ms)
   useEffect(() => {
     if (isOpen && !isClosing) {
       setIsInteractive(false);
       const timer = setTimeout(() => {
         setIsInteractive(true);
-      }, 220);
+      }, 180);
       return () => clearTimeout(timer);
     } else {
       setIsInteractive(false);

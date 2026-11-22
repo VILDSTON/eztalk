@@ -608,7 +608,7 @@ textarea::-moz-selection {
 }
 
 .animate-slide-down-sheet {
-  animation: slideDownBottomSheet 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: slideDownBottomSheet 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: transform, opacity;
 }
 
@@ -634,12 +634,12 @@ textarea::-moz-selection {
 }
 
 .animate-drawer-in {
-  animation: drawerSlideIn 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: drawerSlideIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: transform;
 }
 
 .animate-drawer-out {
-  animation: drawerSlideOut 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: drawerSlideOut 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: transform;
 }
 
@@ -669,12 +669,12 @@ textarea::-moz-selection {
 }
 
 .animate-modal-in {
-  animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .animate-modal-out {
-  animation: modalScaleOut 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: modalScaleOut 0.16s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: transform, opacity;
 }
 
@@ -700,12 +700,12 @@ textarea::-moz-selection {
 }
 
 .animate-backdrop-in {
-  animation: backdropFadeIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: backdropFadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: opacity;
 }
 
 .animate-backdrop-out {
-  animation: backdropFadeOut 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: backdropFadeOut 0.16s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   will-change: opacity;
 }
 
@@ -857,3 +857,4 @@ html[lang="ru"] button,
   backface-visibility: hidden;
   perspective: 1000px;
 }
+

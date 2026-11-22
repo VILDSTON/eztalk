@@ -61,7 +61,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose,
-    durationMs: 200,
+    durationMs: 170,
   });
 
   useEffect(() => {

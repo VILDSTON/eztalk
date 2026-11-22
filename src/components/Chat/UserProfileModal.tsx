@@ -77,7 +77,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose,
-    durationMs: 200,
+    durationMs: 170,
   });
 
   // Закрытие по клавише Escape

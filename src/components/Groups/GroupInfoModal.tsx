@@ -67,7 +67,7 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   const { shouldRender, isClosing, handleClose } = useModalTransition({
     isOpen,
     onClose,
-    durationMs: 200,
+    durationMs: 170,
   });
 
   // Close on Escape key

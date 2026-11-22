@@ -11,6 +11,7 @@ import {
   X,
   Download,
   Info,
+  Menu,
 } from 'lucide-react';
 import { User } from '../../types/chat';
 import { normalizeHandle } from '../../utils/chatStorage';
@@ -22,6 +23,8 @@ interface LeftSidebarProps {
   existingUsers?: User[];
   myAccounts?: User[];
   activeSection?: 'chats' | 'contacts' | 'groups' | 'saved';
+  unreadCount?: number;
+  onOpenMenu?: () => void;
   onSelectSection?: (section: 'chats' | 'contacts' | 'groups' | 'saved') => void;
   onOpenAddFriend?: () => void;
   onOpenSettings?: () => void;
@@ -86,6 +89,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   currentUser,
   myAccounts = [],
   activeSection = 'chats',
+  unreadCount = 0,
+  onOpenMenu,
   onSelectSection,
   onOpenAddFriend,
   onOpenSettings,
@@ -129,20 +134,34 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   return (
     <aside className="w-16 h-full bg-ez-base border-r border-ez-border/50 flex flex-col items-center justify-between py-3 select-none shrink-0 font-sans">
-      {/* ─── Top: Brand Icon ─── */}
-      <div className="flex flex-col items-center space-y-1 mb-4">
+      {/* ─── Top: Menu (Three Lines) ─── */}
+      <div className="flex flex-col items-center mb-4">
         <button
           type="button"
-          onClick={() => navigate('/about')}
-          className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform"
-          title={t.sidebar.about || 'About EzTalk'}
+          onClick={onOpenMenu}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-ez-muted hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer group relative"
+          title={t.common.openMenu || 'Open Menu'}
         >
-          <img src="/favicon.svg" alt="EzTalk Logo" className="w-8 h-8 object-contain" />
+          <Menu className="w-5 h-5" />
+          <div className="absolute left-full ml-2 px-2 py-1 rounded-lg bg-ez-elevated text-white text-[11px] font-semibold whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 shadow-glass z-50 border border-ez-border">
+            {t.common.openMenu || 'Open Menu'}
+          </div>
         </button>
       </div>
 
       {/* ─── Middle: Navigation Icons ─── */}
       <div className="flex-1 flex flex-col items-center space-y-1">
+        <NavItem
+          icon={<MessageSquare className="w-5 h-5" />}
+          label={t.sidebar.allChats || 'All Chats'}
+          isActive={activeSection === 'chats'}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('ez:select-all-chats'));
+            onSelectSection?.('chats');
+            navigate('/direct/t');
+          }}
+          badge={unreadCount}
+        />
         <NavItem
           icon={<UserPlus className="w-5 h-5" />}
           label={t.sidebar.addFriend}

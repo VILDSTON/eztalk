@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 're
 import { ArrowDown, Loader2, Calendar } from 'lucide-react';
 import { Message, QuotedMessage } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
+import { DateCalendarModal } from './DateCalendarModal';
 import { normalizeHandle } from '../../utils/chatStorage';
 import { useTranslation } from '../../context/LanguageContext';
 import { formatMessageDateDivider } from '../../utils/dateTime';
@@ -149,17 +150,54 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
   const isPrependRef = useRef(false);
   const { t, language } = useTranslation();
 
+  const [selectedFilterDate, setSelectedFilterDate] = useState<string | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarInitialDate, setCalendarInitialDate] = useState<Date | undefined>(undefined);
+
+  const datesWithMessages = useMemo(() => {
+    const set = new Set<string>();
+    messages.forEach((m) => {
+      set.add(getDateKey(m.createdAt, m.timestamp));
+    });
+    return set;
+  }, [messages]);
+
+  const displayMessages = useMemo(() => {
+    if (!selectedFilterDate) return messages;
+    return messages.filter((m) => getDateKey(m.createdAt, m.timestamp) === selectedFilterDate);
+  }, [messages, selectedFilterDate]);
+
+  const filterDateLabel = useMemo(() => {
+    if (!selectedFilterDate) return '';
+    const parts = selectedFilterDate.split('-').map(Number);
+    if (parts.length < 3) return selectedFilterDate;
+    const [y, m, d] = parts;
+    const dateObj = new Date(y, m - 1, d);
+    const localeTag = language === 'ru' ? 'ru-RU' : language === 'uz' ? 'uz-UZ' : 'en-US';
+    return dateObj.toLocaleDateString(localeTag, {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, [selectedFilterDate, language]);
+
+  const handleOpenCalendar = (rawDate?: Date) => {
+    setCalendarInitialDate(rawDate || new Date());
+    setIsCalendarOpen(true);
+  };
+
   const todayText = useMemo(() => t?.chat?.today || 'Today', [t]);
   const hasTodayMessages = useMemo(() => messages.some((m) => isTodayDate(m.createdAt, m.timestamp)), [messages]);
 
   const threadItems = useMemo(() => {
-    return messages.map((msg, index) => {
-      const prevMsg = index > 0 ? messages[index - 1] : null;
-      const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+    return displayMessages.map((msg, index) => {
+      const prevMsg = index > 0 ? displayMessages[index - 1] : null;
+      const nextMsg = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
       const currentKey = getDateKey(msg.createdAt, msg.timestamp);
       const prevKey = prevMsg ? getDateKey(prevMsg.createdAt, prevMsg.timestamp) : null;
       const nextKey = nextMsg ? getDateKey(nextMsg.createdAt, nextMsg.timestamp) : null;
       const showDateDivider = !hideDateDividers && currentKey !== prevKey;
+      const rawDate = msg.createdAt ? new Date(msg.createdAt) : msg.timestamp ? new Date(msg.timestamp) : new Date();
 
       const isSameSenderAsPrev =
         !isCallOrSystemMessage(msg) &&
@@ -177,13 +215,15 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
 
       return {
         msg,
+        rawDate,
+        dateKey: currentKey,
         showDateDivider,
         dividerText: showDateDivider ? formatMessageDateDivider(msg.createdAt, msg.timestamp, t, language) : '',
         isFirstInGroup,
         isLastInGroup,
       };
     });
-  }, [messages, currentUserId, currentUserHandle, hideDateDividers, t, language]);
+  }, [displayMessages, currentUserId, currentUserHandle, hideDateDividers, t, language]);
 
   const scrollToToday = () => {
     if (todayRef.current) {
@@ -249,6 +289,8 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
     setIsScrolledUp(false);
     setNewMessagesCount(0);
     setInitialLoadComplete(false);
+    setSelectedFilterDate(null);
+    setIsCalendarOpen(false);
     initialMessageIdsRef.current.clear();
     prevMessagesLengthRef.current = messages.length;
     prevFirstMsgIdRef.current = messages[0]?.id || null;
@@ -257,6 +299,12 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [recipientHandle]);
+
+  useEffect(() => {
+    if (selectedFilterDate && containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [selectedFilterDate]);
 
   useEffect(() => {
     const isNewMessageAdded = messages.length > prevMessagesLengthRef.current;
@@ -345,6 +393,26 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-transparent animate-fade-in">
               <Loader2 className="w-8 h-8 text-neon-green animate-spin opacity-80" />
             </div>
+          ) : selectedFilterDate && displayMessages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 select-none animate-fade-in text-center">
+              <div className="w-16 h-16 rounded-2xl bg-ez-elevated border border-ez-border flex items-center justify-center text-3xl mb-3 shadow-lg">
+                📅
+              </div>
+              <p className="font-bold text-zinc-200 text-sm mb-1">{t.chat?.noMessagesOnDate || 'No messages found for this date.'}</p>
+              <p className="text-ez-muted text-xs mb-4">{filterDateLabel}</p>
+              <button
+                type="button"
+                onClick={() => setSelectedFilterDate(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold active:scale-95 transition-all cursor-pointer border"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: 'var(--ez-accent)',
+                  borderColor: 'var(--ez-accent)',
+                }}
+              >
+                {t.chat?.clearFilter || 'Clear filter'}
+              </button>
+            </div>
           ) : messages.length === 0 ? (
             hideEmptyPlaceholder ? null : (
               <div className="flex-1 flex flex-col items-center justify-center p-8 select-none animate-fade-in">
@@ -368,9 +436,18 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
                 <div key={msg.id} className="message-row-contain w-full">
                   {showDateDivider && (
                     <div className="flex justify-center my-3 select-none">
-                      <span className="bg-[#18181b] px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 border border-white/10 shadow-sm">
-                        {dividerText}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCalendar(item.rawDate)}
+                        className="group bg-[#18181b]/95 hover:bg-[#27272a] active:scale-95 px-3.5 py-1 rounded-full text-[11px] font-semibold text-gray-300 hover:text-white border border-white/10 hover:border-white/30 shadow-sm transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
+                        title={t.chat?.openCalendar || 'Jump to date'}
+                      >
+                        <Calendar
+                          className="w-3 h-3 group-hover:scale-110 transition-transform opacity-85"
+                          style={{ color: 'var(--ez-accent)' }}
+                        />
+                        <span>{dividerText}</span>
+                      </button>
                     </div>
                   )}
                   <MessageBubble
@@ -428,6 +505,44 @@ export const MessageThread: React.FC<MessageThreadProps> = React.memo(({
           )}
         </button>
       )}
+
+      {/* Floating Filter Reset Pill */}
+      {selectedFilterDate && (
+        <div className="absolute bottom-5 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
+          <div
+            className="pointer-events-auto flex items-center space-x-2.5 bg-ez-elevated/95 border text-zinc-100 px-4 py-1.5 rounded-full shadow-2xl backdrop-blur-md animate-fade-in max-w-full"
+            style={{ borderColor: 'var(--ez-accent)' }}
+          >
+            <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ez-accent)' }} />
+            <span className="text-xs font-medium whitespace-nowrap truncate">
+              {t.chat?.showingFilterDate || 'Messages for'}: <span className="font-bold text-white">{filterDateLabel}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedFilterDate(null)}
+              className="ml-1 px-2.5 py-1 rounded-full text-[11px] font-bold active:scale-95 transition-all cursor-pointer flex items-center space-x-1 shrink-0 hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--ez-accent)',
+                color: '#000000',
+              }}
+              title={t.chat?.clearFilter || 'Clear filter'}
+            >
+              <span>✕</span>
+              <span>{t.chat?.clearFilter || 'Clear filter'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Date Calendar Modal */}
+      <DateCalendarModal
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
+        onSelectDate={(dateKey) => setSelectedFilterDate(dateKey)}
+        selectedDateKey={selectedFilterDate}
+        datesWithMessages={datesWithMessages}
+        initialDate={calendarInitialDate}
+      />
     </div>
   );
 });
