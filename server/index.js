@@ -718,6 +718,11 @@ async function migratePlaintextMessages() {
 
 // --- REST API ROUTES ---
 
+// Discord domain verification
+app.get('/.well-known/discord', (req, res) => {
+  res.type('text/plain').send('dh=f846b86b203aee1924caa439465899254dbd4e01');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
